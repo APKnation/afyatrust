@@ -244,7 +244,7 @@ export class DoctorLandingComponent implements OnInit {
     this.loading = true;
     try {
       const data = await this.api.doctorPendingRequests();
-      this.requests = data.data || [];
+      this.requests = (data as any)?.data || [];
       this.filteredRequests = this.requests;
     } catch (e: any) {
       console.error('Failed to load requests', e);
@@ -277,7 +277,7 @@ export class DoctorLandingComponent implements OnInit {
     if (!this.recordHealthId) return;
     try {
       const data = await this.api.doctorViewRecord(this.recordHealthId, this.recordFacility || undefined);
-      this.records = data.data.records || [];
+      this.records = (data as any)?.data?.records || [];
     } catch (e: any) {
       alert('Hitilafu: ' + (e.error?.message || e.message || 'Kitatipatia'));
     }

@@ -433,6 +433,7 @@ export class PatientDashboardComponent implements OnInit {
   showGrantForm = false;
   loading = false;
   newPermission = { doctor_wallet: '', doctor_name: '', days: 7 };
+  }
 
   constructor(private api: ApiService, private auth: AuthService) {}
 

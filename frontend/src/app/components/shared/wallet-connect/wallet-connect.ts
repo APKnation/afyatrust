@@ -1,11 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { SlicePipe } from '@angular/common';
 import { AuthService } from '../../../services/auth.service';
-import { Web3Service } from '../../../services/web3.service';
-
-@Component({
-  selector: 'app-wallet-connect',  imports: [
-    SlicePipe,  template: `  template: `
+import { Web3Service } from '../../../services/web3.service';@Component({
+  selector: 'app-wallet-connect',
+  imports: [
+    SlicePipe,
+  ],
+  template: `
     <div class="wallet-box">
       <button *ngIf="!wallet" (click)="connect()" class="btn-connect">
         🦊 Unganisha MetaMask

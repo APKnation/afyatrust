@@ -1,0 +1,47 @@
+# Python
+venv/
+env/
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+db.sqlite3
+
+# Node
+node_modules/
+npm-debug.log*
+dist/
+build/
+.cache/
+
+# Angular
+.angular/
+coverage/
+
+# Hardhat
+blockchain/artifacts/
+blockchain/cache/
+blockchain/typechain-types/
+blockchain/contract-address.txt
+
+# Environment (MUHIMU!)
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

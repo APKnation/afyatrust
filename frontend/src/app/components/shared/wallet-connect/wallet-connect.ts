@@ -1,8 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { SlicePipe } from '@angular/common';
 import { AuthService } from '../../../services/auth.service';
-import { Web3Service } from '../../../services/web3.service';@Component({
+import { Web3Service } from '../../../services/web3.service';
+
+@Component({
   selector: 'app-wallet-connect',
+  imports: [SlicePipe],
+  template: `
+  selector: 'app-wallet-connect',
+  imports: [SlicePipe],
   imports: [
     SlicePipe,
   ],

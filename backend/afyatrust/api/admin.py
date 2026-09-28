@@ -59,7 +59,7 @@ class DoctorAdmin(admin.ModelAdmin):
     def has_pin(self, obj):
         return bool(obj.pin_hash)
 
-    @admin.action(description="✅ Approve selected doctors")
+    @admin.action(description="Approve selected doctors")
     def approve_doctors(self, request, queryset):
         count = 0
         for d in queryset.filter(status__in=["PENDING", "REJECTED"]):
@@ -69,12 +69,12 @@ class DoctorAdmin(admin.ModelAdmin):
             count += 1
         self.message_user(request, f"{count} doctor(s) approved.")
 
-    @admin.action(description="❌ Revoke selected doctors")
+    @admin.action(description="Revoke selected doctors")
     def reject_doctors(self, request, queryset):
         count = queryset.filter(status="APPROVED").update(status="REJECTED")
         self.message_user(request, f"{count} doctor(s) revoked.")
 
-    @admin.action(description="🔑 Force PIN reset (blocks login until new PIN set)")
+    @admin.action(description="Force PIN reset (blocks login until new PIN set)")
     def reset_pin_action(self, request, queryset):
         from django.contrib.auth.hashers import identify_hasher
         count = 0
@@ -143,14 +143,14 @@ class ReferralAdmin(admin.ModelAdmin):
     search_fields = ("patient__health_id", "patient__full_name", "reason")
     actions = ["accept_referrals", "decline_referrals"]
 
-    @admin.action(description="✅ Accept selected referrals")
+    @admin.action(description=" Accept selected referrals")
     def accept_referrals(self, request, queryset):
         count = queryset.filter(status="PENDING").update(
             status="ACCEPTED", responded_at=timezone.now()
         )
         self.message_user(request, f"{count} referral(s) accepted.")
 
-    @admin.action(description="❌ Decline selected referrals")
+    @admin.action(description="Decline selected referrals")
     def decline_referrals(self, request, queryset):
         count = queryset.filter(status="PENDING").update(
             status="DECLINED", responded_at=timezone.now()

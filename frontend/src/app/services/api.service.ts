@@ -83,6 +83,7 @@ export interface AccessRequest {
   facility_id: string;
   reason: string;
   status?: string;
+  responded_at?: string;
   created_at: string;
 }
 

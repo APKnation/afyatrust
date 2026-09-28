@@ -311,7 +311,7 @@ import { AuthService } from '../../../services/auth.service';
                   [class]="r.status === 'APPROVED' ? 'bg-accent-500 text-white'
                     : r.status === 'REJECTED' ? 'bg-red-500 text-white'
                     : 'bg-primary-300 text-ink'">{{ r.status === 'PENDING' ? 'Awaiting patient' : r.status }}</span>
-            <button *ngIf="r.status === 'APPROVED'" (click)="healthId = r.patient_health_id; setTab('find'); viewRecord()"
+            <button *ngIf="r.status === 'APPROVED' && r.patient_health_id" (click)="healthId = r.patient_health_id; setTab('find'); viewRecord()"
                     class="cursor-pointer rounded-lg bg-primary-500 px-3.5 py-2 text-sm font-bold text-ink transition-colors hover:bg-primary-400">
               Open records
             </button>

@@ -30,6 +30,12 @@ import { AuthService } from '../../../services/auth.service';
           routerLinkActive="bg-white/20"
           class="rounded-lg px-4 py-2 text-[15px] no-underline transition-colors hover:bg-white/20"
         >Register</a>
+        <a
+          *ngIf="!auth.wallet"
+          routerLink="/login"
+          routerLinkActive="bg-white/20"
+          class="rounded-lg px-4 py-2 text-[15px] no-underline transition-colors hover:bg-white/20"
+        >Sign in</a>
 
         <a
           *ngIf="role === 'PATIENT'"
@@ -52,7 +58,7 @@ import { AuthService } from '../../../services/auth.service';
 export class NavbarComponent {
   role = '';
 
-  constructor(private auth: AuthService) {
+  constructor(public auth: AuthService) {
     this.auth.role$.subscribe((role) => (this.role = role));
   }
 }

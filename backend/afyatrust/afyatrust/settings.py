@@ -8,6 +8,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = os.getenv('DEBUG') == 'True'
 ALLOWED_HOSTS = ['*']
+ROOT_URLCONF = 'afyatrust.urls'
+WSGI_APPLICATION = 'afyatrust.wsgi.application'
 
 INSTALLED_APPS = [
     'django.contrib.admin',

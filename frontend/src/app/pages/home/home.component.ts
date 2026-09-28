@@ -15,7 +15,7 @@ import { RouterLink } from '@angular/router';
         </p>
         <div class="flex flex-wrap gap-3">
           <a routerLink="/register" class="inline-block rounded-xl bg-blue-800 px-6 py-3 font-semibold text-white no-underline transition-opacity hover:opacity-90">Register</a>
-          <a routerLink="/patient" class="inline-block rounded-xl border-2 border-blue-800 bg-transparent px-6 py-3 font-semibold text-blue-800 no-underline transition-colors hover:bg-blue-800/8">Patient</a>
+          <a routerLink="/login" class="inline-block rounded-xl border-2 border-blue-800 bg-transparent px-6 py-3 font-semibold text-blue-800 no-underline transition-colors hover:bg-blue-800/8">Sign in</a>
         </div>
       </div>
       <div class="min-w-64 flex-1 text-center">

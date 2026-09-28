@@ -1,77 +1,77 @@
 import { Component, OnInit } from '@angular/core';
 import { SlicePipe } from '@angular/common';
 import { NgIf } from '@angular/common';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
 import { Web3Service } from '../../../services/web3.service';
 
 @Component({
   selector: 'app-wallet-connect',
-  imports: [SlicePipe, NgIf],
+  imports: [SlicePipe, NgIf, RouterLink],
   template: `
     <div class="flex items-center gap-2.5">
-      <button
-        *ngIf="!wallet"
-        (click)="connect()"
-        class="rounded-lg bg-amber-500 px-5 py-2.5 font-bold text-white cursor-pointer transition-colors hover:bg-amber-600"
-      >
-        🦊 Connect MetaMask
-      </button>
+      <!-- Not signed in -->
+      <ng-container *ngIf="!auth.wallet">
+        <a
+          routerLink="/login"
+          class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white no-underline transition-colors hover:bg-amber-600"
+        >
+          🦊 Sign in
+        </a>
+      </ng-container>
 
+      <!-- Signed in -->
       <div
-        *ngIf="wallet"
+        *ngIf="auth.wallet"
         class="flex flex-wrap items-center gap-2.5 rounded-lg bg-gray-100 px-4 py-2"
       >
-        <span class="font-mono font-bold text-sm">
-          {{ wallet | slice:0:6 }}...{{ wallet | slice:-4 }}
+        <span class="font-mono text-sm font-bold">
+          {{ auth.wallet | slice:0:6 }}...{{ auth.wallet | slice:-4 }}
         </span>
         <span
           class="rounded px-2 py-1 text-xs font-semibold text-white"
-          [class.bg-emerald-500]="network === 'sepolia'"
-          [class.bg-red-500]="network !== 'sepolia'"
+          [class.bg-emerald-500]="auth.role === 'PATIENT'"
+          [class.bg-teal-600]="auth.role === 'DOCTOR'"
+          [class.bg-red-500]="auth.role !== 'PATIENT' && auth.role !== 'DOCTOR'"
         >
-          {{ network }}
+          {{ auth.role || 'GUEST' }}
         </span>
-        <span class="text-xs text-gray-500">{{ balance }} ETH</span>
         <button
           (click)="disconnect()"
-          class="rounded cursor-pointer border-none bg-red-500 px-2.5 py-1.5 text-white transition-colors hover:bg-red-600"
+          class="cursor-pointer rounded border-none bg-red-500 px-2.5 py-1.5 text-white transition-colors hover:bg-red-600"
         >
-          Disconnect
+          Sign out
         </button>
       </div>
     </div>
   `,
 })
 export class WalletConnectComponent implements OnInit {
-  wallet = '';
-  network = '';
-  balance = '';
-
   constructor(
-    private auth: AuthService,
-    private web3: Web3Service
+    public auth: AuthService,
+    private web3: Web3Service,
+    private router: Router
   ) {}
 
   async ngOnInit() {
-    if (await this.web3.isConnected()) {
-      await this.connect();
-    }
+    // Nothing to auto-connect: sign-in now requires an explicit signature.
   }
 
   async connect() {
     try {
-      this.wallet = await this.web3.connect();
-      this.network = await this.web3.getNetwork();
-      this.balance = await this.web3.getBalance();
+      const result = await this.web3.login();
+      if (result.registered) {
+        this.router.navigate([result.role === 'DOCTOR' ? '/doctor' : '/patient']);
+      }
     } catch (e: any) {
-      alert('Error: ' + e.message);
+      if (e?.code !== 'ACTION_REJECTED') {
+        alert('Error: ' + (e?.error?.error || e?.message || 'Sign-in failed'));
+      }
     }
   }
 
   disconnect() {
     this.auth.logout();
-    this.wallet = '';
-    this.network = '';
-    this.balance = '';
+    this.router.navigate(['/']);
   }
 }

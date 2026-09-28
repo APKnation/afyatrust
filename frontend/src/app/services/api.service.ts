@@ -56,6 +56,10 @@ export class ApiService {
     const token = localStorage.getItem('afyatrust_token');
     if (token) hdrs['Authorization'] = `Bearer ${token}`;
 
+    // Backend identifies the caller by wallet address.
+    const wallet = localStorage.getItem('afyatrust_wallet');
+    if (wallet) hdrs['X-Wallet-Address'] = wallet;
+
     const res = await fetch(`${this.api}${endpoint}`, {
       method,
       headers: hdrs,
@@ -72,6 +76,20 @@ export class ApiService {
     }
 
     return data as T;
+  }
+
+  // ---------- Auth ----------
+
+  async authNonce(wallet_address: string): Promise<{ nonce: string; message: string }> {
+    return this.request('POST', '/auth/nonce/', { wallet_address });
+  }
+
+  async authLogin(wallet_address: string, signature: string): Promise<any> {
+    return this.request('POST', '/auth/login/', { wallet_address, signature });
+  }
+
+  async registerDoctor(payload: { wallet_address: string; full_name: string; facility_id?: string }): Promise<any> {
+    return this.request('POST', '/auth/register-doctor/', payload);
   }
 
   // ---------- Patients / Registration ----------

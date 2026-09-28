@@ -4,6 +4,14 @@ import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
 import { ApiService } from './api.service';
 
+export interface LoginResult {
+  registered: boolean;
+  role?: 'PATIENT' | 'DOCTOR';
+  wallet_address?: string;
+  health_id?: string | null;
+  full_name?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class Web3Service {
   private contract: ethers.Contract | null = null;
@@ -15,16 +23,15 @@ export class Web3Service {
     private api: ApiService
   ) {}
 
+  /** Connect MetaMask and return the active wallet address. */
   async connect(): Promise<string> {
-    if (!(window as any).ethereum) {
+    const ethereum = (window as any).ethereum;
+    if (!ethereum) {
       throw new Error('Please install MetaMask to continue');
     }
 
-    const ethereum = window as any;
     this.provider = new ethers.BrowserProvider(ethereum);
-
-    // Request account access
-    const addresses = await ethereum.request({ method: 'eth_requestAccounts' });
+    await ethereum.request({ method: 'eth_requestAccounts' });
     this.signer = await this.provider.getSigner();
 
     const wallet = await this.signer.getAddress();
@@ -34,14 +41,39 @@ export class Web3Service {
       this.signer
     );
 
-    this.auth.setAuthenticated(wallet, this.detectRole(wallet), '');
-
     return wallet;
   }
 
+  /** Ask the wallet to sign a plain-text message (no gas, no transaction). */
+  async signMessage(message: string): Promise<string> {
+    if (!this.signer) {
+      await this.connect();
+    }
+    return await this.signer!.signMessage(message);
+  }
+
+  /**
+   * Full sign-in flow:
+   * 1. Connect MetaMask
+   * 2. Fetch a one-time nonce from the backend
+   * 3. Ask the user to sign it
+   * 4. Backend verifies the signature and returns the role
+   */
+  async login(): Promise<LoginResult> {
+    const wallet = await this.connect();
+
+    const { message } = await this.api.authNonce(wallet);
+    const signature = await this.signMessage(message);
+    const result = await this.api.authLogin(wallet, signature);
+
+    if (result.registered && result.role) {
+      this.auth.setAuthenticated(wallet, result.role, '');
+    }
+    return result;
+  }
+
   private detectRole(wallet: string): 'PATIENT' | 'DOCTOR' {
-    // Backend exposes /api/accounts/ or we can infer from a user lookup.
-    // For now fall back to a simple on-chain check via getMyRecords.
+    // Role now comes from the backend during login(); kept for fallback use.
     return 'PATIENT';
   }
 

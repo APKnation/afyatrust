@@ -49,7 +49,8 @@ export class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return this.walletSubject.value.length > 0 && !!this.tokenSubject.value;
+    // A stored wallet + role means the signature was verified by the backend.
+    return this.walletSubject.value.length > 0 && this.roleSubject.value !== '';
   }
 
   get wallet(): string {

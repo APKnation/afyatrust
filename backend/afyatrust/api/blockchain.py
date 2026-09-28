@@ -20,7 +20,30 @@ ABI_PATH = os.path.join(
 with open(ABI_PATH) as f:
     CONTRACT_ABI = json.load(f)['abi']
 
-contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=CONTRACT_ABI)
+
+class _LazyContract:
+    """Create the contract object on first use instead of at import time.
+
+    This keeps auth/registration endpoints working even when the contract
+    address is not configured yet.
+    """
+
+    def __init__(self, factory):
+        self._factory = factory
+        self._obj = None
+
+    def _get(self):
+        if self._obj is None:
+            if not CONTRACT_ADDRESS or CONTRACT_ADDRESS.startswith('0x...'):
+                raise RuntimeError('CONTRACT_ADDRESS is not configured in backend/.env')
+            self._obj = w3.eth.contract(address=CONTRACT_ADDRESS, abi=CONTRACT_ABI)
+        return self._obj
+
+    def __getattr__(self, name):
+        return getattr(self._get(), name)
+
+
+contract = _LazyContract(lambda: None)
 
 def send_transaction(function_call):
     """Tuma transaction kwenye blockchain"""

@@ -1,12 +1,12 @@
 import { Component, OnInit } from '@angular/core';
+import { NgIf, NgFor, SlicePipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { DatePipe } from '@angular/common';
 import { ApiService } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-doctor-landing',
-  imports: [FormsModule, DatePipe],
+  imports: [NgIf, NgFor, SlicePipe, DatePipe, FormsModule],
   template: `
     <div class="dashboard" *ngIf="!loading && !doctorsRecord; else content">
       <div class="loading">
@@ -235,8 +235,7 @@ export class DoctorLandingComponent implements OnInit {
   constructor(private api: ApiService, private auth: AuthService) {}
 
   async ngOnInit() {
-    const wallet = await this.auth.wallet$;
-    this.wallet = wallet;
+    this.wallet = this.auth.wallet;
     await this.loadPendingRequests();
   }
 

@@ -1,12 +1,12 @@
 import { Component, OnInit } from '@angular/core';
+import { NgIf, NgFor, SlicePipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { DatePipe } from '@angular/common';
 import { ApiService } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-patient-dashboard',
-  imports: [FormsModule, DatePipe],
+  imports: [NgIf, NgFor, SlicePipe, DatePipe, FormsModule],
   template: `
     <div class="dashboard" *ngIf="!loading && !patient; else content">
       <div class="loading">
@@ -437,8 +437,7 @@ export class PatientDashboardComponent implements OnInit {
   constructor(private api: ApiService, private auth: AuthService) {}
 
   async ngOnInit() {
-    const wallet = await this.auth.wallet$;
-    this.wallet = wallet;
+    this.wallet = this.auth.wallet;
     await this.loadPatient();
   }
 
@@ -471,7 +470,7 @@ export class PatientDashboardComponent implements OnInit {
   async grantAccess() {
     this.loading = true;
     try {
-      await this.api.patientGrantAccess(this.newPermission);
+      await this.api.grantAccess(this.newPermission);
       this.showGrantForm = false;
       this.newPermission = { doctor_wallet: '', doctor_name: '', days: 7 };
       await this.loadPatient();
@@ -485,7 +484,7 @@ export class PatientDashboardComponent implements OnInit {
   async revokeAccess(walletAddr: string) {
     if (!confirm('Batilisha ruhusa kwa daktari huu?')) return;
     try {
-      await this.api.patientRevokeAccess(walletAddr);
+      await this.api.revokeAccess(walletAddr);
       await this.loadPatient();
     } catch (e: any) {
       alert('Hitilafu: ' + (e.error?.message || e.message || 'Kitatipatia'));

@@ -1,7 +1,9 @@
 import { Component, Input } from '@angular/core';
+import { NgIf, NgFor, DatePipe, SlicePipe } from '@angular/common';
 
 @Component({
   selector: 'app-record-card',
+  imports: [NgIf, NgFor, DatePipe, SlicePipe],
   template: `
     <div class="record-card">
       <div class="record-header">

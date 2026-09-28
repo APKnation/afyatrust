@@ -123,31 +123,83 @@ def register_patient(request):
     }, status=status.HTTP_201_CREATED)
 
 
-# ============ 2. LOGIN (Health ID + PIN -> JWT) ============
+# ============ 2. LOGIN (single sign-in for ALL roles) ============
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def login(request):
-    """Patient login with Health ID + 4-digit PIN. Returns JWT."""
-    health_id = request.data.get("health_id", "").strip()
-    pin = request.data.get("pin", "").strip()
+    """One login endpoint for everyone. The credential shape decides the role:
+    - Patients: Health ID + PIN
+    - Doctors:  medical license number + PIN (admin-created)
+    - Staff:    username + password (admin-created)
+    Every failure returns the same generic error so the endpoint does not
+    reveal which roles or accounts exist."""
+    data = request.data
+    ident = str(
+        data.get("identity") or data.get("health_id")
+        or data.get("license_no") or data.get("username") or ""
+    ).strip()
+    secret = str(
+        data.get("secret") or data.get("pin") or data.get("password") or ""
+    ).strip()
+    if not ident or not secret:
+        return Response({"error": "Credentials required"},
+                        status=status.HTTP_400_BAD_REQUEST)
 
-    patient = Patient.objects.filter(health_id=health_id).first()
-    if not patient or not check_password(pin, patient.pin_hash):
-        return Response({"error": "Invalid Health ID or PIN"},
-                        status=status.HTTP_401_UNAUTHORIZED)
+    # --- Patient (Health ID + PIN) ---
+    patient = Patient.objects.filter(health_id__iexact=ident).first()
+    if patient and patient.pin_hash and check_password(secret, patient.pin_hash):
+        refresh = RefreshToken()
+        refresh["health_id"] = patient.health_id
+        refresh["role"] = "PATIENT"
+        return Response({
+            "role": "PATIENT",
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "health_id": patient.health_id,
+            "full_name": patient.full_name,
+            "wallet_address": patient.wallet_address,
+        })
 
-    refresh = RefreshToken()
-    refresh["health_id"] = patient.health_id
-    refresh["role"] = "PATIENT"
+    # --- Doctor (license number + PIN, must be approved) ---
+    doctor = Doctor.objects.filter(license_no__iexact=ident).first()
+    if (doctor and doctor.status == "APPROVED" and doctor.pin_hash
+            and check_password(secret, doctor.pin_hash)):
+        refresh = RefreshToken()
+        refresh["license_no"] = doctor.license_no
+        refresh["wallet_address"] = doctor.wallet_address
+        refresh["role"] = "DOCTOR"
+        return Response({
+            "role": "DOCTOR",
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "license_no": doctor.license_no,
+            "full_name": doctor.full_name,
+            "hospital_code": doctor.facility_id,
+            "wallet_address": doctor.wallet_address,
+        })
 
-    return Response({
-        "access": str(refresh.access_token),
-        "refresh": str(refresh),
-        "health_id": patient.health_id,
-        "full_name": patient.full_name,
-        "wallet_address": patient.wallet_address,
-    })
+    # --- Hospital staff (username + password) ---
+    staff = HospitalStaff.objects.filter(username__iexact=ident).first()
+    if staff and staff.password_hash and check_password(secret, staff.password_hash):
+        refresh = RefreshToken()
+        refresh["username"] = staff.username
+        refresh["full_name"] = staff.full_name
+        refresh["hospital_code"] = staff.hospital.code
+        refresh["role"] = "STAFF"
+        return Response({
+            "role": "STAFF",
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "username": staff.username,
+            "full_name": staff.full_name,
+            "hospital_code": staff.hospital.code,
+            "hospital_name": staff.hospital.name,
+        })
+
+    # Uniform failure for every role — no account enumeration.
+    return Response({"error": "Invalid credentials"},
+                    status=status.HTTP_401_UNAUTHORIZED)
 
 
 # ============ 3. MY RECORDS ============
@@ -298,84 +350,10 @@ def revoke_access(request):
     return Response({"status": "success", "tx_hash": tx_hash})
 
 
-# ============ 5. DOCTOR: REGISTER + LOGIN (PIN, no MetaMask) ============
-
-@api_view(["POST"])
-@permission_classes([AllowAny])
-def doctor_register(request):
-    """Doctor registers with license number + 4-digit PIN + hospital code.
-    A custodial wallet is generated (doctors never see MetaMask, same as
-    patients). An admin approves the account in the Django admin before
-    login and any patient data access."""
-    data = request.data
-    required = ["full_name", "license_no", "pin", "hospital_code"]
-    missing = [f for f in required if not data.get(f)]
-    if missing:
-        return Response({"error": f"Missing fields: {', '.join(missing)}"},
-                        status=status.HTTP_400_BAD_REQUEST)
-
-    license_no = str(data["license_no"]).strip()
-    hospital_code = str(data["hospital_code"]).strip()
-    pin = str(data["pin"]).strip()
-    if not re.fullmatch(r"\d{4}", pin):
-        return Response({"error": "PIN must be exactly 4 digits"}, status=400)
-
-    hospital = Hospital.objects.filter(code__iexact=hospital_code).first()
-    if not hospital:
-        return Response({"error": "Unknown hospital code. Ask the administrator to register your hospital."},
-                        status=status.HTTP_400_BAD_REQUEST)
-    if Doctor.objects.filter(license_no__iexact=license_no).exists():
-        return Response({"error": "This license number is already registered"}, status=409)
-
-    # Custodial wallet, exactly like patients — doctors never touch MetaMask.
-    wallet = wallet_manager.create_wallet()
-
-    doctor = Doctor.objects.create(
-        full_name=data["full_name"].strip(),
-        license_no=license_no,
-        pin_hash=make_password(pin),
-        facility_id=hospital.code,
-        hospital=hospital,
-        wallet_address=wallet["address"],
-    )
-    return Response({
-        "status": "PENDING",
-        "doctor_id": doctor.id,
-        "message": "Registration received. An administrator must approve your account "
-                   "before you can log in and access patient data.",
-    }, status=status.HTTP_201_CREATED)
-
-
-@api_view(["POST"])
-@permission_classes([AllowAny])
-def doctor_login(request):
-    """Doctor login: license number + 4-digit PIN -> JWT (role=DOCTOR).
-    Only APPROVED doctors can log in."""
-    license_no = str(request.data.get("license_no", "")).strip()
-    pin = str(request.data.get("pin", "")).strip()
-
-    doctor = Doctor.objects.filter(license_no__iexact=license_no).first()
-    if not doctor or not doctor.pin_hash or not check_password(pin, doctor.pin_hash):
-        return Response({"error": "Invalid license number or PIN"},
-                        status=status.HTTP_401_UNAUTHORIZED)
-    if doctor.status != "APPROVED":
-        return Response({"error": "Account not approved yet. Contact the administrator."},
-                        status=status.HTTP_403_FORBIDDEN)
-
-    refresh = RefreshToken()
-    refresh["license_no"] = doctor.license_no
-    refresh["wallet_address"] = doctor.wallet_address
-    refresh["role"] = "DOCTOR"
-
-    return Response({
-        "access": str(refresh.access_token),
-        "refresh": str(refresh),
-        "role": "DOCTOR",
-        "license_no": doctor.license_no,
-        "full_name": doctor.full_name,
-        "hospital_code": doctor.facility_id,
-        "wallet_address": doctor.wallet_address,
-    })
+# ============ 5. DOCTOR: ADMIN-CREATED ACCOUNTS ONLY ============
+# Doctors no longer self-register and there is no separate doctor login —
+# they sign in on the same page as everyone else using license_no + PIN.
+# The Django admin creates the doctor, sets the initial PIN, and approves.
 
 
 @api_view(["GET"])
@@ -396,11 +374,10 @@ def doctor_me(request):
 
 
 @api_view(["GET"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def doctor_status(request):
-    """Doctor checks their registration/approval status by license number."""
-    license_no = request.query_params.get("license_no", "").strip()
-    doctor = Doctor.objects.filter(license_no__iexact=license_no).first()
+    """Doctor checks their own verification status (JWT, not guessable)."""
+    doctor = _doctor_from_request(request)
     if not doctor:
         return Response({"registered": False})
     return Response({
@@ -746,9 +723,10 @@ def _hospital_label(doctor):
 
 
 @api_view(["GET"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def list_hospitals(request):
-    """Public list of hospitals for dropdown selection (code + name only)."""
+    """Hospital list (code + name only). Requires a session so the site
+    does not leak which facilities exist in the network."""
     return Response([
         {"code": h.code, "name": h.name, "region": h.region}
         for h in Hospital.objects.all().order_by("name")
@@ -818,35 +796,8 @@ def _referral_json(r):
     }
 
 
-# ============ HOSPITAL STAFF: LOGIN + REFERRAL INBOX ============
-
-@api_view(["POST"])
-@permission_classes([AllowAny])
-def staff_login(request):
-    """Hospital staff login (admin-created account): username + password -> JWT."""
-    username = str(request.data.get("username", "")).strip()
-    password = str(request.data.get("password", ""))
-
-    staff = HospitalStaff.objects.filter(username__iexact=username).first()
-    if not staff or not check_password(password, staff.password_hash):
-        return Response({"error": "Invalid username or password"},
-                        status=status.HTTP_401_UNAUTHORIZED)
-
-    refresh = RefreshToken()
-    refresh["username"] = staff.username
-    refresh["full_name"] = staff.full_name
-    refresh["hospital_code"] = staff.hospital.code
-    refresh["role"] = "STAFF"
-
-    return Response({
-        "access": str(refresh.access_token),
-        "refresh": str(refresh),
-        "role": "STAFF",
-        "username": staff.username,
-        "full_name": staff.full_name,
-        "hospital_code": staff.hospital.code,
-        "hospital_name": staff.hospital.name,
-    })
+# ============ HOSPITAL STAFF: REFERRAL INBOX ============
+# Staff also sign in via the unified /api/login/ (username + password).
 
 
 def _staff_from_request(request):

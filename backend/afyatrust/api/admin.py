@@ -11,18 +11,53 @@ from .models import (
 
 @admin.register(Hospital)
 class HospitalAdmin(admin.ModelAdmin):
-    """Admin-only hospital registry: feeds doctor registration and referrals."""
+    """Admin-only hospital registry: feeds doctor accounts and referrals."""
     list_display = ("name", "code", "region", "created_at")
     search_fields = ("name", "code", "region")
 
 
+class DoctorForm(forms.ModelForm):
+    """Admin creates doctor accounts: sets the initial PIN at creation."""
+    pin = forms.CharField(
+        widget=forms.PasswordInput(render_value=False),
+        required=False,
+        help_text="4-digit PIN the doctor will use to sign in. Required for new doctors; leave blank to keep the current PIN.",
+    )
+
+    class Meta:
+        model = Doctor
+        fields = "__all__"
+
+    def clean_pin(self):
+        pin = self.cleaned_data.get("pin") or ""
+        if pin and len(pin) != 4:
+            raise forms.ValidationError("PIN must be exactly 4 digits.")
+        return pin
+
+    def save(self, commit=True):
+        doctor = super().save(commit=False)
+        if doctor.pk and not self.cleaned_data.get("pin"):
+            pass  # keep existing pin_hash
+        elif self.cleaned_data.get("pin"):
+            doctor.pin_hash = make_password(self.cleaned_data["pin"])
+        if commit:
+            doctor.save()
+        return doctor
+
+
 @admin.register(Doctor)
 class DoctorAdmin(admin.ModelAdmin):
-    """Doctors self-register; an admin approves or rejects them here."""
-    list_display = ("full_name", "license_no", "facility_id", "status")
+    """Doctors are created here by the admin (name, license, hospital, PIN),
+    then approved. There is no public doctor registration."""
+    form = DoctorForm
+    list_display = ("full_name", "license_no", "facility_id", "status", "has_pin")
     list_filter = ("status", "hospital")
-    search_fields = ("full_name", "license_no", "wallet_address")
-    actions = ["approve_doctors", "reject_doctors"]
+    search_fields = ("full_name", "license_no")
+    actions = ["approve_doctors", "reject_doctors", "reset_pin_action"]
+
+    @admin.display(boolean=True, description="PIN set")
+    def has_pin(self, obj):
+        return bool(obj.pin_hash)
 
     @admin.action(description="✅ Approve selected doctors")
     def approve_doctors(self, request, queryset):
@@ -38,6 +73,20 @@ class DoctorAdmin(admin.ModelAdmin):
     def reject_doctors(self, request, queryset):
         count = queryset.filter(status="APPROVED").update(status="REJECTED")
         self.message_user(request, f"{count} doctor(s) revoked.")
+
+    @admin.action(description="🔑 Force PIN reset (blocks login until new PIN set)")
+    def reset_pin_action(self, request, queryset):
+        from django.contrib.auth.hashers import identify_hasher
+        count = 0
+        for d in queryset:
+            try:
+                identify_hasher(d.pin_hash)
+            except Exception:
+                continue
+            d.pin_hash = "!"
+            d.save(update_fields=["pin_hash"])
+            count += 1
+        self.message_user(request, f"{count} doctor(s) PIN-blocked. Set a new PIN on each doctor's page.")
 
 
 class HospitalStaffForm(forms.ModelForm):
@@ -66,8 +115,8 @@ class HospitalStaffForm(forms.ModelForm):
 
 @admin.register(HospitalStaff)
 class HospitalStaffAdmin(admin.ModelAdmin):
-    """Admin creates hospital desk accounts (username + password) so staff can
-    respond to referrals on the hospital page without touching Django admin."""
+    """Admin creates hospital desk accounts so staff can respond to referrals
+    on the hospital page without touching Django admin."""
     form = HospitalStaffForm
     list_display = ("full_name", "username", "hospital", "created_at")
     list_filter = ("hospital",)

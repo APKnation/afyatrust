@@ -18,14 +18,11 @@ urlpatterns = [
     path("patient/approve-request/<int:request_id>/", views.approve_request),
     path("patient/reject-request/<int:request_id>/", views.reject_request),
 
-    # Hospital staff (admin-created accounts)
-    path("staff/login/", views.staff_login),
+    # Hospital staff (JWT required; admin-created accounts)
     path("staff/referrals/", views.hospital_referrals),
     path("staff/referrals/<int:referral_id>/respond/", views.respond_referral),
 
-    # Doctor
-    path("doctor/register/", views.doctor_register),
-    path("doctor/login/", views.doctor_login),
+    # Doctor (JWT required; admin-created accounts)
     path("doctor/me/", views.doctor_me),
     path("doctor/status/", views.doctor_status),
     path("doctor/request-access/", views.request_access),

@@ -3,7 +3,7 @@
 Blockchain-based patient record access and audit layer.
 **Author:** Atanasi Patrick Kafuka · **University:** UDOM
 
-**Deployed contract (Sepolia):** [`0x004241965bcA828eA4467Cfa21d439F2af80318c`](https://sepolia.etherscan.io/address/0x004241965bcA828eA4467Cfa21d439F2af80318c) — the full 7-step flow was verified on-chain (registration, record hashes, patient-signed grants, doctor `hasAccess` check, audit `VIEW` events, break-glass).
+**Deployed contract (Sepolia):** [`0x94a66c550a51980e4Ae35364046555e0Fc5Bd1A3`](https://sepolia.etherscan.io/address/0x94a66c550a51980e4Ae35364046555e0Fc5Bd1A3) — the full 7-step flow was verified on-chain (registration, record hashes, patient-signed grants, doctor `hasAccess` check, audit `VIEW` events, break-glass).
 
 Clinical data **stays at the facility** that holds it. The blockchain stores
 only the minimum: record hashes, location pointers, permissions, and audit

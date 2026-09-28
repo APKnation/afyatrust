@@ -5,8 +5,7 @@ export const environment = {
   chainId: 11155111,
   chainName: 'Sepolia',
   etherscanUrl: 'https://sepolia.etherscan.io',
-  // Paste after `npx hardhat run scripts/deploy.js --network sepolia`
-  contractAddress: '0x004241965bcA828eA4467Cfa21d439F2af80318c',
+ contractAddress: '0x3adB53408Ab9a17fd7a3df5C4edB78EB0668443e',
   contractABI: [
     'function registerPatient(string,address,string) public',
     'function addRecord(string,string,string,string) public',

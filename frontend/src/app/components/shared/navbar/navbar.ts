@@ -5,21 +5,23 @@ import { AuthService } from '../../../services/auth.service';
 
 /**
  * Role-aware responsive navbar.
- * Active/hover states use an underline accent — no background highlights.
- * Desktop (≥md) shows inline links; mobile gets a hamburger dropdown.
+ * Clean typographic design to match the landing page: serif wordmark with a
+ * brand dot, underline-accent links, no decorative glyphs. Desktop (≥md)
+ * shows inline links; mobile gets a hamburger dropdown (two thin bars).
  */
 @Component({
   selector: 'app-navbar',
   imports: [RouterLink, RouterLinkActive, NgIf],
   template: `
-    <nav class="sticky top-0 z-50 bg-surface shadow-card">
+    <nav class="sticky top-0 z-50 bg-surface/95 shadow-card backdrop-blur">
       <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-3.5">
         <!-- Brand -->
         <a
-          class="flex shrink-0 items-center gap-2.5 text-xl font-heading text-ink no-underline sm:text-[22px]"
+          class="flex shrink-0 items-baseline gap-1.5 text-xl font-heading text-ink no-underline sm:text-[22px]"
           routerLink="/"
         >
           <strong>AfyaTrust</strong>
+          <span class="mb-0.5 inline-block h-2 w-2 rounded-full bg-primary-500" aria-hidden="true"></span>
         </a>
 
         <!-- Desktop links -->
@@ -41,25 +43,28 @@ import { AuthService } from '../../../services/auth.service';
           <!-- Desktop session area -->
           <div class="ml-2 flex items-center gap-2.5">
             <!-- Patient chip -->
-            <div *ngIf="auth.isPatient" class="flex items-center gap-2.5 rounded-xl bg-surface px-4 py-2 shadow-card">
+            <div *ngIf="auth.isPatient" class="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-surface px-4 py-2 shadow-card">
               <span class="text-sm font-bold text-ink">{{ auth.healthId }}</span>
+              <span class="h-4 w-px bg-gray-200" aria-hidden="true"></span>
               <a routerLink="/account" class="text-sm font-semibold text-accent-700 no-underline hover:underline">Account</a>
               <button (click)="signOut()"
                       class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
             </div>
 
             <!-- Doctor chip -->
-            <div *ngIf="auth.isDoctor" class="flex items-center gap-2.5 rounded-xl bg-surface px-4 py-2 shadow-card">
+            <div *ngIf="auth.isDoctor" class="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-surface px-4 py-2 shadow-card">
               <span class="text-sm font-bold text-ink">Dr. {{ auth.fullName }}</span>
-              <span class="text-xs font-bold text-accent-700">✓ verified</span>
+              <span class="rounded-full bg-accent-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-accent-800">Verified</span>
+              <span class="h-4 w-px bg-gray-200" aria-hidden="true"></span>
               <a routerLink="/account" class="text-sm font-semibold text-accent-700 no-underline hover:underline">Account</a>
               <button (click)="signOut()"
                       class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
             </div>
 
             <!-- Staff chip -->
-            <div *ngIf="auth.isStaff" class="flex items-center gap-2.5 rounded-xl bg-surface px-4 py-2 shadow-card">
+            <div *ngIf="auth.isStaff" class="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-surface px-4 py-2 shadow-card">
               <span class="text-sm font-bold text-ink">{{ auth.fullName }}</span>
+              <span class="h-4 w-px bg-gray-200" aria-hidden="true"></span>
               <a routerLink="/account" class="text-sm font-semibold text-accent-700 no-underline hover:underline">Account</a>
               <button (click)="signOut()"
                       class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
@@ -78,12 +83,13 @@ import { AuthService } from '../../../services/auth.service';
         <!-- Mobile: compact session + hamburger -->
         <div class="flex items-center gap-2 md:hidden">
           <span *ngIf="auth.isPatient" class="text-xs font-bold text-ink">{{ auth.healthId }}</span>
-          <span *ngIf="auth.isDoctor" class="text-xs font-bold text-accent-700">✓</span>
+          <span *ngIf="auth.isDoctor" class="rounded-full bg-accent-100 px-2 py-0.5 text-[11px] font-bold uppercase text-accent-800">Verified</span>
           <button (click)="menuOpen = !menuOpen"
                   aria-label="Toggle menu"
                   [attr.aria-expanded]="menuOpen"
-                  class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-2xl text-ink transition-opacity hover:opacity-70">
-            {{ menuOpen ? '✕' : '☰' }}
+                  class="flex h-10 w-10 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg text-ink transition-opacity hover:opacity-70">
+            <span class="h-0.5 w-5 rounded bg-ink transition-transform" [class]="menuOpen ? 'translate-y-1 rotate-45' : ''"></span>
+            <span class="h-0.5 w-5 rounded bg-ink transition-transform" [class]="menuOpen ? '-translate-y-1 -rotate-45' : ''"></span>
           </button>
         </div>
       </div>

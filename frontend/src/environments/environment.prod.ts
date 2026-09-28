@@ -4,6 +4,6 @@ export const environment = {
   chainId: 11155111,
   chainName: 'Sepolia',
   etherscanUrl: 'https://sepolia.etherscan.io',
-  contractAddress: '0x0000000000000000000000000000000000000000',
+  contractAddress: '0x004241965bcA828eA4467Cfa21d439F2af80318c',
   contractABI: [],
 };

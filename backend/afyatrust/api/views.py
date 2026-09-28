@@ -16,7 +16,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import Patient, MedicalRecord, AccessRequest
 from . import wallet_manager
-from .blockchain import contract, send_transaction
+from .blockchain import contract, send_transaction, ensure_gas, facility_address
 
 
 def _audit(patient, events):
@@ -164,12 +164,18 @@ def grant_access(request):
     if not doctor_wallet:
         return Response({"error": "doctor_wallet is required"}, status=400)
 
+    # The contract attributes the grant to the patient wallet itself, so the
+    # patient's custodial key signs (facility tops up gas first).
     tx_hash = ""
     try:
-        tx = contract.functions.patientGrantAccess(
-            patient.health_id, doctor_wallet, days
+        ensure_gas(patient.wallet_address)
+        patient_key = wallet_manager.get_private_key(
+            patient.encrypted_private_key, patient.encryption_iv
         )
-        tx_hash = send_transaction(tx)
+        tx = contract.functions.patientGrantAccess(
+            patient.health_id, patient.wallet_address, doctor_wallet, days
+        )
+        tx_hash = send_transaction(tx, patient_key)
     except Exception as e:
         tx_hash = f"PENDING: {e}"
 
@@ -192,8 +198,14 @@ def revoke_access(request):
 
     doctor_wallet = request.data.get("doctor_wallet", "").strip()
     try:
-        tx = contract.functions.patientRevokeAccess(patient.health_id, doctor_wallet)
-        tx_hash = send_transaction(tx)
+        ensure_gas(patient.wallet_address)
+        patient_key = wallet_manager.get_private_key(
+            patient.encrypted_private_key, patient.encryption_iv
+        )
+        tx = contract.functions.patientRevokeAccess(
+            patient.health_id, patient.wallet_address, doctor_wallet
+        )
+        tx_hash = send_transaction(tx, patient_key)
     except Exception as e:
         tx_hash = f"PENDING: {e}"
 
@@ -268,9 +280,10 @@ def doctor_view_record(request, health_id):
     if not patient:
         return Response({"error": "Health ID not found"}, status=404)
 
-    # Step 6: log the view on-chain.
+    # Step 6: log the view on-chain (viewer passed explicitly — the facility
+    # wallet signs but the audit entry must name the real accessor).
     try:
-        tx = contract.functions.recordView(health_id, facility_id)
+        tx = contract.functions.recordView(health_id, wallet, facility_id)
         send_transaction(tx)
     except Exception:
         pass  # PoC: audit write is best-effort
@@ -323,10 +336,17 @@ def approve_request(request, request_id):
     if not req:
         return Response({"error": "Request not found"}, status=404)
 
+    # Patient-signed on-chain grant (custodial key + facility gas top-up).
     tx_hash = ""
     try:
-        tx = contract.functions.patientGrantAccess(patient.health_id, req.doctor_wallet, 7)
-        tx_hash = send_transaction(tx)
+        ensure_gas(patient.wallet_address)
+        patient_key = wallet_manager.get_private_key(
+            patient.encrypted_private_key, patient.encryption_iv
+        )
+        tx = contract.functions.patientGrantAccess(
+            patient.health_id, patient.wallet_address, req.doctor_wallet, 7
+        )
+        tx_hash = send_transaction(tx, patient_key)
     except Exception as e:
         tx_hash = f"PENDING: {e}"
 
@@ -369,10 +389,10 @@ def break_glass(request):
     if not Patient.objects.filter(health_id=health_id).exists():
         return Response({"error": "Health ID not found"}, status=404)
 
-    wallet = request.headers.get("X-Wallet-Address", "")
+    wallet = request.headers.get("X-Wallet-Address", "") or facility_address()
     tx_hash = ""
     try:
-        tx = contract.functions.breakGlass(health_id, facility_id, reason)
+        tx = contract.functions.breakGlass(health_id, wallet, facility_id, reason)
         tx_hash = send_transaction(tx)
     except Exception as e:
         tx_hash = f"PENDING: {e}"

@@ -73,28 +73,32 @@ contract AfyaTrust {
     }
 
     // Step 4: patient authorizes a doctor for N days.
+    // _patient is passed explicitly because the backend operator wallet signs
+    // on behalf of custodial patient wallets (patients have no MetaMask).
     function patientGrantAccess(
         string memory _healthID,
+        address _patient,
         address _doctorWallet,
         uint256 _days
     ) public {
-        require(msg.sender == patientWallet[_healthID], "Only patient wallet can grant");
+        require(_patient == patientWallet[_healthID], "Not the patient wallet");
         permissions[_healthID].push(AccessPermission({
             grantedTo: _doctorWallet,
-            grantedBy: msg.sender,
+            grantedBy: _patient,
             grantedByRole: "PATIENT",
             expiry: block.timestamp + (_days * 1 days),
             isActive: true
         }));
         emit AccessGranted(_healthID, _doctorWallet, block.timestamp + (_days * 1 days));
-        _logAudit(_healthID, msg.sender, "PATIENT", "", "GRANTED_TO_DOCTOR");
+        _logAudit(_healthID, _patient, "PATIENT", "", "GRANTED_TO_DOCTOR");
     }
 
     function patientRevokeAccess(
         string memory _healthID,
+        address _patient,
         address _doctorWallet
     ) public {
-        require(msg.sender == patientWallet[_healthID], "Only patient wallet can revoke");
+        require(_patient == patientWallet[_healthID], "Not the patient wallet");
         for (uint i = 0; i < permissions[_healthID].length; i++) {
             if (permissions[_healthID][i].grantedTo == _doctorWallet
                 && permissions[_healthID][i].isActive) {
@@ -103,7 +107,7 @@ contract AfyaTrust {
             }
         }
         emit AccessRevoked(_healthID, _doctorWallet);
-        _logAudit(_healthID, msg.sender, "PATIENT", "", "REVOKED_DOCTOR");
+        _logAudit(_healthID, _patient, "PATIENT", "", "REVOKED_DOCTOR");
     }
 
     // Step 5: provider checks authorization (patient's own wallet always has access).
@@ -118,22 +122,30 @@ contract AfyaTrust {
         return false;
     }
 
-    // Step 6: every read is logged on-chain.
-    function recordView(string memory _healthID, string memory _facilityID) public {
-        require(hasAccess(_healthID, msg.sender), "No access permission");
-        string memory role = patientWallet[_healthID] == msg.sender ? "PATIENT" : "DOCTOR";
-        _logAudit(_healthID, msg.sender, role, _facilityID, "VIEW");
-        emit RecordViewed(_healthID, msg.sender, _facilityID);
+    // Step 6: every read is logged on-chain. The backend operator wallet
+    // signs, but the real viewer (_viewer) must have access on-chain.
+    function recordView(
+        string memory _healthID,
+        address _viewer,
+        string memory _facilityID
+    ) public {
+        require(hasAccess(_healthID, _viewer), "No access permission");
+        string memory role = patientWallet[_healthID] == _viewer ? "PATIENT" : "DOCTOR";
+        _logAudit(_healthID, _viewer, role, _facilityID, "VIEW");
+        emit RecordViewed(_healthID, _viewer, _facilityID);
     }
 
     // Step 7: emergency access — allowed for anyone, but permanently logged.
+    // The clinician wallet is passed explicitly so the audit log names them,
+    // not the operator wallet that pays gas.
     function breakGlass(
         string memory _healthID,
+        address _clinician,
         string memory _facilityID,
         string memory _reason
     ) public {
-        emit BreakGlassUsed(_healthID, msg.sender, _facilityID, _reason);
-        _logAudit(_healthID, msg.sender, "DOCTOR", _facilityID, "BREAK_GLASS");
+        emit BreakGlassUsed(_healthID, _clinician, _facilityID, _reason);
+        _logAudit(_healthID, _clinician, "DOCTOR", _facilityID, "BREAK_GLASS");
     }
 
     function getRecords(string memory _healthID)

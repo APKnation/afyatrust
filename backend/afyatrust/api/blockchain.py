@@ -39,21 +39,74 @@ class _LazyContract:
 contract = _LazyContract()
 
 
-def send_transaction(function_call) -> str:
-    """Sign and send a transaction with the facility wallet (facility pays gas)."""
+def facility_address() -> str:
+    """The operator wallet that pays gas (also the fallback clinician id)."""
     if not FACILITY_PRIVATE_KEY or FACILITY_PRIVATE_KEY.startswith("0x..."):
-        raise RuntimeError("FACILITY_PRIVATE_KEY is not set in backend/.env")
+        return ""
+    return w3.eth.account.from_key(FACILITY_PRIVATE_KEY).address
 
-    facility_account = w3.eth.account.from_key(FACILITY_PRIVATE_KEY)
+
+def _eip1559_fees() -> dict:
+    """EIP-1559 fees with headroom so txs stay valid as the base fee drifts.
+
+    A plain gas_price snapshot can go stale within seconds on Sepolia and
+    leave transactions stuck in the mempool.
+    """
+    base = w3.eth.get_block("latest").get("baseFeePerGas") or w3.eth.gas_price
+    priority = w3.to_wei(1, "gwei")
+    return {
+        "maxFeePerGas": int(base * 2) + priority,
+        "maxPriorityFeePerGas": priority,
+    }
+
+
+def send_transaction(function_call, signer_private_key: str = "") -> str:
+    """Sign and send a transaction.
+
+    Defaults to the facility wallet (facility actions). Pass a patient's
+    decrypted custodial key to sign as the patient (grants/revokes), because
+    the contract attributes those permissions to the patient wallet itself.
+    """
+    key = signer_private_key or FACILITY_PRIVATE_KEY
+    if not key or key.startswith("0x..."):
+        raise RuntimeError("Signer private key is not configured in backend/.env")
+
+    account = w3.eth.account.from_key(key)
     tx = function_call.build_transaction({
-        "from": facility_account.address,
-        "nonce": w3.eth.get_transaction_count(facility_account.address),
+        "from": account.address,
+        "nonce": w3.eth.get_transaction_count(account.address),
         "gas": 500_000,
-        "gasPrice": w3.eth.gas_price,
+        **_eip1559_fees(),
     })
 
-    signed = w3.eth.account.sign_transaction(tx, FACILITY_PRIVATE_KEY)
+    signed = w3.eth.account.sign_transaction(tx, key)
     tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    return receipt.transactionHash.hex()
+    return "0x" + receipt.transactionHash.hex()
+
+
+def ensure_gas(patient_address: str) -> str:
+    """Custodial patient wallets start empty, so the facility tops up gas
+    before the patient signs their own grant/revoke transaction."""
+    if not FACILITY_PRIVATE_KEY or FACILITY_PRIVATE_KEY.startswith("0x..."):
+        raise RuntimeError("FACILITY_PRIVATE_KEY is not set in backend/.env")
+
+    facility = w3.eth.account.from_key(FACILITY_PRIVATE_KEY)
+    to = Web3.to_checksum_address(patient_address)
+    if w3.eth.get_balance(to) >= w3.to_wei(0.005, "ether"):
+        return ""  # already funded
+
+    tx = {
+        "from": facility.address,
+        "to": to,
+        "value": w3.to_wei(0.01, "ether"),
+        "nonce": w3.eth.get_transaction_count(facility.address),
+        "gas": 21_000,
+        "chainId": w3.eth.chain_id,  # EIP-155 required by public RPCs
+        **_eip1559_fees(),
+    }
+    signed = w3.eth.account.sign_transaction(tx, FACILITY_PRIVATE_KEY)
+    tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
+    w3.eth.wait_for_transaction_receipt(tx_hash)
+    return "0x" + tx_hash.hex()

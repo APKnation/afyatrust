@@ -3,6 +3,8 @@
 Blockchain-based patient record access and audit layer.
 **Author:** Atanasi Patrick Kafuka · **University:** UDOM
 
+**Deployed contract (Sepolia):** [`0x004241965bcA828eA4467Cfa21d439F2af80318c`](https://sepolia.etherscan.io/address/0x004241965bcA828eA4467Cfa21d439F2af80318c) — the full 7-step flow was verified on-chain (registration, record hashes, patient-signed grants, doctor `hasAccess` check, audit `VIEW` events, break-glass).
+
 Clinical data **stays at the facility** that holds it. The blockchain stores
 only the minimum: record hashes, location pointers, permissions, and audit
 events. Patients authorize access; every read is logged; emergencies use an
@@ -108,7 +110,8 @@ npm start                           # http://localhost:4200
    **Break-Glass**. Access is granted for the emergency and a
    `BREAK_GLASS` event is permanently logged for accountability.
 
-Scripted check of the same flow:
+Scripted check of the same flow (each run uses a fresh Health ID and real
+Sepolia gas):
 
 ```bash
 cd backend/afyatrust

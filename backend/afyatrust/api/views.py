@@ -29,6 +29,7 @@ from .blockchain import (
     ensure_gas,
     facility_address,
     send_transaction,
+    send_transaction_async,
 )
 
 
@@ -490,9 +491,11 @@ def doctor_view_record(request, health_id):
 
     # Step 6: log the view on-chain (viewer passed explicitly — the facility
     # wallet signs but the audit entry must name the real accessor).
+    # Fire-and-forget: waiting ~12s for the recordView receipt would defeat
+    # the cached hasAccess read; the audit tx is best-effort anyway.
     try:
         tx = contract.functions.recordView(health_id, checksum_address(wallet), facility_id)
-        send_transaction(tx)
+        send_transaction_async(tx)
     except Exception:
         pass  # PoC: audit write is best-effort
 

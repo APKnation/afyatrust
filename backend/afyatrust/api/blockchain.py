@@ -181,6 +181,21 @@ def send_transaction(function_call, signer_private_key: str = "") -> str:
     return "0x" + receipt.transactionHash.hex()
 
 
+def send_transaction_async(function_call, signer_private_key: str = "") -> None:
+    """Fire-and-forget variant of send_transaction for audit-only writes.
+
+    recordView entries would otherwise hold the doctor's HTTP response for
+    the ~10-15s Sepolia receipt wait. The audit still lands on-chain, but if
+    the process dies mid-flight that one entry is lost — acceptable for a
+    write that is already treated as best-effort by callers.
+    """
+    threading.Thread(
+        target=send_transaction,
+        args=(function_call, signer_private_key),
+        daemon=True,
+    ).start()
+
+
 def ensure_gas(patient_address: str) -> str:
     """Custodial patient wallets start empty, so the facility tops up gas
     before the patient signs their own grant/revoke transaction."""

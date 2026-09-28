@@ -21,7 +21,14 @@ from .models import (
     Measurement, MedicalRecord, Patient, Referral,
 )
 from . import wallet_manager
-from .blockchain import contract, send_transaction, ensure_gas, facility_address
+from .blockchain import (
+    cached_has_access,
+    cache_invalidate,
+    contract,
+    ensure_gas,
+    facility_address,
+    send_transaction,
+)
 
 
 def _doctor_from_request(request):
@@ -297,6 +304,10 @@ def grant_access(request):
     except Exception as e:
         tx_hash = f"PENDING: {e}"
 
+    # Permission changed (or was attempted) — drop cached hasAccess for this
+    # patient so doctors see the new state on their next call.
+    cache_invalidate(f"hasAccess:{patient.health_id.strip().lower()}")
+
     if doc:
         AccessGrant.objects.update_or_create(
             patient=patient, doctor=doc,
@@ -342,6 +353,9 @@ def revoke_access(request):
         tx_hash = send_transaction(tx, patient_key)
     except Exception as e:
         tx_hash = f"PENDING: {e}"
+
+    # Revocation must be visible to doctors immediately.
+    cache_invalidate(f"hasAccess:{patient.health_id.strip().lower()}")
 
     AccessGrant.objects.filter(
         patient=patient, doctor__wallet_address__iexact=doctor_wallet
@@ -456,14 +470,9 @@ def doctor_view_record(request, health_id):
     wallet = doctor.wallet_address
     facility_id = doctor.facility_id or "UNKNOWN"
 
-    try:
-        allowed = contract.functions.hasAccess(health_id, wallet).call()
-    except Exception:
-        # Chain unreachable in PoC: allow but mark it, so demo continues.
-        allowed = False
-        chain_ok = False
-    else:
-        chain_ok = True
+    # Cached read (60s TTL): permissions only change via grant/revoke/approve,
+    # which invalidate the cache — so this is safe and skips a slow RPC round-trip.
+    allowed, chain_ok = cached_has_access(health_id, wallet)
 
     if not allowed:
         return Response({
@@ -623,6 +632,8 @@ def approve_request(request, request_id):
     except Exception as e:
         tx_hash = f"PENDING: {e}"
 
+    cache_invalidate(f"hasAccess:{patient.health_id.strip().lower()}")
+
     AccessGrant.objects.get_or_create(
         patient=patient, doctor=req.doctor,
         defaults={
@@ -709,9 +720,8 @@ def add_measurement(request):
     if not patient:
         return Response({"error": "Health ID not found"}, status=404)
 
-    try:
-        allowed = contract.functions.hasAccess(health_id, doctor.wallet_address).call()
-    except Exception:
+    allowed, chain_ok = cached_has_access(health_id, doctor.wallet_address)
+    if not chain_ok:
         allowed = True  # PoC: chain unreachable — demo continues
     if not allowed:
         return Response({"error": "No access permission for this patient"}, status=403)
@@ -742,10 +752,9 @@ def patient_measurements(request, health_id):
     patient = Patient.objects.filter(health_id=health_id).first()
     if not patient:
         return Response({"error": "Health ID not found"}, status=404)
-    try:
-        allowed = contract.functions.hasAccess(health_id, doctor.wallet_address).call()
-    except Exception:
-        allowed = True
+    allowed, chain_ok = cached_has_access(health_id, doctor.wallet_address)
+    if not chain_ok:
+        allowed = True  # PoC: chain unreachable — demo continues
     if not allowed:
         return Response({"error": "No access permission for this patient"}, status=403)
 

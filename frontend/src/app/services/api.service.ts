@@ -182,6 +182,11 @@ export class ApiService {
     return this.request<ReferralItem[]>('GET', '/patient/referrals/');
   }
 
+  /** Patient asks to be referred to another hospital (staff must accept). */
+  sendPatientReferral(payload: { to_hospital: string; reason: string }) {
+    return this.request('POST', '/patient/referrals/send/', payload);
+  }
+
   myRequests(): Promise<AccessRequest[]> {
     return this.request<AccessRequest[]>('GET', '/patient/requests/');
   }
@@ -213,12 +218,14 @@ export class ApiService {
     return this.request<any>('GET', `/doctor/patient/${encodeURIComponent(health_id)}/`);
   }
 
-  doctorPendingRequests(): Promise<AccessRequest[]> {
-    return this.request<AccessRequest[]>('GET', '/doctor/pending-requests/');
-  }
-
+  /** Doctor's own assigned patients (granted access, fresh from chain). */
   myPatients(): Promise<AssignedPatient[]> {
     return this.request<AssignedPatient[]>('GET', '/doctor/patients/');
+  }
+
+  /** Pending access requests raised by this doctor. */
+  doctorPendingRequests(): Promise<AccessRequest[]> {
+    return this.request<AccessRequest[]>('GET', '/doctor/pending-requests/');
   }
 
   addMeasurement(payload: { health_id: string; kind: string; value: number; unit: string; notes?: string }) {
@@ -239,7 +246,7 @@ export class ApiService {
     return this.request<ReferralItem[]>('GET', '/doctor/referrals/');
   }
 
-  /** Pending referrals addressed to my hospital (notification feed). */
+  /** Referrals sent to this doctor's hospital (incoming, doctor-facing). */
   incomingReferrals(): Promise<ReferralItem[]> {
     return this.request<ReferralItem[]>('GET', '/doctor/referrals/incoming/');
   }

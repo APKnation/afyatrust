@@ -547,12 +547,51 @@ def my_referrals(request):
         return Response({"error": "Patient not found"}, status=404)
     return Response([{
         "id": r.id,
+        "from_hospital": r.from_hospital.name if r.from_hospital else "",
+        "from_doctor": r.from_doctor.full_name if r.from_doctor else "",
         "to_hospital": r.to_hospital.name,
         "to_hospital_code": r.to_hospital.code,
         "reason": r.reason,
         "status": r.status,
+        "responded_by": r.responded_by,
         "date": r.created_at,
+        "responded_at": r.responded_at,
     } for r in patient.referrals.all()])
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def patient_send_referral(request):
+    """Patient asks to be referred to another hospital. The receiving
+    hospital's staff/doctor still accepts or declines, so no clinical
+    decision is bypassed — the request is just initiated by the patient."""
+    patient = _patient_from_request(request)
+    if not patient:
+        return Response({"error": "Patient not found"}, status=404)
+
+    to_code = str(request.data.get("to_hospital", "")).strip()
+    reason = str(request.data.get("reason", "")).strip()
+    if not to_code:
+        return Response({"error": "to_hospital is required"}, status=400)
+
+    to_hospital = Hospital.objects.filter(code__iexact=to_code).first()
+    if not to_hospital:
+        return Response({"error": "Target hospital not found"}, status=404)
+    if patient.hospital and to_hospital.code.lower() == patient.hospital.code.lower():
+        return Response({"error": "You are already registered at that hospital"}, status=400)
+
+    ref = Referral.objects.create(
+        patient=patient,
+        from_doctor=None,          # patient-initiated; a doctor may be assigned on acceptance
+        from_hospital=patient.hospital,
+        to_hospital=to_hospital,
+        reason=reason or "Patient-initiated referral request",
+    )
+    return Response({
+        "status": "success",
+        "referral_id": ref.id,
+        "message": f"Referral request sent to {to_hospital.name} — they must accept it.",
+    }, status=status.HTTP_201_CREATED)
 
 
 @api_view(["POST"])

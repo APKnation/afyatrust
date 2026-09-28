@@ -9,19 +9,46 @@ import { AuthService } from '../../../services/auth.service';
   selector: 'app-patient-dashboard',
   imports: [NgIf, NgFor, SlicePipe, DatePipe, FormsModule],
   template: `
+    <!-- LOADING (only when there really is nothing yet) -->
     <div *ngIf="loading && !data" class="py-15 text-center text-muted">
       <h2 class="mb-1 text-xl font-bold">Loading…</h2>
     </div>
 
+    <!-- NOT LOGGED IN (e.g. token expired or server unreachable) -->
+    <div *ngIf="!auth.isAuthenticated()" class="py-15 text-center text-muted">
+      <h2 class="mb-1 text-xl font-bold">Your session expired</h2>
+      <p class="mb-4">Please sign in again to see your records.</p>
+      <button
+        (click)="logoutAndRedirect()"
+        class="rounded-lg bg-primary-500 px-5 py-2.5 font-semibold text-ink hover:bg-primary-400">
+        Sign in again
+      </button>
+    </div>
+
+    <!-- LOAD FAILED (visible error, never a silent stall) -->
+    <div *ngIf="errorMsg && !data" class="mx-auto max-w-2xl py-15 text-center">
+      <h2 class="mb-2 text-xl font-bold text-red-600">Could not load your records</h2>
+      <p class="mb-5 text-muted">{{ errorMsg }}</p>
+      <button (click)="retry()"
+              class="rounded-lg bg-primary-500 px-5 py-2.5 font-semibold text-ink hover:bg-primary-400">
+        Try again
+      </button>
+    </div>
+
+    <!-- DASHBOARD -->
     <div *ngIf="data" class="mx-auto max-w-6xl">
       <div class="mb-5 rounded-xl bg-surface p-6 shadow-card">
-        <h1 class="mb-2 text-2xl font-bold">Welcome, {{ data.full_name }}</h1>
-        <p class="m-0">Health ID: <strong>{{ data.health_id }}</strong></p>
-        <p class="m-0">
-          Wallet:
-          <code class="rounded bg-primary-100 px-1.5 py-1 text-sm">{{ data.wallet_address | slice:0:10 }}…</code>
-          <span class="ml-1 text-xs opacity-80">(managed for you — no MetaMask needed)</span>
-        </p>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 class="mb-1 text-2xl font-bold">Welcome, {{ data.full_name }}</h1>
+            <p class="m-0 text-sm text-muted">Health ID: <strong>{{ data.health_id }}</strong></p>
+          </div>
+          <p class="text-xs text-muted">
+            Wallet:
+            <code class="rounded bg-primary-100 px-1.5 py-1 text-sm">{{ data.wallet_address | slice:0:10 }}…</code>
+            <span class="ml-2 text-[11px] opacity-80">(managed for you — no MetaMask needed)</span>
+          </p>
+        </div>
       </div>
 
       <div class="mb-5 flex flex-wrap gap-2.5 border-b-2 border-gray-200">
@@ -44,6 +71,11 @@ import { AuthService } from '../../../services/auth.service';
       <!-- RECORDS -->
       <div *ngIf="tab === 'records'" class="animate-fade-in">
         <h2 class="mb-4 text-xl font-bold">My Medical History</h2>
+        <p class="mb-3 text-xs text-muted">
+          Only the SHA-256 hash of each record is stored on-chain. Data stays at the
+          facility that created it. The card turns <strong>On-chain</strong> when the
+          backend has written the hash to the blockchain.
+        </p>
         <div *ngFor="let rec of data.records"
              class="mb-3.5 rounded-xl border-l-4 border-primary-500 bg-surface p-4.5 shadow-card">
           <div class="mb-3 flex flex-wrap items-center gap-3">
@@ -62,16 +94,28 @@ import { AuthService } from '../../../services/auth.service';
               <span class="text-gray-900">{{ item.value }}</span>
             </div>
           </div>
-          <div class="font-mono text-xs text-muted"> {{ rec.hash | slice:0:22 }}…</div>
+          <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span>Record hash:</span>
+            <code class="rounded bg-primary-100 px-1.5 py-0.5 font-mono">{{ rec.hash | slice:0:40 }}…</code>
+            <span *ngIf="rec.tx_hash"
+                  class="rounded bg-primary-200 px-1.5 py-0.5 font-mono">
+              tx: {{ rec.tx_hash | slice:0:10 }}…
+            </span>
+          </div>
         </div>
         <p *ngIf="data.records.length === 0" class="py-8 text-center text-muted italic">
-          No records yet. They appear when a facility adds them.
+          No records yet. A facility adds them when it draws your clinical data —
+          it never moves the actual data; only the hash is recorded on-chain.
         </p>
       </div>
 
       <!-- MEASUREMENTS -->
       <div *ngIf="tab === 'measurements'" class="animate-fade-in">
         <h2 class="mb-4 text-xl font-bold">My Measurements</h2>
+        <p class="mb-3 text-xs text-muted">
+          A doctor records a reading against your Health ID. The value stays off-chain;
+          access is required before writing.
+        </p>
         <div class="max-h-[520px] overflow-y-auto">
           <table *ngIf="data?.measurements?.length" class="w-full overflow-hidden rounded-lg bg-white shadow-md">
             <thead>
@@ -101,12 +145,28 @@ import { AuthService } from '../../../services/auth.service';
 
       <!-- REFERRALS -->
       <div *ngIf="tab === 'referrals'" class="animate-fade-in">
-        <h2 class="mb-4 text-xl font-bold">My Referrals</h2>
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 class="mb-1 text-xl font-bold">My Referrals</h2>
+          <button
+            (click)="referralTab = true"
+            class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-ink hover:bg-gray-50">
+            Send me to a hospital
+          </button>
+        </div>
+        <p class="mb-3 text-xs text-muted">
+          A doctor of another hospital issues a referral. The receiving hospital's
+          staff accepts or declines it. Your record moves only after it is accepted.
+        </p>
         <div *ngFor="let r of data.referrals"
              class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-primary-400 bg-surface p-4.5 shadow-card">
           <div>
             <p class="m-0 font-bold text-ink"> {{ r.to_hospital }}</p>
-            <p class="m-0 text-sm text-muted">{{ r.reason || 'No reason recorded' }} ·  {{ r.date | date:'medium' }}</p>
+            <p class="m-0 text-sm text-muted">
+              {{ r.reason || 'No reason recorded' }} ·  {{ r.date | date:'medium' }}
+              <span *ngIf="r.responded_by" class="ml-2">
+                responded by {{ r.responded_by }}{{ r.responded_at ? ('· ' + (r.responded_at | date:'short')) : '' }}
+              </span>
+            </p>
           </div>
           <span class="rounded px-2.5 py-1 text-xs font-bold"
                 [class]="r.status === 'ACCEPTED' ? 'bg-accent-500 text-white'
@@ -114,14 +174,18 @@ import { AuthService } from '../../../services/auth.service';
                   : r.status === 'CANCELLED' ? 'bg-gray-200 text-ink'
                   : 'bg-primary-300 text-ink'">{{ r.status }}</span>
         </div>
-        <p *ngIf="!data.referrals.length" class="py-8 text-center text-muted italic">
-          No referrals yet. If your doctor sends you to another hospital, it shows here.
+        <p *ngIf="data.referrals.length === 0" class="py-8 text-center text-muted italic">
+          No referrals yet. When a doctor sends you to another hospital, it shows here.
         </p>
       </div>
 
       <!-- PERMISSIONS -->
       <div *ngIf="tab === 'permissions'" class="animate-fade-in">
         <h2 class="mb-4 text-xl font-bold">Grant Access to a Doctor</h2>
+        <p class="mb-4 text-xs text-muted">
+          Enter a doctor's medical license number. The backend finds the matching
+          wallet and grants them access for the number of days you choose.
+        </p>
         <div class="mb-5 flex flex-col gap-3.5 rounded-xl border border-gray-200 bg-gray-50 p-5">
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <input [(ngModel)]="grant.doctor_license" placeholder="Doctor's license number"
@@ -145,6 +209,7 @@ import { AuthService } from '../../../services/auth.service';
       <!-- REQUESTS -->
       <div *ngIf="tab === 'requests'" class="animate-fade-in">
         <h2 class="mb-4 text-xl font-bold">Access Requests</h2>
+        <p class="mb-3 text-xs text-muted">A verified doctor has asked to see your records.</p>
         <div *ngFor="let req of requests"
              class="mb-3.5 flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-primary-400 bg-surface p-4.5 shadow-card">
           <div>
@@ -163,6 +228,10 @@ import { AuthService } from '../../../services/auth.service';
       <!-- AUDIT -->
       <div *ngIf="tab === 'audit'" class="animate-fade-in">
         <h2 class="mb-4 text-xl font-bold">Who Accessed My Data</h2>
+        <p class="mb-3 text-xs text-muted">
+          Every access event is written on-chain: who viewed what, when, and from
+          which facility. Break-glass (emergency) access is logged too.
+        </p>
         <div class="max-h-[520px] overflow-y-auto">
           <table class="w-full overflow-hidden rounded-lg bg-white shadow-md">
             <thead>
@@ -218,6 +287,44 @@ import { AuthService } from '../../../services/auth.service';
         <p class="mb-0 mt-2 text-center text-[11px] text-muted">Approval grants 7 days of access and is logged on-chain.</p>
       </div>
     </div>
+
+    <!-- REFERRAL SEND MODAL (patient) -->
+    <div *ngIf="referralTab"
+         class="fixed inset-0 z-[70] flex items-center justify-center bg-black/35 p-4">
+      <div class="w-full max-w-lg rounded-xl bg-surface p-6 shadow-card">
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-lg font-bold">Send me to a hospital</h2>
+          <button (click)="referralTab = false" aria-label="Close"
+                  class="cursor-pointer rounded-lg p-1 text-muted hover:text-ink">✕</button>
+        </div>
+        <p class="mb-4 text-sm text-muted">
+          Choose the hospital you want to be referred to and why.
+          That hospital's staff or doctor must accept it before the referral is complete.
+        </p>
+        <div class="flex flex-col gap-3">
+          <select [(ngModel)]="referralForm.to_hospital"
+                  class="rounded-md border border-gray-300 px-3 py-2.5 text-sm">
+            <option value="" disabled>Select target hospital…</option>
+            <option *ngFor="let h of sendHospitals"
+                    [value]="h.code">{{ h.name }} ({{ h.code }})</option>
+          </select>
+          <textarea [(ngModel)]="referralForm.reason" rows="2"
+                    placeholder="e.g. specialist review, follow-up after discharge"
+                    class="rounded-md border border-gray-300 px-3 py-2.5 text-sm"></textarea>
+        </div>
+        <div class="mt-4 flex gap-2">
+          <button (click)="sendReferral()" [disabled]="sendBusy || !referralForm.to_hospital"
+                  class="flex-1 rounded-lg bg-accent-500 px-4 py-2.5 font-semibold text-white hover:bg-accent-600 disabled:opacity-50">
+            {{ sendBusy ? 'Sending…' : ' Send referral' }}
+          </button>
+          <button (click)="referralTab = false"
+                  class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-gray-50">
+            Cancel
+          </button>
+        </div>
+        <p *ngIf="sendMsg" class="mb-0 mt-3 text-sm" [class]="sendOk ? 'text-accent-700' : 'text-red-600'">{{ sendMsg }}</p>
+      </div>
+    </div>
   `,
 })
 export class PatientDashboardComponent implements OnInit, OnDestroy {
@@ -235,7 +342,16 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   requests: AccessRequest[] = [];
   loading = false;
   busy = false;
+  errorMsg = '';
   grant = { doctor_license: '', doctor_name: '', days: 7 };
+
+  // patient-initiated referral send
+  referralTab = false;
+  sendHospitals: { code: string; name: string }[] = [];
+  referralForm = { to_hospital: '', reason: '' };
+  sendBusy = false;
+  sendMsg = '';
+  sendOk = false;
 
   // --- Access-request notifications (popup) ---
   notifications: AccessRequest[] = [];
@@ -253,6 +369,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       this.router.navigate(['/login']);
       return;
     }
+    this.loadSendHospitals();
     await this.reload();
     this.startPolling();
   }
@@ -261,7 +378,20 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     if (this.pollTimer) clearInterval(this.pollTimer);
   }
 
-  /** Poll for new access requests so the popup appears without a refresh. */
+  /** Load the list of hospitals so the patient can pick where to go. */
+  private async loadSendHospitals() {
+    try {
+      this.sendHospitals = await this.api.hospitals();
+    } catch {
+      this.sendHospitals = [];
+    }
+  }
+
+  /**
+   * Poll every 15s: refresh access requests (popups) AND the core payload
+   * (records, measurements, referrals, audit trail) so the dashboard stays
+   * live — e.g. a doctor's VIEW event or a new record appears on its own.
+   */
   private startPolling() {
     this.pollTimer = setInterval(async () => {
       try {
@@ -269,6 +399,14 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
         this.syncNotifications();
       } catch {
         // offline tick — retry on the next cycle
+      }
+      // Silent background refresh: never toggles the loading spinner.
+      try {
+        const fresh = await this.api.myRecords();
+        this.data = fresh;
+        this.errorMsg = '';
+      } catch {
+        // offline tick — the current data stays on screen
       }
     }, 15000);
   }
@@ -294,19 +432,37 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   async reload() {
     this.loading = true;
+    this.errorMsg = '';
     try {
-      const [data, requests] = await Promise.all([
-        this.api.myRecords(),
-        this.api.myRequests().catch(() => [] as AccessRequest[]),
-      ]);
+      // Records first — render the dashboard as soon as the core payload
+      // arrives instead of waiting on the (non-critical) request list.
+      const data = await this.api.myRecords();
       this.data = data;
-      this.requests = requests;
-      this.syncNotifications();
     } catch (e: any) {
-      console.error('Failed to load patient data', e);
+      // 401 = token expired: log the user out so the login page handles it
+      if (e?.status === 401) {
+        this.auth.logout();
+        this.router.navigate(['/login']);
+        return;
+      }
+      this.errorMsg = e?.error?.error || e?.message || 'Could not load your records.';
+      this.loading = false;
+      return;
     } finally {
       this.loading = false;
     }
+
+    // Requests are non-blocking: the dashboard is already visible.
+    try {
+      this.requests = await this.api.myRequests();
+      this.syncNotifications();
+    } catch {
+      // non-critical — retry happens on the next poll tick
+    }
+  }
+
+  retry() {
+    void this.reload();
   }
 
   entries(data: any): { key: string; value: any }[] {
@@ -365,5 +521,37 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
     }
+  }
+
+  /** Patient sends a referral request to another hospital (staff/doctor must accept). */
+  async sendReferral() {
+    if (!this.referralForm.to_hospital) {
+      this.sendMsg = 'Choose a target hospital.';
+      this.sendOk = false;
+      return;
+    }
+    this.sendBusy = true;
+    this.sendMsg = '';
+    try {
+      const res: any = await this.api.sendPatientReferral({
+        to_hospital: this.referralForm.to_hospital,
+        reason: this.referralForm.reason.trim(),
+      });
+      this.sendOk = true;
+      this.sendMsg = res.message || 'Referral request sent — the receiving hospital must accept it.';
+      this.referralForm = { to_hospital: '', reason: '' };
+      await this.reload();
+    } catch (e: any) {
+      this.sendMsg = e?.error?.error || e?.message || 'Failed to send referral';
+      this.sendOk = false;
+    } finally {
+      this.sendBusy = false;
+    }
+  }
+
+  /** Log out and take the user back to the sign-in page. */
+  logoutAndRedirect() {
+    this.auth.logout();
+    this.router.navigate(['/login']);
   }
 }

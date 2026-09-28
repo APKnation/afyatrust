@@ -13,6 +13,7 @@ urlpatterns = [
     path("patient/my-records/", views.my_records),
     path("patient/measurements/", views.my_measurements),
     path("patient/referrals/", views.my_referrals),
+    path("patient/referrals/send/", views.patient_send_referral),
     path("patient/requests/", views.my_requests),
     path("patient/grant-access/", views.grant_access),
     path("patient/revoke-access/", views.revoke_access),

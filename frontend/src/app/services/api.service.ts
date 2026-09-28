@@ -31,7 +31,6 @@ export interface AccessRequest {
   id: number;
   patient_health_id?: string;
   patient_name?: string;
-  patient_health_id?: string;
   doctor_name: string;
   doctor_wallet: string;
   facility_id: string;

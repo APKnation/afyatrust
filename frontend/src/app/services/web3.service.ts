@@ -53,17 +53,23 @@ export class Web3Service {
     if (!this.signer) {
       await this.connect();
     }
-    return this.signer.getAddress();
+    return await this.signer!.getAddress();
   }
 
   async getNetwork(): Promise<string> {
-    const chainId = await this.provider?.getNetwork().catch(() => 'unknown');
-    return chainId;
+    if (!this.provider) return 'unknown';
+    try {
+      const net = await this.provider.getNetwork();
+      return net.name === 'unknown' ? `chainId:${net.chainId}` : net.name;
+    } catch {
+      return 'unknown';
+    }
   }
 
   async getBalance(): Promise<string> {
-    if (!this.signer) return '0';
-    const balance = await this.signer.getBalance();
+    if (!this.provider || !this.signer) return '0';
+    const address = await this.signer.getAddress();
+    const balance = await this.provider.getBalance(address);
     return ethers.formatEther(balance);
   }
 

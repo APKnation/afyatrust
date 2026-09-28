@@ -1,9 +1,12 @@
 import { Component } from '@angular/core';
+import { NgIf } from '@angular/common';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { WalletConnectComponent } from '../wallet-connect/wallet-connect';
+import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-navbar',
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, NgIf, WalletConnectComponent],
   template: `
     <nav class="navbar">
       <a class="logo" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
@@ -65,7 +68,8 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 export class NavbarComponent {
   role = '';
 
-  constructor() {
+  constructor(private auth: AuthService) {
     // role is populated by the wallet-connect component once connected
+    this.auth.role$.subscribe((role) => (this.role = role));
   }
 }

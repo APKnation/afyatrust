@@ -1,9 +1,13 @@
 import { Component, OnInit } from '@angular/core';
+import { NgIf, NgFor, SlicePipe, DatePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
+import { RecordCardComponent } from '../../shared/record-card/record-card';
 
 @Component({
   selector: 'app-patient-dashboard',
+  imports: [NgIf, NgFor, SlicePipe, DatePipe, FormsModule, RecordCardComponent],
   template: `
     <div class="dashboard">
       <div *ngIf="!patient" class="loading">
@@ -222,3 +226,88 @@ import { AuthService } from '../../../services/auth.service';
     .empty { text-align: center; color: #999; padding: 40px; font-style: italic; }
     .loading { text-align: center; padding: 50px; color: #666; }
   `]
+})
+export class PatientDashboard implements OnInit {
+  tab: 'records' | 'permissions' | 'requests' | 'audit' = 'records';
+  patient: any = null;
+  wallet = '';
+  permissions: any[] = [];
+  pendingRequests: any[] = [];
+  showGrantForm = false;
+  loading = false;
+  newPermission = { doctor_wallet: '', doctor_name: '', days: 7 };
+
+  constructor(private api: ApiService, private auth: AuthService) {}
+
+  async ngOnInit() {
+    this.wallet = this.auth.wallet;
+    await this.loadPatient();
+  }
+
+  async loadPatient() {
+    this.loading = true;
+    try {
+      const data = await this.api.myRecords();
+      this.patient = (data as any)?.data ?? data;
+      this.permissions = this.patient?.permissions || [];
+      this.pendingRequests = this.patient?.pendingRequests || [];
+    } catch (e: any) {
+      console.error('Failed to load patient data', e);
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  getDataEntries(data: any): { key: string; value: any }[] {
+    if (!data) return [];
+    return Object.entries(data).map(([key, value]) => ({ key, value }));
+  }
+
+  formatDate(value: any): string {
+    const ts = Number(value);
+    if (!isNaN(ts) && ts > 10000000000) return new Date(ts * 1000).toLocaleDateString();
+    return String(value);
+  }
+
+  async grantAccess() {
+    this.loading = true;
+    try {
+      await this.api.grantAccess(this.newPermission);
+      this.showGrantForm = false;
+      this.newPermission = { doctor_wallet: '', doctor_name: '', days: 7 };
+      await this.loadPatient();
+    } catch (e: any) {
+      alert('Hitilafu: ' + (e.error?.message || e.message || 'Imeshindikana'));
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  async revokeAccess(walletAddr: string) {
+    if (!confirm('Batilisha ruhusa kwa daktari huu?')) return;
+    try {
+      await this.api.revokeAccess(walletAddr);
+      await this.loadPatient();
+    } catch (e: any) {
+      alert('Hitilafu: ' + (e.error?.message || e.message || 'Imeshindikana'));
+    }
+  }
+
+  async approveRequest(req: any) {
+    try {
+      await this.api.approveRequest(req.id);
+      await this.loadPatient();
+    } catch (e: any) {
+      alert('Hitilafu: ' + (e.error?.message || e.message || 'Imeshindikana'));
+    }
+  }
+
+  async rejectRequest(req: any) {
+    try {
+      await this.api.rejectRequest(req.id);
+      await this.loadPatient();
+    } catch (e: any) {
+      alert('Hitilafu: ' + (e.error?.message || e.message || 'Imeshindikana'));
+    }
+  }
+}

@@ -17,6 +17,14 @@ export interface PatientRecord {
   tx_hash?: string;
 }
 
+export interface AuditEvent {
+  accessor: string;
+  role: string;
+  action: string;
+  facility?: string;
+  timestamp: number;
+}
+
 export interface PatientData {
   health_id: string;
   full_name: string;

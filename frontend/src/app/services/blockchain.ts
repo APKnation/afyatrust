@@ -2,8 +2,8 @@ import { Injectable } from '@angular/core';
 import { ethers } from 'ethers';
 import { environment } from '../../environments/environment';
 
-// Kamili: weka ABI kutoka blockchain/artifacts/contracts/AfyaTrust.sol/AfyaTrust.json
-// Kwa sasa tunatumia human-readable ABI kutoka environment.
+// Full ABI: paste from blockchain/artifacts/contracts/AfyaTrust.sol/AfyaTrust.json
+// For now we use the human-readable ABI from the environment file.
 const ABI = environment.contractABI;
 
 @Injectable({ providedIn: 'root' })
@@ -14,7 +14,7 @@ export class BlockchainService {
 
   async connect(): Promise<string> {
     if (!(window as any).ethereum) {
-      throw new Error('Tafadhali install MetaMask!');
+      throw new Error('Please install MetaMask!');
     }
 
     this.provider = new ethers.BrowserProvider((window as any).ethereum);

@@ -10,7 +10,7 @@ import { Web3Service } from '../../../services/web3.service';
   template: `
     <div class="wallet-box">
       <button *ngIf="!wallet" (click)="connect()" class="btn-connect">
-        🦊 Unganisha MetaMask
+        🦊 Connect MetaMask
       </button>
 
       <div *ngIf="wallet" class="wallet-info">
@@ -21,7 +21,7 @@ import { Web3Service } from '../../../services/web3.service';
           {{ network }}
         </span>
         <span class="balance">{{ balance }} ETH</span>
-        <button (click)="disconnect()" class="btn-disconnect">Ondoa</button>
+        <button (click)="disconnect()" class="btn-disconnect">Disconnect</button>
       </div>
     </div>
   `,
@@ -71,7 +71,7 @@ export class WalletConnectComponent implements OnInit {
       this.network = await this.web3.getNetwork();
       this.balance = await this.web3.getBalance();
     } catch (e: any) {
-      alert('Hitilafu: ' + e.message);
+      alert('Error: ' + e.message);
     }
   }
 

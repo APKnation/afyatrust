@@ -65,7 +65,7 @@ export class ApiService {
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
-      const err = new Error('Hapana, kutoa data');
+      const err = new Error('Request failed');
       (err as any).status = res.status;
       (err as any).error = data;
       throw err;

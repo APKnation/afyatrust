@@ -10,56 +10,56 @@ import { AuthService } from '../../../services/auth.service';
   template: `
     <div class="dashboard" *ngIf="!loading && !doctorsRecord; else content">
       <div class="loading">
-        <h2>Inapakia data...</h2>
-        <p>Sisitafuta data.</p>
+        <h2>Loading data...</h2>
+        <p>Please wait.</p>
       </div>
     </div>
 
     <ng-template #content>
       <div class="dashboard">
         <div class="welcome-card">
-          <h1>Daktari, Karibu</h1>
-          <p>Sajili data yako kwa migogoro yako (requests) kutoka kwa mgonjwa.</p>
+          <h1>Welcome, Doctor</h1>
+          <p>View and respond to access requests from your patients.</p>
           <p>Wallet: <code>{{ wallet | slice:0:10 }}...{{ wallet | slice:-8 }}</code></p>
         </div>
 
         <div class="panel">
-          <h2>Maombi Yako ya Ruhusa</h2>
+          <h2>Access Requests</h2>
           <div class="panel-toolbar">
             <input
               [(ngModel)]="searchQuery"
-              placeholder="Tafuta kwa jina au facility..."
+              placeholder="Search by name or facility..."
             />
           </div>
 
           <div *ngIf="!requests.length" class="empty">
-            Hakuna maombi mapya. Kwa madhara, tepua kwa mgonjwa.
+            No new requests. Access appears here after a patient approves it.
           </div>
 
           <div *ngFor="let req of filteredRequests" class="request-card">
             <div class="request-main">
-              <p><strong>Mgonjwa:</strong> {{ req.patient_name }}</p>
+              <p><strong>Patient:</strong> {{ req.patient_name }}</p>
               <p><strong>Health ID:</strong> {{ req.patient_health_id }}</p>
-              <p><strong>Kituo:</strong> {{ req.facility_id }}</p>
+              <p><strong>Facility:</strong> {{ req.facility_id }}</p>
               <p class="reason">💬 {{ req.reason }}</p>
               <p class="time">📅 {{ req.created_at | date:'medium' }}</p>
             </div>
             <div class="request-actions">
-              <button (click)="handleAccessRequest(req, 'grant')" class="btn btn-success">✅ Ruhusa</button>
+              <button (click)="handleAccessRequest(req, 'grant')" class="btn btn-success">✅ Grant</button>
               <button (click)="handleAccessRequest(req, 'break-glass')" class="btn btn-primary">🔓 Break-Glass</button>
-              <button (click)="handleAccessRequest(req, 'reject')" class="btn btn-danger">❌ Kataa</button>
+              <button (click)="handleAccessRequest(req, 'reject')" class="btn btn-danger">❌ Reject</button>
             </div>
           </div>
         </div>
 
         <div class="panel">
-          <h2>Greta ya Data (View Record)</h2>
+          <h2>View Patient Records</h2>
           <div class="search-box">
-            <input [(ngModel)]="recordHealthId" placeholder="Health ID ya mgonjwa" />
+            <input [(ngModel)]="recordHealthId" placeholder="Patient's Health ID" />
             <input [(ngModel)]="recordFacility" placeholder="Facility ID" />
-            <button (click)="viewRecord()" class="btn btn-primary">🔍 Fikiria</button>
+            <button (click)="viewRecord()" class="btn btn-primary">🔍 View</button>
           </div>
-          <p class="hint">Kwa kupata ruhusa, untakusudiwa kwa mgonjwa.</p>
+          <p class="hint">With permission, you can view the patient's full record.</p>
 
           <div *ngIf="records.length" class="record-scroll">
             <div *ngFor="let rec of records" class="record-card">
@@ -269,7 +269,7 @@ export class DoctorLandingComponent implements OnInit {
       await this.loadPendingRequests();
       await this.loadRecords();
     } catch (e: any) {
-      alert('Hitilafu: ' + (e.error?.message || e.message || 'Kitatipatia'));
+      alert('Error: ' + (e.error?.message || e.message || 'Something went wrong'));
     }
   }
 
@@ -284,7 +284,7 @@ export class DoctorLandingComponent implements OnInit {
       const data = await this.api.doctorViewRecord(this.recordHealthId, this.recordFacility || undefined);
       this.records = (data as any)?.data?.records || [];
     } catch (e: any) {
-      alert('Hitilafu: ' + (e.error?.message || e.message || 'Kitatipatia'));
+      alert('Error: ' + (e.error?.message || e.message || 'Something went wrong'));
     }
   }
 

@@ -8,32 +8,32 @@ import { Router } from '@angular/router';
   template: `
     <div class="register">
       <div class="card">
-        <h1>Usajili</h1>
-        <p>Jaza data yako ili afyatrust iweze kusajiliwa na kudumisha data yako ya takdiri.</p>
+        <h1>Register</h1>
+        <p>Fill in your details to register with AfyaTrust and manage your health records.</p>
 
         <form (ngSubmit)="register()" #form="ngForm" class="form">
           <label class="field">
-            <span>Jina</span>
+            <span>Full Name</span>
             <input type="text" name="full_name" [(ngModel)]="model.full_name" required />
           </label>
 
           <label class="field">
-            <span>Idi ya Afya (Health ID)</span>
+            <span>Health ID</span>
             <input type="text" name="health_id" [(ngModel)]="model.health_id" required />
           </label>
 
           <label class="field">
-            <span>Wallet ya Kidijiti (0x...)</span>
+            <span>Wallet Address (0x...)</span>
             <input type="text" name="wallet_address" [(ngModel)]="model.wallet_address" required />
           </label>
 
           <label class="field">
-            <span>Simu (chakua safu)</span>
+            <span>Phone (optional)</span>
             <input type="text" name="phone" [(ngModel)]="model.phone" />
           </label>
 
           <div class="form-actions">
-            <button type="submit" class="btn btn-primary"><span>Salamu</span></button>
+            <button type="submit" class="btn btn-primary">Register</button>
           </div>
         </form>
       </div>
@@ -143,6 +143,5 @@ export class RegisterComponent {
     // (Olunyongo: this model is bound to the form and posts directly to the API endpoint.)
     console.log('Registering:', this.model);
     this.router.navigate(['/']);
-    alert('Hitilafu: Sijafanyika; weka programu');
   }
 }

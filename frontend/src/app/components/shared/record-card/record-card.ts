@@ -9,8 +9,8 @@ import { NgIf, NgFor, DatePipe, SlicePipe } from '@angular/common';
       <div class="record-header">
         <span class="facility">🏥 {{ record.facility }}</span>
         <span class="date">📅 {{ record.date | date:'medium' }}</span>
-        <span *ngIf="record.verified" class="verified">✅ Imethibitishwa</span>
-        <span *ngIf="!record.verified" class="unverified">⚠️ Haijathibitishwa</span>
+        <span *ngIf="record.verified" class="verified">✅ Verified</span>
+        <span *ngIf="!record.verified" class="unverified">⚠️ Unverified</span>
       </div>
 
       <div class="record-type">
@@ -31,7 +31,7 @@ import { NgIf, NgFor, DatePipe, SlicePipe } from '@angular/common';
         <a *ngIf="record.tx_hash"
            href="https://sepolia.etherscan.io/tx/{{ record.tx_hash }}"
            target="_blank" class="etherscan-link">
-          🔗 Angalia kwenye Etherscan
+          🔗 View on Etherscan
         </a>
       </div>
     </div>

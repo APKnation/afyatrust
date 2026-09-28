@@ -7,15 +7,15 @@ import { RouterLink } from '@angular/router';
   template: `
     <div class="hero">
       <div class="hero-copy">
-        <h1>Uchunguzi wa Matibabu wa Kidijiti</h1>
+        <h1>Digital Health Records</h1>
         <p>
-          AfyaTrust inaruhusu mgonjwa anaweza kukusanya data ya
-          matibabu kwa urekebishaji wa kidijiti. Daktari anaweza kupata
-          rekodi hasa kwa mgonjwa wake — bila kufanya mshtaki.
+          AfyaTrust lets patients own and control their medical records
+          digitally. Doctors get instant access to their patients' records —
+          with the patient's consent, secured on-chain.
         </p>
         <div class="hero-buttons">
-          <a routerLink="/register" class="btn btn-primary">Usajili</a>
-          <a routerLink="/patient" class="btn btn-ghost">Mgonjwa</a>
+          <a routerLink="/register" class="btn btn-primary">Register</a>
+          <a routerLink="/patient" class="btn btn-ghost">Patient</a>
         </div>
       </div>
       <div class="hero-visual">
@@ -33,32 +33,32 @@ import { RouterLink } from '@angular/router';
 
     <section class="features">
       <div class="card">
-        <h2>🔐 Rekaya ya Kidijiti</h2>
-        <p>Recodi ya kila matibua inachukuliwa kidijiti, na tu mzungu unaofaa anaweza kuvunja.</p>
+        <h2>🔐 Digital Records</h2>
+        <p>Every medical record is stored digitally, and only the right person can access it.</p>
         <ul>
-          <li>Data inachukuliwa kwenye blockchain</li>
-          <li>Ruhusa ina siku yoyote</li>
-          <li>Tunatolea kila kitendo</li>
+          <li>Data secured on the blockchain</li>
+          <li>Permissions with expiry dates</li>
+          <li>Every access is logged</li>
         </ul>
       </div>
 
       <div class="card">
-        <h2>👨‍⚕️ Daktari</h2>
-        <p>Daktari anaweza kufikia data ya mgonjwa wake kwa urekebishaji wa kidijiti.</p>
+        <h2>👨‍⚕️ For Doctors</h2>
+        <p>Doctors access patient records instantly with the patient's consent.</p>
         <ul>
-          <li>Kupata ruhusa kutoka kwa mgonjwa</li>
-          <li>Kitu cha kufikia (break-glass) hasa</li>
-          <li>Log isiyo ya kufikia</li>
+          <li>Request access from patients</li>
+          <li>Emergency break-glass access</li>
+          <li>Tamper-proof audit log</li>
         </ul>
       </div>
 
       <div class="card">
-        <h2>📱 Mvumbe</h2>
-        <p>Kwa mvumbe unaweza kuwasajili mgonjwa, kusoma rekodi, na kuweka ruhusa.</p>
+        <h2>📱 For Patients</h2>
+        <p>As a patient you can register, view your records, and manage who can see them.</p>
         <ul>
-          <li>Usajili kwa Jina & Mtandao</li>
-          <li>Kujisajili kwa kidijiti</li>
-          <li>Matibua yako yote</li>
+          <li>Register with name & wallet</li>
+          <li>Full digital history</li>
+          <li>All your records in one place</li>
         </ul>
       </div>
     </section>

@@ -17,7 +17,7 @@ export class Web3Service {
 
   async connect(): Promise<string> {
     if (!(window as any).ethereum) {
-      throw new Error('Tafadhali ingia MetaMask! Stahaki');
+      throw new Error('Please install MetaMask to continue');
     }
 
     const ethereum = window as any;

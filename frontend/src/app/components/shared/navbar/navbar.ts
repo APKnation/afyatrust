@@ -14,11 +14,11 @@ import { AuthService } from '../../../services/auth.service';
       </a>
 
       <div class="nav-links">
-        <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Nyumbani</a>
-        <a routerLink="/register" routerLinkActive="active">Usajili</a>
+        <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
+        <a routerLink="/register" routerLinkActive="active">Register</a>
 
-        <a *ngIf="role === 'PATIENT'" routerLink="/patient" routerLinkActive="active">Mgonjwa</a>
-        <a *ngIf="role === 'DOCTOR'" routerLink="/doctor" routerLinkActive="active">Daktari</a>
+        <a *ngIf="role === 'PATIENT'" routerLink="/patient" routerLinkActive="active">Patient</a>
+        <a *ngIf="role === 'DOCTOR'" routerLink="/doctor" routerLinkActive="active">Doctor</a>
       </div>
 
       <app-wallet-connect />

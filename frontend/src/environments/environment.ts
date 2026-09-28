@@ -1,11 +1,11 @@
 export const environment = {
   production: false,
   apiUrl: 'http://localhost:8000/api',
-  contractAddress: '0x...WEKA_ADDRESS_YAKO_HAPA',
+  contractAddress: '0x...PASTE_YOUR_ADDRESS_HERE',
   chainId: 11155111,
   contractABI: [
-    // Weka ABI kamili kutoka blockchain/artifacts/contracts/AfyaTrust.sol/AfyaTrust.json
-    // Kwa mfano:
+    // Paste the full ABI from blockchain/artifacts/contracts/AfyaTrust.sol/AfyaTrust.json
+    // For example:
     "function registerPatient(string,address,string) public",
     "function getMyRecords() public view returns (tuple(string,string,string,string,uint256)[])",
     "function getMyAuditTrail() public view returns (tuple(string,address,string,string,string,uint256)[])",

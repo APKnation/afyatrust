@@ -11,105 +11,105 @@ import { RecordCardComponent } from '../../shared/record-card/record-card';
   template: `
     <div class="dashboard">
       <div *ngIf="!patient" class="loading">
-        <h2>Inapakia...</h2>
+        <h2>Loading...</h2>
       </div>
 
       <div *ngIf="patient">
         <div class="welcome-card">
-          <h1>Karibu, {{ patient.full_name }}</h1>
+          <h1>Welcome, {{ patient.full_name }}</h1>
           <p>Health ID: <strong>{{ patient.health_id }}</strong></p>
           <p>Wallet: <code>{{ wallet | slice:0:10 }}...{{ wallet | slice:-8 }}</code></p>
         </div>
 
         <div class="tabs">
           <button [class.active]="tab==='records'" (click)="tab='records'">
-            📋 Records Zangu ({{ patient.records.length }})
+            📋 My Records ({{ patient.records.length }})
           </button>
           <button [class.active]="tab==='permissions'" (click)="tab='permissions'">
-            🔐 Ruhusa Zangu
+            🔐 My Permissions
           </button>
           <button [class.active]="tab==='requests'" (click)="tab='requests'">
-            📬 Maombi <span *ngIf="pendingRequests.length > 0" class="badge">{{ pendingRequests.length }}</span>
+            📬 Requests <span *ngIf="pendingRequests.length > 0" class="badge">{{ pendingRequests.length }}</span>
           </button>
           <button [class.active]="tab==='audit'" (click)="tab='audit'">
-            👁️ Nani Ameona Data Yangu
+            👁️ Who Viewed My Data
           </button>
         </div>
 
         <!-- RECORDS -->
         <div *ngIf="tab==='records'" class="tab-content">
-          <h2>Historia Yako ya Matibabu</h2>
+          <h2>My Medical History</h2>
           <app-record-card *ngFor="let rec of patient.records" [record]="rec"></app-record-card>
           <p *ngIf="patient.records.length === 0" class="empty">
-            Huna records bado. Tembelea hospitali iliyosajiliwa.
+            No records yet. Visit a registered facility to get started.
           </p>
         </div>
 
         <!-- PERMISSIONS -->
         <div *ngIf="tab==='permissions'" class="tab-content">
           <div class="header-actions">
-            <h2>Ruhusa Uliyotoa</h2>
+            <h2>Permissions You Granted</h2>
             <button (click)="showGrantForm=true" class="btn-primary">
-              ➕ Toa Ruhusa kwa Daktari
+              ➕ Grant Doctor Access
             </button>
           </div>
 
           <div *ngIf="showGrantForm" class="form-card">
-            <h3>Toa Ruhusa</h3>
-            <input [(ngModel)]="newPermission.doctor_wallet" placeholder="Wallet ya Daktari (0x...)">
-            <input [(ngModel)]="newPermission.doctor_name" placeholder="Jina la Daktari">
-            <input type="number" [(ngModel)]="newPermission.days" placeholder="Siku (mfano 7)" min="1">
+            <h3>Grant Access</h3>
+            <input [(ngModel)]="newPermission.doctor_wallet" placeholder="Doctor's wallet (0x...)">
+            <input [(ngModel)]="newPermission.doctor_name" placeholder="Doctor's name">
+            <input type="number" [(ngModel)]="newPermission.days" placeholder="Days (e.g. 7)" min="1">
             <div class="form-actions">
               <button (click)="grantAccess()" [disabled]="loading" class="btn-success">
-                {{ loading ? 'Inatuma...' : '✅ Toa Ruhusa' }}
+                {{ loading ? 'Sending...' : '✅ Grant Access' }}
               </button>
-              <button (click)="showGrantForm=false" class="btn-secondary">Ghairi</button>
+              <button (click)="showGrantForm=false" class="btn-secondary">Cancel</button>
             </div>
           </div>
 
           <div *ngFor="let perm of permissions" class="permission-card">
             <div class="perm-info">
-              <p><strong>👨‍⚕️ {{ perm.doctor_name || 'Daktari' }}</strong></p>
+              <p><strong>👨‍⚕️ {{ perm.doctor_name || 'Doctor' }}</strong></p>
               <p class="wallet">Wallet: <code>{{ perm.grantedTo || perm.doctor_wallet }}</code></p>
-              <p class="expiry">📅 Inaisha: {{ formatDate(perm.expiry) }}</p>
+              <p class="expiry">📅 Expires: {{ formatDate(perm.expiry) }}</p>
               <p class="granted-by">
-                Imetolewa na: <span [class]="'role-' + perm.grantedByRole?.toLowerCase()">
+                Granted by: <span [class]="'role-' + perm.grantedByRole?.toLowerCase()">
                   {{ perm.grantedByRole }}
                 </span>
               </p>
             </div>
             <button (click)="revokeAccess(perm.grantedTo || perm.doctor_wallet)"
-                    class="btn-danger">❌ Batilisha</button>
+                    class="btn-danger">❌ Revoke</button>
           </div>
-          <p *ngIf="permissions.length === 0" class="empty">Hujatoa ruhusa yoyote bado.</p>
+          <p *ngIf="permissions.length === 0" class="empty">You haven't granted any access yet.</p>
         </div>
 
         <!-- REQUESTS -->
         <div *ngIf="tab==='requests'" class="tab-content">
-          <h2>Maombi ya Ruhusa</h2>
+          <h2>Access Requests</h2>
           <div *ngFor="let req of pendingRequests" class="request-card">
-            <p><strong>👨‍⚕️ {{ req.doctor_name }}</strong> kutoka <strong>{{ req.facility_id }}</strong></p>
+            <p><strong>👨‍⚕️ {{ req.doctor_name }}</strong> from <strong>{{ req.facility_id }}</strong></p>
             <p class="reason">💬 {{ req.reason }}</p>
             <p class="time">📅 {{ req.created_at | date:'medium' }}</p>
             <div class="actions">
-              <button (click)="approveRequest(req)" class="btn-success">✅ Kubali</button>
-              <button (click)="rejectRequest(req)" class="btn-danger">❌ Kataa</button>
+              <button (click)="approveRequest(req)" class="btn-success">✅ Approve</button>
+              <button (click)="rejectRequest(req)" class="btn btn-danger">❌ Reject</button>
             </div>
           </div>
-          <p *ngIf="pendingRequests.length === 0" class="empty">Hakuna maombi mapya.</p>
+          <p *ngIf="pendingRequests.length === 0" class="empty">No new requests.</p>
         </div>
 
         <!-- AUDIT -->
         <div *ngIf="tab==='audit'" class="tab-content">
-          <h2>Nani Ameona Data Yangu</h2>
+          <h2>Who Viewed My Data</h2>
           <table class="audit-table">
             <thead>
               <tr>
-                <th>Tarehe</th>
-                <th>Mtu</th>
-                <th>Jukumu</th>
-                <th>Kitendo</th>
-                <th>Kituo</th>
+                <th>Date</th>
+                <th>Who</th>
+                <th>Role</th>
+                <th>Action</th>
+                <th>Facility</th>
               </tr>
             </thead>
             <tbody>
@@ -131,7 +131,7 @@ import { RecordCardComponent } from '../../shared/record-card/record-card';
             </tbody>
           </table>
           <p *ngIf="patient.audit_trail.length === 0" class="empty">
-            Hakuna shughuli bado.
+            No activity yet.
           </p>
         </div>
       </div>
@@ -277,19 +277,19 @@ export class PatientDashboard implements OnInit {
       this.newPermission = { doctor_wallet: '', doctor_name: '', days: 7 };
       await this.loadPatient();
     } catch (e: any) {
-      alert('Hitilafu: ' + (e.error?.message || e.message || 'Imeshindikana'));
+      alert('Error: ' + (e.error?.message || e.message || 'Something went wrong'));
     } finally {
       this.loading = false;
     }
   }
 
   async revokeAccess(walletAddr: string) {
-    if (!confirm('Batilisha ruhusa kwa daktari huu?')) return;
+    if (!confirm('Revoke access for this doctor?')) return;
     try {
       await this.api.revokeAccess(walletAddr);
       await this.loadPatient();
     } catch (e: any) {
-      alert('Hitilafu: ' + (e.error?.message || e.message || 'Imeshindikana'));
+      alert('Error: ' + (e.error?.message || e.message || 'Something went wrong'));
     }
   }
 
@@ -298,7 +298,7 @@ export class PatientDashboard implements OnInit {
       await this.api.approveRequest(req.id);
       await this.loadPatient();
     } catch (e: any) {
-      alert('Hitilafu: ' + (e.error?.message || e.message || 'Imeshindikana'));
+      alert('Error: ' + (e.error?.message || e.message || 'Something went wrong'));
     }
   }
 
@@ -307,7 +307,7 @@ export class PatientDashboard implements OnInit {
       await this.api.rejectRequest(req.id);
       await this.loadPatient();
     } catch (e: any) {
-      alert('Hitilafu: ' + (e.error?.message || e.message || 'Imeshindikana'));
+      alert('Error: ' + (e.error?.message || e.message || 'Something went wrong'));
     }
   }
 }

@@ -5,6 +5,7 @@ records, permissions, doctor access check, and break-glass.
 """
 import hashlib
 import json
+import re
 
 from django.contrib.auth.hashers import make_password, check_password
 from django.utils import timezone
@@ -14,9 +15,27 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Patient, MedicalRecord, AccessRequest, Doctor
+from .models import (
+    AccessGrant, AccessRequest, Doctor, Hospital, Measurement, MedicalRecord, Patient, Referral,
+)
 from . import wallet_manager
 from .blockchain import contract, send_transaction, ensure_gas, facility_address
+
+
+def _doctor_from_request(request):
+    """Resolve the JWT-authenticated doctor (APPROVED only) from the token."""
+    if not request.auth or request.auth.get("role") != "DOCTOR":
+        return None
+    return Doctor.objects.filter(
+        license_no__iexact=request.auth.get("license_no", ""), status="APPROVED"
+    ).first()
+
+
+def _patient_from_request(request):
+    """Resolve the JWT-authenticated patient from the token."""
+    return Patient.objects.filter(
+        health_id=request.auth.get("health_id", "") if request.auth else ""
+    ).first()
 
 
 def _audit(patient, events):
@@ -35,12 +54,13 @@ def _audit(patient, events):
     return events
 
 
-# ============ 1. REGISTER (facility registers patient) ============
+# ============ 1. REGISTER (patient self-registration; facility may call) ============
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def register_patient(request):
-    """Create custodial wallet, register on-chain, store patient with PIN."""
+    """Create custodial wallet, register on-chain, store patient with PIN.
+    The registering doctor's hospital (when provided) is recorded."""
     data = request.data
     required = ["health_id", "full_name", "pin"]
     missing = [f for f in required if not data.get(f)]
@@ -67,7 +87,20 @@ def register_patient(request):
         # but tell the caller the on-chain step was skipped.
         tx_hash = f"PENDING: {e}"
 
-    # 3. Store patient
+    # 3. Store patient (hospital resolved from the registering doctor's JWT
+    # or an explicit facility_id, so patients can also be registered at the desk)
+    hospital = None
+    reg_facility = str(data.get("facility_id", "")).strip()
+    if request.auth and request.auth.get("role") == "DOCTOR":
+        reg_doctor = Doctor.objects.filter(
+            license_no__iexact=request.auth.get("license_no", "")
+        ).first()
+        if reg_doctor:
+            hospital = reg_doctor.hospital
+            reg_facility = reg_facility or reg_doctor.facility_id
+    if not hospital and reg_facility:
+        hospital = Hospital.objects.filter(code__iexact=reg_facility).first()
+
     patient = Patient.objects.create(
         health_id=data["health_id"],
         full_name=data["full_name"],
@@ -76,7 +109,8 @@ def register_patient(request):
         wallet_address=wallet["address"],
         encrypted_private_key=wallet["encrypted_key"],
         encryption_iv=wallet["iv"],
-        registered_by_facility=data.get("facility_id", ""),
+        registered_by_facility=reg_facility,
+        hospital=hospital,
     )
 
     return Response({
@@ -119,9 +153,8 @@ def login(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def my_records(request):
-    """Patient's own records + audit trail (read from token claims)."""
-    health_id = request.auth.get("health_id") if request.auth else None
-    patient = Patient.objects.filter(health_id=health_id).first()
+    """Patient's own records, measurements, referrals + audit trail."""
+    patient = _patient_from_request(request)
     if not patient:
         return Response({"error": "Patient not found"}, status=404)
 
@@ -142,6 +175,24 @@ def my_records(request):
             "date": r.created_at,
             "verified": bool(r.tx_hash) and not r.tx_hash.startswith("PENDING"),
         } for r in patient.records.all()],
+        "measurements": [{
+            "id": m.id,
+            "kind": m.kind,
+            "value": m.value,
+            "unit": m.unit,
+            "notes": m.notes,
+            "doctor": m.doctor.full_name if m.doctor else "",
+            "hospital": m.hospital.name if m.hospital else "",
+            "date": m.created_at,
+        } for m in patient.measurements.all()],
+        "referrals": [{
+            "id": r.id,
+            "to_hospital": r.to_hospital.name,
+            "to_hospital_code": r.to_hospital.code,
+            "reason": r.reason,
+            "status": r.status,
+            "date": r.created_at,
+        } for r in patient.referrals.all()],
         "audit_trail": events,
     })
 
@@ -158,11 +209,24 @@ def grant_access(request):
     if not patient:
         return Response({"error": "Patient not found"}, status=404)
 
-    doctor_wallet = request.data.get("doctor_wallet", "").strip()
-    doctor_name = request.data.get("doctor_name", "").strip()
+    doctor_license = str(request.data.get("doctor_license", "")).strip()
+    doctor_wallet = str(request.data.get("doctor_wallet", "")).strip()
+    doctor_name = str(request.data.get("doctor_name", "")).strip()
     days = int(request.data.get("days", 7))
+
+    # Patients grant by license number (doctors have no visible wallet);
+    # a raw wallet is still accepted for the PoC API.
+    doc = None
+    if doctor_license:
+        doc = Doctor.objects.filter(license_no__iexact=doctor_license).first()
+        if not doc:
+            return Response({"error": "No doctor found with that license number"}, status=404)
+        doctor_wallet = doctor_wallet or doc.wallet_address
+        doctor_name = doctor_name or doc.full_name
+    elif doctor_wallet:
+        doc = Doctor.objects.filter(wallet_address__iexact=doctor_wallet).first()
     if not doctor_wallet:
-        return Response({"error": "doctor_wallet is required"}, status=400)
+        return Response({"error": "doctor_license or doctor_wallet is required"}, status=400)
 
     # The contract attributes the grant to the patient wallet itself, so the
     # patient's custodial key signs (facility tops up gas first).
@@ -179,6 +243,16 @@ def grant_access(request):
     except Exception as e:
         tx_hash = f"PENDING: {e}"
 
+    if doc:
+        AccessGrant.objects.update_or_create(
+            patient=patient, doctor=doc,
+            defaults={
+                "tx_hash": tx_hash,
+                "active": not tx_hash.startswith("PENDING"),
+                "expires_at": timezone.now() + timezone.timedelta(days=days),
+            },
+        )
+
     return Response({
         "status": "success",
         "message": f"Access granted to {doctor_name or doctor_wallet} for {days} days",
@@ -190,13 +264,19 @@ def grant_access(request):
 @permission_classes([IsAuthenticated])
 def revoke_access(request):
     """Patient revokes a doctor's access."""
-    patient = Patient.objects.filter(
-        health_id=request.auth.get("health_id", "")
-    ).first()
+    patient = _patient_from_request(request)
     if not patient:
         return Response({"error": "Patient not found"}, status=404)
 
-    doctor_wallet = request.data.get("doctor_wallet", "").strip()
+    doctor_license = str(request.data.get("doctor_license", "")).strip()
+    doctor_wallet = str(request.data.get("doctor_wallet", "")).strip()
+    if doctor_license and not doctor_wallet:
+        doc = Doctor.objects.filter(license_no__iexact=doctor_license).first()
+        if not doc:
+            return Response({"error": "No doctor found with that license number"}, status=404)
+        doctor_wallet = doc.wallet_address
+    if not doctor_wallet:
+        return Response({"error": "doctor_license or doctor_wallet is required"}, status=400)
     try:
         ensure_gas(patient.wallet_address)
         patient_key = wallet_manager.get_private_key(
@@ -209,71 +289,135 @@ def revoke_access(request):
     except Exception as e:
         tx_hash = f"PENDING: {e}"
 
+    AccessGrant.objects.filter(
+        patient=patient, doctor__wallet_address__iexact=doctor_wallet
+    ).update(active=False)
+
     return Response({"status": "success", "tx_hash": tx_hash})
 
 
-# ============ 5. DOCTOR: REGISTRY (verified doctors only) ============
+# ============ 5. DOCTOR: REGISTER + LOGIN (PIN, no MetaMask) ============
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def doctor_register(request):
-    """Doctor self-registers with a license number. An admin approves the
-    account in the Django admin before any patient data can be accessed."""
+    """Doctor registers with license number + 4-digit PIN + hospital code.
+    A custodial wallet is generated (doctors never see MetaMask, same as
+    patients). An admin approves the account in the Django admin before
+    login and any patient data access."""
     data = request.data
-    required = ["full_name", "license_no", "wallet_address", "facility_id"]
+    required = ["full_name", "license_no", "pin", "hospital_code"]
     missing = [f for f in required if not data.get(f)]
     if missing:
-        return Response({"error": f"Missing fields: {', '.join(missing)}"}, status=400)
+        return Response({"error": f"Missing fields: {', '.join(missing)}"},
+                        status=status.HTTP_400_BAD_REQUEST)
 
-    wallet = data["wallet_address"].strip()
-    license_no = data["license_no"].strip()
-    if Doctor.objects.filter(wallet_address__iexact=wallet).exists():
-        return Response({"error": "This wallet is already registered"}, status=409)
+    license_no = str(data["license_no"]).strip()
+    hospital_code = str(data["hospital_code"]).strip()
+    pin = str(data["pin"]).strip()
+    if not re.fullmatch(r"\d{4}", pin):
+        return Response({"error": "PIN must be exactly 4 digits"}, status=400)
+
+    hospital = Hospital.objects.filter(code__iexact=hospital_code).first()
+    if not hospital:
+        return Response({"error": "Unknown hospital code. Ask the administrator to register your hospital."},
+                        status=status.HTTP_400_BAD_REQUEST)
     if Doctor.objects.filter(license_no__iexact=license_no).exists():
         return Response({"error": "This license number is already registered"}, status=409)
+
+    # Custodial wallet, exactly like patients — doctors never touch MetaMask.
+    wallet = wallet_manager.create_wallet()
 
     doctor = Doctor.objects.create(
         full_name=data["full_name"].strip(),
         license_no=license_no,
-        wallet_address=wallet,
-        facility_id=data["facility_id"].strip(),
+        pin_hash=make_password(pin),
+        facility_id=hospital.code,
+        hospital=hospital,
+        wallet_address=wallet["address"],
     )
     return Response({
         "status": "PENDING",
         "doctor_id": doctor.id,
         "message": "Registration received. An administrator must approve your account "
-                   "before you can access patient data.",
+                   "before you can log in and access patient data.",
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def doctor_login(request):
+    """Doctor login: license number + 4-digit PIN -> JWT (role=DOCTOR).
+    Only APPROVED doctors can log in."""
+    license_no = str(request.data.get("license_no", "")).strip()
+    pin = str(request.data.get("pin", "")).strip()
+
+    doctor = Doctor.objects.filter(license_no__iexact=license_no).first()
+    if not doctor or not doctor.pin_hash or not check_password(pin, doctor.pin_hash):
+        return Response({"error": "Invalid license number or PIN"},
+                        status=status.HTTP_401_UNAUTHORIZED)
+    if doctor.status != "APPROVED":
+        return Response({"error": "Account not approved yet. Contact the administrator."},
+                        status=status.HTTP_403_FORBIDDEN)
+
+    refresh = RefreshToken()
+    refresh["license_no"] = doctor.license_no
+    refresh["wallet_address"] = doctor.wallet_address
+    refresh["role"] = "DOCTOR"
+
+    return Response({
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+        "role": "DOCTOR",
+        "license_no": doctor.license_no,
+        "full_name": doctor.full_name,
+        "hospital_code": doctor.facility_id,
+        "wallet_address": doctor.wallet_address,
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def doctor_me(request):
+    """Current doctor profile (from JWT claims)."""
+    doctor = _doctor_from_request(request)
+    if not doctor:
+        return Response({"error": "Doctor not found"}, status=404)
+    return Response({
+        "license_no": doctor.license_no,
+        "full_name": doctor.full_name,
+        "hospital_code": doctor.facility_id,
+        "hospital_name": doctor.hospital.name if doctor.hospital else "",
+        "wallet_address": doctor.wallet_address,
+        "status": doctor.status,
+    })
 
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def doctor_status(request):
-    """Doctor checks their verification status by wallet address."""
-    wallet = request.query_params.get("wallet", "").strip()
-    doctor = Doctor.objects.filter(wallet_address__iexact=wallet).first()
+    """Doctor checks their registration/approval status by license number."""
+    license_no = request.query_params.get("license_no", "").strip()
+    doctor = Doctor.objects.filter(license_no__iexact=license_no).first()
     if not doctor:
         return Response({"registered": False})
     return Response({
         "registered": True,
         "status": doctor.status,
         "full_name": doctor.full_name,
-        "facility_id": doctor.facility_id,
+        "hospital_code": doctor.facility_id,
     })
 
 
 # ============ 5b. DOCTOR: REQUEST + VIEW RECORD ============
 
 @api_view(["POST"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def request_access(request):
     """Verified doctor asks the patient for access (off-chain request)."""
     data = request.data
-
-    doctor = Doctor.objects.filter(
-        wallet_address__iexact=data.get("doctor_wallet", "")
-    ).first()
-    if not doctor or doctor.status != "APPROVED":
+    doctor = _doctor_from_request(request)
+    if not doctor:
         return Response(
             {"error": "Doctor not verified. Register and wait for admin approval."},
             status=status.HTTP_403_FORBIDDEN,
@@ -285,6 +429,7 @@ def request_access(request):
 
     req = AccessRequest.objects.create(
         patient=patient,
+        doctor=doctor,
         doctor_wallet=doctor.wallet_address,
         doctor_name=doctor.full_name,
         facility_id=doctor.facility_id,  # from the verified profile, not free text
@@ -298,11 +443,13 @@ def request_access(request):
 
 
 @api_view(["GET"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def doctor_pending_requests(request):
-    """Doctor's own pending requests, identified by wallet header."""
-    wallet = request.headers.get("X-Wallet-Address", "")
-    reqs = AccessRequest.objects.filter(doctor_wallet=wallet, status="PENDING")
+    """Doctor's own pending requests, from the JWT."""
+    doctor = _doctor_from_request(request)
+    if not doctor:
+        return Response([], status=403)
+    reqs = AccessRequest.objects.filter(doctor=doctor, status="PENDING")
     return Response([{
         "id": r.id,
         "patient_health_id": r.patient.health_id,
@@ -314,19 +461,17 @@ def doctor_pending_requests(request):
 
 
 @api_view(["GET"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def doctor_view_record(request, health_id):
     """Doctor fetches records; checks hasAccess on-chain (step 5) and logs (step 6)."""
-    wallet = request.headers.get("X-Wallet-Address", "")
-    facility_id = request.headers.get("X-Facility-ID", "UNKNOWN")
-
-    # Only APPROVED doctors may pull patient data.
-    doctor = Doctor.objects.filter(wallet_address__iexact=wallet).first()
-    if not doctor or doctor.status != "APPROVED":
+    doctor = _doctor_from_request(request)
+    if not doctor:
         return Response({
             "error": "Doctor not verified. Register and wait for admin approval.",
             "action": "REGISTER",
         }, status=status.HTTP_403_FORBIDDEN)
+    wallet = doctor.wallet_address
+    facility_id = doctor.facility_id or "UNKNOWN"
 
     try:
         allowed = contract.functions.hasAccess(health_id, wallet).call()
@@ -393,6 +538,44 @@ def my_requests(request):
     } for r in patient.access_requests.filter(status="PENDING")])
 
 
+# ============ PATIENT: MEASUREMENTS + REFERRALS (own view) ============
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_measurements(request):
+    """Patient's own measurement history."""
+    patient = _patient_from_request(request)
+    if not patient:
+        return Response({"error": "Patient not found"}, status=404)
+    return Response([{
+        "id": m.id,
+        "kind": m.kind,
+        "value": m.value,
+        "unit": m.unit,
+        "notes": m.notes,
+        "doctor": m.doctor.full_name if m.doctor else "",
+        "hospital": m.hospital.name if m.hospital else "",
+        "date": m.created_at,
+    } for m in patient.measurements.all()])
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_referrals(request):
+    """Patient's own referrals (hospital-to-hospital movements)."""
+    patient = _patient_from_request(request)
+    if not patient:
+        return Response({"error": "Patient not found"}, status=404)
+    return Response([{
+        "id": r.id,
+        "to_hospital": r.to_hospital.name,
+        "to_hospital_code": r.to_hospital.code,
+        "reason": r.reason,
+        "status": r.status,
+        "date": r.created_at,
+    } for r in patient.referrals.all()])
+
+
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def approve_request(request, request_id):
@@ -417,6 +600,15 @@ def approve_request(request, request_id):
         tx_hash = send_transaction(tx, patient_key)
     except Exception as e:
         tx_hash = f"PENDING: {e}"
+
+    AccessGrant.objects.get_or_create(
+        patient=patient, doctor=req.doctor,
+        defaults={
+            "tx_hash": tx_hash,
+            "active": not tx_hash.startswith("PENDING"),
+            "expires_at": timezone.now() + timezone.timedelta(days=7),
+        },
+    )
 
     req.status = "APPROVED"
     req.tx_hash = tx_hash
@@ -443,7 +635,184 @@ def reject_request(request, request_id):
     return Response({"status": "rejected"})
 
 
-# ============ 7. BREAK-GLASS ============
+# ============ DOCTOR: MY PATIENTS / MEASUREMENTS / REFERRALS ============
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def doctor_patients(request):
+    """Patients assigned to the logged-in doctor: granted access on-chain
+    (fresh from chain) plus a bookkeeping mirror of past grants."""
+    doctor = _doctor_from_request(request)
+    if not doctor:
+        return Response({"error": "Doctor not found"}, status=403)
+
+    onchain: dict = {}
+    try:
+        perms = contract.functions.getPermissions(doctor.wallet_address).call()
+        for p in perms:
+            onchain[str(p[0]).strip().lower()] = bool(p[4])  # (health_id, patient, doctor, expiry, active)
+    except Exception:
+        pass  # chain unreachable — bookkeeping only
+
+    grants = AccessGrant.objects.filter(doctor=doctor).select_related("patient")
+    items = []
+    for g in grants:
+        active = onchain.get(g.patient.health_id.strip().lower(), g.active)
+        items.append({
+            "health_id": g.patient.health_id,
+            "full_name": g.patient.full_name,
+            "granted_at": g.created_at,
+            "expires_at": g.expires_at,
+            "active": active,
+            "source": "grant" if g.active else "expired",
+        })
+    return Response(items)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def add_measurement(request):
+    """Doctor records a clinical measurement for a patient with access."""
+    doctor = _doctor_from_request(request)
+    if not doctor:
+        return Response({"error": "Doctor not found"}, status=403)
+
+    health_id = str(request.data.get("health_id", "")).strip()
+    kind = str(request.data.get("kind", "")).strip()
+    value = request.data.get("value")
+    if not health_id or not kind or value in (None, ""):
+        return Response({"error": "health_id, kind and value are required"}, status=400)
+
+    patient = Patient.objects.filter(health_id=health_id).first()
+    if not patient:
+        return Response({"error": "Health ID not found"}, status=404)
+
+    try:
+        allowed = contract.functions.hasAccess(health_id, doctor.wallet_address).call()
+    except Exception:
+        allowed = True  # PoC: chain unreachable — demo continues
+    if not allowed:
+        return Response({"error": "No access permission for this patient"}, status=403)
+
+    m = Measurement.objects.create(
+        patient=patient,
+        doctor=doctor,
+        hospital=doctor.hospital,
+        kind=kind,
+        value=float(value),
+        unit=str(request.data.get("unit", "")).strip(),
+        notes=str(request.data.get("notes", "")).strip(),
+    )
+    return Response({
+        "status": "success",
+        "measurement_id": m.id,
+        "message": f"{m.kind} recorded for {patient.full_name}",
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def patient_measurements(request, health_id):
+    """Measurement history for one patient (doctor must have access)."""
+    doctor = _doctor_from_request(request)
+    if not doctor:
+        return Response({"error": "Doctor not found"}, status=403)
+    patient = Patient.objects.filter(health_id=health_id).first()
+    if not patient:
+        return Response({"error": "Health ID not found"}, status=404)
+    try:
+        allowed = contract.functions.hasAccess(health_id, doctor.wallet_address).call()
+    except Exception:
+        allowed = True
+    if not allowed:
+        return Response({"error": "No access permission for this patient"}, status=403)
+
+    return Response([{
+        "id": m.id,
+        "kind": m.kind,
+        "value": m.value,
+        "unit": m.unit,
+        "notes": m.notes,
+        "doctor": m.doctor.full_name if m.doctor else "",
+        "hospital": m.hospital.name if m.hospital else _hospital_label(doctor),
+        "created_at": m.created_at,
+    } for m in patient.measurements.all()])
+
+
+def _hospital_label(doctor):
+    return doctor.hospital.name if doctor.hospital else doctor.facility_id
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def list_hospitals(request):
+    """Public list of hospitals for dropdown selection (code + name only)."""
+    return Response([
+        {"code": h.code, "name": h.name, "region": h.region}
+        for h in Hospital.objects.all().order_by("name")
+    ])
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def create_referral(request):
+    """Doctor refers a patient to another hospital (dropdown selection)."""
+    doctor = _doctor_from_request(request)
+    if not doctor:
+        return Response({"error": "Doctor not found"}, status=403)
+
+    health_id = str(request.data.get("health_id", "")).strip()
+    to_code = str(request.data.get("to_hospital", "")).strip()
+    reason = str(request.data.get("reason", "")).strip()
+    if not health_id or not to_code:
+        return Response({"error": "health_id and to_hospital are required"}, status=400)
+    if doctor.hospital and to_code.lower() == doctor.hospital.code.lower():
+        return Response({"error": "Patient is already at your hospital"}, status=400)
+
+    patient = Patient.objects.filter(health_id=health_id).first()
+    if not patient:
+        return Response({"error": "Health ID not found"}, status=404)
+    to_hospital = Hospital.objects.filter(code__iexact=to_code).first()
+    if not to_hospital:
+        return Response({"error": "Target hospital not found"}, status=404)
+
+    ref = Referral.objects.create(
+        patient=patient,
+        from_doctor=doctor,
+        from_hospital=doctor.hospital,
+        to_hospital=to_hospital,
+        reason=reason,
+    )
+    return Response({
+        "status": "success",
+        "referral_id": ref.id,
+        "message": f"Referral sent to {to_hospital.name}",
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def doctor_referrals(request):
+    """Referrals the logged-in doctor has sent, newest first."""
+    doctor = _doctor_from_request(request)
+    if not doctor:
+        return Response({"error": "Doctor not found"}, status=403)
+    return Response([_referral_json(r) for r in Referral.objects.filter(from_doctor=doctor)[:50]])
+
+
+def _referral_json(r):
+    return {
+        "id": r.id,
+        "patient_health_id": r.patient.health_id,
+        "patient_name": r.patient.full_name,
+        "from_hospital": r.from_hospital.name if r.from_hospital else "",
+        "to_hospital": r.to_hospital.name,
+        "to_hospital_code": r.to_hospital.code,
+        "reason": r.reason,
+        "status": r.status,
+        "created_at": r.created_at,
+        "responded_at": r.responded_at,
+    }
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
@@ -457,7 +826,8 @@ def break_glass(request):
     if not Patient.objects.filter(health_id=health_id).exists():
         return Response({"error": "Health ID not found"}, status=404)
 
-    wallet = request.headers.get("X-Wallet-Address", "") or facility_address()
+    doctor = _doctor_from_request(request)
+    wallet = doctor.wallet_address if doctor else facility_address()
     tx_hash = ""
     try:
         tx = contract.functions.breakGlass(health_id, wallet, facility_id, reason)

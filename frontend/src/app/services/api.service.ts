@@ -21,11 +21,53 @@ export interface AuditEvent {
   timestamp: number;
 }
 
+export interface MeasurementItem {
+  id: number;
+  kind: string;
+  value: number;
+  unit: string;
+  notes: string;
+  doctor: string;
+  hospital: string;
+  date?: string;
+  created_at?: string;
+}
+
+export interface ReferralItem {
+  id: number;
+  patient_health_id?: string;
+  patient_name?: string;
+  to_hospital: string;
+  to_hospital_code: string;
+  reason: string;
+  status: string;
+  date?: string;
+  created_at?: string;
+  responded_at?: string;
+}
+
+export interface AssignedPatient {
+  health_id: string;
+  full_name: string;
+  granted_at: string;
+  expires_at: string;
+  active: boolean;
+  source: string;
+}
+
+export interface HospitalOption {
+  code: string;
+  name: string;
+  region: string;
+}
+
 export interface PatientData {
   health_id: string;
   full_name: string;
   wallet_address: string;
   records: PatientRecord[];
+  measurements: MeasurementItem[];
+  referrals: ReferralItem[];
   audit_trail: AuditEvent[];
 }
 
@@ -80,7 +122,7 @@ export class ApiService {
     return data as T;
   }
 
-  // ---------- Auth ----------
+  // ---------- Auth (patient) ----------
 
   login(health_id: string, pin: string) {
     return this.request<import('./auth.service').LoginResponse>('POST', '/login/', {
@@ -99,10 +141,55 @@ export class ApiService {
     return this.request('POST', '/register/', payload);
   }
 
+  // ---------- Auth (doctor) ----------
+
+  doctorLogin(license_no: string, pin: string) {
+    return this.request<import('./auth.service').DoctorLoginResponse>('POST', '/doctor/login/', {
+      license_no,
+      pin,
+    });
+  }
+
+  registerDoctor(payload: {
+    full_name: string;
+    license_no: string;
+    pin: string;
+    hospital_code: string;
+  }) {
+    return this.request('POST', '/doctor/register/', payload);
+  }
+
+  doctorStatus(license_no: string) {
+    return this.request<{ registered: boolean; status?: string; full_name?: string; hospital_code?: string }>(
+      'GET', `/doctor/status/?license_no=${encodeURIComponent(license_no)}`
+    );
+  }
+
+  doctorMe() {
+    return this.request<{
+      license_no: string; full_name: string; hospital_code: string;
+      hospital_name: string; wallet_address: string; status: string;
+    }>('GET', '/doctor/me/');
+  }
+
+  // ---------- Hospitals ----------
+
+  hospitals(): Promise<HospitalOption[]> {
+    return this.request<HospitalOption[]>('GET', '/hospitals/');
+  }
+
   // ---------- Patient ----------
 
   myRecords(): Promise<PatientData> {
     return this.request<PatientData>('GET', '/patient/my-records/');
+  }
+
+  myMeasurements(): Promise<MeasurementItem[]> {
+    return this.request<MeasurementItem[]>('GET', '/patient/measurements/');
+  }
+
+  myReferrals(): Promise<ReferralItem[]> {
+    return this.request<ReferralItem[]>('GET', '/patient/referrals/');
   }
 
   myRequests(): Promise<AccessRequest[]> {
@@ -127,42 +214,43 @@ export class ApiService {
 
   // ---------- Doctor ----------
 
-  registerDoctor(payload: {
-    full_name: string;
-    license_no: string;
-    wallet_address: string;
-    facility_id: string;
-  }) {
-    return this.request('POST', '/doctor/register/', payload);
-  }
-
-  doctorStatus(wallet: string) {
-    return this.request<{ registered: boolean; status?: string; full_name?: string; facility_id?: string }>(
-      'GET', `/doctor/status/?wallet=${encodeURIComponent(wallet)}`
-    );
-  }
-
-  requestAccess(payload: {
-    health_id: string;
-    doctor_wallet: string;
-    doctor_name: string;
-    facility_id: string;
-    reason: string;
-  }) {
+  requestAccess(payload: { health_id: string; reason: string }) {
     return this.request('POST', '/doctor/request-access/', payload);
   }
 
-  /** Doctors optionally connect MetaMask; the wallet identifies them. */
-  doctorViewRecord(health_id: string, wallet: string, facility_id?: string) {
-    const headers: Record<string, string> = { 'X-Wallet-Address': wallet };
-    if (facility_id) headers['X-Facility-ID'] = facility_id;
-    return this.request<any>('GET', `/doctor/patient/${health_id}/`, undefined, headers);
+  /** View a patient's records (doctor identified by JWT). */
+  doctorViewRecord(health_id: string) {
+    return this.request<any>('GET', `/doctor/patient/${encodeURIComponent(health_id)}/`);
   }
 
-  breakGlass(payload: { health_id: string; facility_id: string; reason: string }, wallet: string) {
-    return this.request('POST', '/doctor/break-glass/', payload, {
-      'X-Wallet-Address': wallet,
-    });
+  doctorPendingRequests(): Promise<AccessRequest[]> {
+    return this.request<AccessRequest[]>('GET', '/doctor/pending-requests/');
+  }
+
+  myPatients(): Promise<AssignedPatient[]> {
+    return this.request<AssignedPatient[]>('GET', '/doctor/patients/');
+  }
+
+  addMeasurement(payload: { health_id: string; kind: string; value: number; unit: string; notes?: string }) {
+    return this.request('POST', '/doctor/measurements/', payload);
+  }
+
+  patientMeasurements(health_id: string): Promise<MeasurementItem[]> {
+    return this.request<MeasurementItem[]>(
+      'GET', `/doctor/measurements/${encodeURIComponent(health_id)}/`
+    );
+  }
+
+  createReferral(payload: { health_id: string; to_hospital: string; reason: string }) {
+    return this.request('POST', '/doctor/referrals/', payload);
+  }
+
+  myReferralsSent(): Promise<ReferralItem[]> {
+    return this.request<ReferralItem[]>('GET', '/doctor/referrals/');
+  }
+
+  breakGlass(payload: { health_id: string; facility_id: string; reason: string }) {
+    return this.request('POST', '/doctor/break-glass/', payload);
   }
 
   // ---------- Facility ----------

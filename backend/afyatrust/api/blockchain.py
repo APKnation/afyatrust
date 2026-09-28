@@ -5,11 +5,15 @@ still work before CONTRACT_ADDRESS is configured.
 """
 import json
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from web3 import Web3
 
-load_dotenv()
+# backend/.env is two levels up from this file (api/ -> afyatrust/ -> backend/).
+# Loading by explicit path makes this module CWD-independent.
+_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(_ENV_FILE)
 
 w3 = Web3(Web3.HTTPProvider(os.getenv("SEPOLIA_RPC_URL", "")))
 

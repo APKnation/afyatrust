@@ -1,9 +1,13 @@
 import os
-from dotenv import load_dotenv
 from pathlib import Path
 
-load_dotenv()
+from dotenv import load_dotenv
+
+# Explicit path: backend/.env sits one level above this Django project,
+# next to venv/. Loading by path makes it CWD-independent.
 BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_FILE = BASE_DIR.parent / ".env"
+load_dotenv(ENV_FILE)
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = os.getenv('DEBUG') == 'True'

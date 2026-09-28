@@ -2,7 +2,6 @@ import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgIf } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
-import { DoctorSessionService } from '../doctor/doctor-landing/doctor-session.service';
 
 /**
  * Public landing page — role aware.
@@ -40,11 +39,11 @@ import { DoctorSessionService } from '../doctor/doctor-landing/doctor-session.se
           Welcome back, <strong>{{ auth.fullName }}</strong> — your records and
           permissions are one tap away.
         </p>
-        <p *ngIf="!auth.isPatient && doctor.isApproved" class="mt-5 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
-          Verified as <strong>Dr. {{ doctor.fullName }}</strong> — look up a patient
-          by Health ID to request access.
+        <p *ngIf="auth.isDoctor" class="mt-5 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
+          Welcome back, <strong>Dr. {{ auth.fullName }}</strong> — your patients and
+          measurements are one tap away.
         </p>
-        <p *ngIf="!auth.isPatient && !doctor.isApproved" class="mt-5 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
+        <p *ngIf="!auth.isAuthenticated()" class="mt-5 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
           AfyaTrust gives patients control of their medical history. Doctors get
           instant, verified access with your permission — and every view is
           permanently logged on Ethereum Sepolia.
@@ -57,16 +56,12 @@ import { DoctorSessionService } from '../doctor/doctor-landing/doctor-session.se
                class="rounded-lg bg-primary-500 px-7 py-3.5 text-center font-semibold text-ink no-underline transition-colors hover:bg-primary-400">
               Open my records
             </a>
-            <a routerLink="/doctor"
-               class="rounded-lg border-2 border-white/80 bg-transparent px-7 py-3.5 text-center font-semibold text-white no-underline transition-colors hover:bg-white/10">
-              Doctor workspace
-            </a>
           </ng-container>
           <ng-template #notPatient>
-            <ng-container *ngIf="doctor.isApproved; else visitorCtas">
+            <ng-container *ngIf="auth.isDoctor; else visitorCtas">
               <a routerLink="/doctor"
                  class="rounded-lg bg-primary-500 px-7 py-3.5 text-center font-semibold text-ink no-underline transition-colors hover:bg-primary-400">
-                Open doctor workspace
+                Open doctor dashboard
               </a>
             </ng-container>
             <ng-template #visitorCtas>
@@ -77,6 +72,10 @@ import { DoctorSessionService } from '../doctor/doctor-landing/doctor-session.se
               <a routerLink="/login"
                  class="rounded-lg border-2 border-white/80 bg-transparent px-7 py-3.5 text-center font-semibold text-white no-underline transition-colors hover:bg-white/10">
                 Sign in
+              </a>
+              <a routerLink="/doctor-auth"
+                 class="rounded-lg border-2 border-white/80 bg-transparent px-7 py-3.5 text-center font-semibold text-white no-underline transition-colors hover:bg-white/10">
+                Doctor portal
               </a>
             </ng-template>
           </ng-template>
@@ -206,9 +205,9 @@ import { DoctorSessionService } from '../doctor/doctor-landing/doctor-session.se
              class="rounded-lg bg-primary-500 px-8 py-3.5 font-semibold text-ink no-underline transition-colors hover:bg-primary-400">
             Open my records
           </a>
-          <a routerLink="/doctor"
+          <a routerLink="/doctor-auth"
              class="rounded-lg border-2 border-white/70 px-8 py-3.5 font-semibold text-white no-underline transition-colors hover:bg-white/10">
-            Doctor workspace
+            Doctor portal
           </a>
         </div>
       </div>
@@ -223,16 +222,13 @@ import { DoctorSessionService } from '../doctor/doctor-landing/doctor-session.se
         </div>
         <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
         <div class="flex gap-5">
-          <a *ngIf="!auth.isPatient" routerLink="/login" class="text-accent-700 no-underline hover:underline">Sign in</a>
-          <a routerLink="/doctor" class="text-accent-700 no-underline hover:underline">Doctors</a>
+          <a *ngIf="!auth.isAuthenticated()" routerLink="/login" class="text-accent-700 no-underline hover:underline">Sign in</a>
+          <a *ngIf="!auth.isDoctor" routerLink="/doctor-auth" class="text-accent-700 no-underline hover:underline">Doctors</a>
         </div>
       </div>
     </footer>
   `,
 })
 export class HomeComponent {
-  constructor(
-    public auth: AuthService,
-    public doctor: DoctorSessionService
-  ) {}
+  constructor(public auth: AuthService) {}
 }

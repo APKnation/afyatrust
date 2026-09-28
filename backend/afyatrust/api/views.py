@@ -6,6 +6,7 @@ records, permissions, doctor access check, and break-glass.
 import hashlib
 import json
 import re
+from datetime import timedelta
 
 from django.contrib.auth.hashers import make_password, check_password
 from django.utils import timezone
@@ -16,7 +17,8 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import (
-    AccessGrant, AccessRequest, Doctor, Hospital, Measurement, MedicalRecord, Patient, Referral,
+    AccessGrant, AccessRequest, Doctor, Hospital, HospitalStaff,
+    Measurement, MedicalRecord, Patient, Referral,
 )
 from . import wallet_manager
 from .blockchain import contract, send_transaction, ensure_gas, facility_address
@@ -248,8 +250,8 @@ def grant_access(request):
             patient=patient, doctor=doc,
             defaults={
                 "tx_hash": tx_hash,
-                "active": not tx_hash.startswith("PENDING"),
-                "expires_at": timezone.now() + timezone.timedelta(days=days),
+                "active": True,  # chain liveness overrides when reachable
+                "expires_at": timezone.now() + timedelta(days=days),
             },
         )
 
@@ -605,8 +607,8 @@ def approve_request(request, request_id):
         patient=patient, doctor=req.doctor,
         defaults={
             "tx_hash": tx_hash,
-            "active": not tx_hash.startswith("PENDING"),
-            "expires_at": timezone.now() + timezone.timedelta(days=7),
+            "active": True,  # chain liveness overrides when reachable
+            "expires_at": timezone.now() + timedelta(days=7),
         },
     )
 
@@ -753,14 +755,8 @@ def list_hospitals(request):
     ])
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def create_referral(request):
+def _create_referral(doctor, request):
     """Doctor refers a patient to another hospital (dropdown selection)."""
-    doctor = _doctor_from_request(request)
-    if not doctor:
-        return Response({"error": "Doctor not found"}, status=403)
-
     health_id = str(request.data.get("health_id", "")).strip()
     to_code = str(request.data.get("to_hospital", "")).strip()
     reason = str(request.data.get("reason", "")).strip()
@@ -790,14 +786,19 @@ def create_referral(request):
     }, status=status.HTTP_201_CREATED)
 
 
-@api_view(["GET"])
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def doctor_referrals(request):
-    """Referrals the logged-in doctor has sent, newest first."""
+    """GET: referrals the logged-in doctor has sent, newest first.
+    POST: create a referral to another hospital."""
     doctor = _doctor_from_request(request)
     if not doctor:
         return Response({"error": "Doctor not found"}, status=403)
-    return Response([_referral_json(r) for r in Referral.objects.filter(from_doctor=doctor)[:50]])
+    if request.method == "GET":
+        return Response([
+            _referral_json(r) for r in Referral.objects.filter(from_doctor=doctor)[:50]
+        ])
+    return _create_referral(doctor, request)
 
 
 def _referral_json(r):
@@ -806,13 +807,127 @@ def _referral_json(r):
         "patient_health_id": r.patient.health_id,
         "patient_name": r.patient.full_name,
         "from_hospital": r.from_hospital.name if r.from_hospital else "",
+        "from_doctor": r.from_doctor.full_name if r.from_doctor else "",
         "to_hospital": r.to_hospital.name,
         "to_hospital_code": r.to_hospital.code,
         "reason": r.reason,
         "status": r.status,
+        "responded_by": r.responded_by,
         "created_at": r.created_at,
         "responded_at": r.responded_at,
     }
+
+
+# ============ HOSPITAL STAFF: LOGIN + REFERRAL INBOX ============
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def staff_login(request):
+    """Hospital staff login (admin-created account): username + password -> JWT."""
+    username = str(request.data.get("username", "")).strip()
+    password = str(request.data.get("password", ""))
+
+    staff = HospitalStaff.objects.filter(username__iexact=username).first()
+    if not staff or not check_password(password, staff.password_hash):
+        return Response({"error": "Invalid username or password"},
+                        status=status.HTTP_401_UNAUTHORIZED)
+
+    refresh = RefreshToken()
+    refresh["username"] = staff.username
+    refresh["full_name"] = staff.full_name
+    refresh["hospital_code"] = staff.hospital.code
+    refresh["role"] = "STAFF"
+
+    return Response({
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+        "role": "STAFF",
+        "username": staff.username,
+        "full_name": staff.full_name,
+        "hospital_code": staff.hospital.code,
+        "hospital_name": staff.hospital.name,
+    })
+
+
+def _staff_from_request(request):
+    """Resolve the JWT-authenticated hospital staff member."""
+    if not request.auth or request.auth.get("role") != "STAFF":
+        return None
+    return HospitalStaff.objects.filter(
+        username__iexact=request.auth.get("username", "")
+    ).first()
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def hospital_referrals(request):
+    """Referral inbox for the staff member's hospital (newest first)."""
+    staff = _staff_from_request(request)
+    if not staff:
+        return Response({"error": "Staff account not found"}, status=403)
+
+    status_filter = request.query_params.get("status", "").strip().upper()
+    qs = Referral.objects.filter(to_hospital=staff.hospital)
+    if status_filter in {"PENDING", "ACCEPTED", "DECLINED", "CANCELLED"}:
+        qs = qs.filter(status=status_filter)
+    return Response([_referral_json(r) for r in qs[:100]])
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def respond_referral(request, referral_id):
+    """Accept or decline an incoming referral.
+    Allowed: staff of the receiving hospital, or an APPROVED doctor whose
+    hospital is the receiving hospital. Every response is recorded with who
+    responded (audit)."""
+    principal = request.auth
+    actor = ""
+    target_hospital = None
+
+    if principal and principal.get("role") == "STAFF":
+        staff = _staff_from_request(request)
+        if not staff:
+            return Response({"error": "Staff account not found"}, status=403)
+        actor = f"STAFF:{staff.username}"
+        target_hospital = staff.hospital
+    elif principal and principal.get("role") == "DOCTOR":
+        doctor = _doctor_from_request(request)
+        if not doctor:
+            return Response({"error": "Doctor not found"}, status=403)
+        actor = f"DOCTOR:{doctor.license_no}"
+        target_hospital = doctor.hospital
+    else:
+        return Response({"error": "Not allowed"}, status=403)
+
+    ref = Referral.objects.filter(id=referral_id, to_hospital=target_hospital).first()
+    if not ref:
+        return Response({"error": "Referral not found for your hospital"}, status=404)
+    if ref.status != "PENDING":
+        return Response({"error": f"Referral already {ref.status.lower()}"}, status=409)
+
+    action = str(request.data.get("action", "")).strip().upper()
+    if action not in {"ACCEPTED", "DECLINED"}:
+        return Response({"error": "action must be ACCEPTED or DECLINED"}, status=400)
+
+    ref.status = action
+    ref.responded_by = actor
+    ref.responded_at = timezone.now()
+    ref.save()
+    return Response({"status": action.lower(), "referral": _referral_json(ref)})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def doctor_incoming_referrals(request):
+    """Pending referrals addressed to the logged-in doctor's hospital —
+    the doctor-facing notification feed."""
+    doctor = _doctor_from_request(request)
+    if not doctor:
+        return Response({"error": "Doctor not found"}, status=403)
+    incoming = Referral.objects.filter(
+        to_hospital=doctor.hospital, status="PENDING"
+    ) if doctor.hospital else Referral.objects.none()
+    return Response([_referral_json(r) for r in incoming[:50]])
 
 @api_view(["POST"])
 @permission_classes([AllowAny])

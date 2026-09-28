@@ -1,53 +1,52 @@
-"""Stateless JWT authentication for patients and doctors.
+"""Stateless JWT authentication for patients, doctors and hospital staff.
 
 SimpleJWT normally loads a Django User row via the `user_id` claim.
-Patients and doctors are not Django users, so we return a lightweight
-principal built from the token claims instead.
+These roles are not Django users, so we return a lightweight principal
+built from the token claims instead.
 """
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
-class PatientPrincipal:
+class Principal:
     """Minimal request.user stand-in derived from JWT claims."""
 
     is_authenticated = True
     is_anonymous = False
 
-    def __init__(self, health_id: str, role: str = "PATIENT"):
-        self.id = health_id
-        self.health_id = health_id
+    def __init__(self, role: str, id: str = "", name: str = "", **extra):
         self.role = role
+        self.id = id or name
+        self.name = name
+        for k, v in extra.items():
+            setattr(self, k, v)
 
     def __str__(self):
-        return f"Patient({self.health_id})"
-
-
-class DoctorPrincipal:
-    """request.user stand-in for a doctor identified by license_no."""
-
-    is_authenticated = True
-    is_anonymous = False
-
-    def __init__(self, license_no: str, wallet_address: str = "", role: str = "DOCTOR"):
-        self.id = license_no
-        self.license_no = license_no
-        self.wallet_address = wallet_address
-        self.role = role
-
-    def __str__(self):
-        return f"Doctor({self.license_no})"
+        return f"{self.role}({self.id})"
 
 
 class RoleJWTAuthentication(JWTAuthentication):
-    """Builds a Patient or Doctor principal depending on the token role."""
+    """Builds a Patient, Doctor or HospitalStaff principal from the role claim."""
 
     def get_user(self, validated_token):
-        if validated_token.get("role") == "DOCTOR":
-            return DoctorPrincipal(
+        role = validated_token.get("role", "PATIENT")
+        if role == "DOCTOR":
+            return Principal(
+                "DOCTOR",
+                id=validated_token.get("license_no", ""),
+                name=validated_token.get("full_name", ""),
                 license_no=validated_token.get("license_no", ""),
                 wallet_address=validated_token.get("wallet_address", ""),
             )
-        return PatientPrincipal(
+        if role == "STAFF":
+            return Principal(
+                "STAFF",
+                id=validated_token.get("username", ""),
+                name=validated_token.get("full_name", ""),
+                username=validated_token.get("username", ""),
+                hospital_code=validated_token.get("hospital_code", ""),
+            )
+        return Principal(
+            "PATIENT",
+            id=validated_token.get("health_id", ""),
             health_id=validated_token.get("health_id", ""),
-            role=validated_token.get("role", "PATIENT"),
         )

@@ -2,13 +2,12 @@ import { Component } from '@angular/core';
 import { NgIf } from '@angular/common';
 import { RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { AuthService } from '../../../services/auth.service';
-import { DoctorSessionService } from '../../../pages/doctor/doctor-landing/doctor-session.service';
 
 /**
  * Role-aware responsive navbar.
- * - Patient session (Health ID + PIN): shows the patient chip + Sign out.
- * - Doctor (MetaMask verified): shows a doctor status chip.
- * - Visitor: Sign in / Register CTAs.
+ * - Patient session: shows Health ID chip + Sign out.
+ * - Doctor session: shows doctor chip + Sign out.
+ * - Visitor: Sign in / Register / Doctor Portal CTAs.
  * Desktop (≥md) shows inline links; mobile gets a hamburger dropdown.
  */
 @Component({
@@ -37,33 +36,45 @@ import { DoctorSessionService } from '../../../pages/doctor/doctor-landing/docto
           <a *ngIf="auth.isPatient" routerLink="/patient"
              routerLinkActive="bg-primary-100"
              class="rounded-lg px-4 py-2 text-[15px] text-ink no-underline transition-colors hover:bg-primary-100">My Records</a>
-          <a routerLink="/doctor"
+          <a *ngIf="!auth.isDoctor" routerLink="/doctor-auth"
              routerLinkActive="bg-primary-100"
-             class="rounded-lg px-4 py-2 text-[15px] text-ink no-underline transition-colors hover:bg-primary-100">Doctor</a>
+             class="rounded-lg px-4 py-2 text-[15px] text-ink no-underline transition-colors hover:bg-primary-100">Doctor Portal</a>
+          <a *ngIf="auth.isDoctor" routerLink="/doctor"
+             routerLinkActive="bg-primary-100"
+             class="rounded-lg px-4 py-2 text-[15px] text-ink no-underline transition-colors hover:bg-primary-100">My Dashboard</a>
+          <a *ngIf="!auth.isStaff" routerLink="/staff-login"
+             routerLinkActive="bg-primary-100"
+             class="rounded-lg px-4 py-2 text-[15px] text-ink no-underline transition-colors hover:bg-primary-100">Hospital</a>
+          <a *ngIf="auth.isStaff" routerLink="/hospital"
+             routerLinkActive="bg-primary-100"
+             class="rounded-lg px-4 py-2 text-[15px] text-ink no-underline transition-colors hover:bg-primary-100">Referral Desk</a>
 
           <!-- Desktop session area -->
           <div class="ml-2 flex items-center gap-2.5">
             <!-- Patient chip -->
             <div *ngIf="auth.isPatient" class="flex items-center gap-2.5 rounded-xl bg-surface px-4 py-2 shadow-card">
               <span class="text-sm font-bold text-ink">🏥 {{ auth.healthId }}</span>
-              <button (click)="signOutPatient()"
+              <button (click)="signOut()"
                       class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
             </div>
 
             <!-- Doctor chip -->
-            <a *ngIf="!auth.isPatient && doctor.wallet" routerLink="/doctor"
-               class="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold no-underline"
-               [class]="doctor.isApproved ? 'bg-accent-100 text-accent-800' : 'bg-primary-100 text-primary-900'">
-              🩺 {{ doctor.fullName || 'Doctor' }}
-              <span class="text-xs">{{ doctor.isApproved ? '✓ verified' : doctor.status === 'PENDING' ? '⏳ pending' : '· unverified' }}</span>
-            </a>
+            <div *ngIf="auth.isDoctor" class="flex items-center gap-2.5 rounded-xl bg-surface px-4 py-2 shadow-card">
+              <span class="text-sm font-bold text-ink">🩺 Dr. {{ auth.fullName }}</span>
+              <span class="rounded bg-accent-100 px-2 py-0.5 text-xs font-bold text-accent-800">✓ verified</span>
+              <button (click)="signOut()"
+                      class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
+            </div>
 
-            <!-- Doctor sign out (clears the saved MetaMask wallet) -->
-            <button *ngIf="!auth.isPatient && doctor.wallet" (click)="signOutDoctor()"
-                    class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
+            <!-- Staff chip -->
+            <div *ngIf="auth.isStaff" class="flex items-center gap-2.5 rounded-xl bg-surface px-4 py-2 shadow-card">
+              <span class="text-sm font-bold text-ink">🏥 {{ auth.fullName }}</span>
+              <button (click)="signOut()"
+                      class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
+            </div>
 
             <!-- Visitor CTAs -->
-            <ng-container *ngIf="!auth.isPatient && !doctor.wallet">
+            <ng-container *ngIf="!auth.isAuthenticated()">
               <a routerLink="/login"
                  class="rounded-lg bg-primary-500 px-4 py-2 text-sm font-bold text-ink no-underline transition-colors hover:bg-primary-400">Sign in</a>
               <a routerLink="/register"
@@ -75,7 +86,8 @@ import { DoctorSessionService } from '../../../pages/doctor/doctor-landing/docto
         <!-- Mobile: compact session + hamburger -->
         <div class="flex items-center gap-2 md:hidden">
           <span *ngIf="auth.isPatient" class="rounded-lg bg-primary-100 px-2.5 py-1.5 text-xs font-bold text-ink">🏥 {{ auth.healthId }}</span>
-          <span *ngIf="!auth.isPatient && doctor.isApproved" class="rounded-lg bg-accent-100 px-2.5 py-1.5 text-xs font-bold text-accent-800">🩺 ✓</span>
+          <span *ngIf="auth.isDoctor" class="rounded-lg bg-accent-100 px-2.5 py-1.5 text-xs font-bold text-accent-800">🩺 ✓</span>
+          <span *ngIf="auth.isStaff" class="rounded-lg bg-primary-100 px-2.5 py-1.5 text-xs font-bold text-ink">🏥</span>
           <button (click)="menuOpen = !menuOpen"
                   aria-label="Toggle menu"
                   [attr.aria-expanded]="menuOpen"
@@ -91,14 +103,18 @@ import { DoctorSessionService } from '../../../pages/doctor/doctor-landing/docto
            class="block rounded-lg px-4 py-3 text-base font-semibold text-ink no-underline transition-colors hover:bg-primary-100">Home</a>
         <a *ngIf="auth.isPatient" routerLink="/patient" (click)="menuOpen = false"
            class="block rounded-lg px-4 py-3 text-base font-semibold text-ink no-underline transition-colors hover:bg-primary-100">My Records</a>
-        <a routerLink="/doctor" (click)="menuOpen = false"
-           class="block rounded-lg px-4 py-3 text-base font-semibold text-ink no-underline transition-colors hover:bg-primary-100">Doctor</a>
+        <a *ngIf="!auth.isDoctor" routerLink="/doctor-auth" (click)="menuOpen = false"
+           class="block rounded-lg px-4 py-3 text-base font-semibold text-ink no-underline transition-colors hover:bg-primary-100">Doctor Portal</a>
+        <a *ngIf="auth.isDoctor" routerLink="/doctor" (click)="menuOpen = false"
+           class="block rounded-lg px-4 py-3 text-base font-semibold text-ink no-underline transition-colors hover:bg-primary-100">My Dashboard</a>
+        <a *ngIf="!auth.isStaff" routerLink="/staff-login" (click)="menuOpen = false"
+           class="block rounded-lg px-4 py-3 text-base font-semibold text-ink no-underline transition-colors hover:bg-primary-100">Hospital</a>
+        <a *ngIf="auth.isStaff" routerLink="/hospital" (click)="menuOpen = false"
+           class="block rounded-lg px-4 py-3 text-base font-semibold text-ink no-underline transition-colors hover:bg-primary-100">Referral Desk</a>
 
-        <button *ngIf="auth.isPatient" (click)="signOutPatient()"
+        <button *ngIf="auth.isAuthenticated()" (click)="signOut()"
                 class="mt-2 w-full cursor-pointer rounded-lg bg-ink px-4 py-3 font-semibold text-white">Sign out</button>
-        <button *ngIf="!auth.isPatient && doctor.wallet" (click)="signOutDoctor()"
-                class="mt-2 w-full cursor-pointer rounded-lg bg-ink px-4 py-3 font-semibold text-white">Sign out</button>
-        <ng-container *ngIf="!auth.isPatient && !doctor.wallet">
+        <ng-container *ngIf="!auth.isAuthenticated()">
           <a routerLink="/login" (click)="menuOpen = false"
              class="mt-2 block rounded-lg bg-primary-500 px-4 py-3 text-center font-bold text-ink no-underline">Sign in</a>
           <a routerLink="/register" (click)="menuOpen = false"
@@ -113,20 +129,12 @@ export class NavbarComponent {
 
   constructor(
     public auth: AuthService,
-    public doctor: DoctorSessionService,
     private router: Router
   ) {}
 
-  signOutPatient() {
+  signOut() {
     this.menuOpen = false;
     this.auth.logout();
-    this.router.navigate(['/']);
-  }
-
-  /** Doctor sign out: clears the connected MetaMask wallet (localStorage). */
-  signOutDoctor() {
-    this.menuOpen = false;
-    this.doctor.disconnect();
     this.router.navigate(['/']);
   }
 }

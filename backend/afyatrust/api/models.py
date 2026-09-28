@@ -106,6 +106,7 @@ class Referral(models.Model):
     to_hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, related_name="referrals_in")
     reason = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    responded_by = models.CharField(max_length=220, blank=True)  # e.g. "STAFF:juma@mnh"
     created_at = models.DateTimeField(auto_now_add=True)
     responded_at = models.DateTimeField(null=True, blank=True)
 
@@ -114,6 +115,19 @@ class Referral(models.Model):
 
     def __str__(self):
         return f"{self.patient.health_id} → {self.to_hospital.code} [{self.status}]"
+
+
+class HospitalStaff(models.Model):
+    """Non-doctor hospital desk staff. Created by an admin (Django admin);
+    logs in with username + password to handle incoming referrals."""
+    hospital = models.ForeignKey(Hospital, on_delete=models.CASCADE, related_name="staff")
+    username = models.CharField(max_length=50, unique=True)
+    full_name = models.CharField(max_length=200)
+    password_hash = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.full_name} @ {self.hospital.code}"
 
 
 class AccessRequest(models.Model):

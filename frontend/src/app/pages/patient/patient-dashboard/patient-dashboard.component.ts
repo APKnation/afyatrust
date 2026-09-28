@@ -69,14 +69,64 @@ import { AuthService } from '../../../services/auth.service';
         </p>
       </div>
 
+      <!-- MEASUREMENTS -->
+      <div *ngIf="tab === 'measurements'" class="animate-fade-in">
+        <h2 class="mb-4 text-xl font-bold">My Measurements</h2>
+        <div class="max-h-[520px] overflow-y-auto">
+          <table *ngIf="data?.measurements?.length" class="w-full overflow-hidden rounded-lg bg-white shadow-md">
+            <thead>
+              <tr class="bg-primary-500 text-left text-ink">
+                <th class="px-3 py-2.5 text-sm">Date</th>
+                <th class="px-3 py-2.5 text-sm">Type</th>
+                <th class="px-3 py-2.5 text-sm">Value</th>
+                <th class="px-3 py-2.5 text-sm">By</th>
+                <th class="px-3 py-2.5 text-sm">Hospital</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let m of data.measurements" class="border-b border-gray-200 hover:bg-gray-50">
+                <td class="px-3 py-2.5 text-sm">{{ m.date | date:'short' }}</td>
+                <td class="px-3 py-2.5 text-sm font-semibold">{{ m.kind }}</td>
+                <td class="px-3 py-2.5 text-sm">{{ m.value }} {{ m.unit }}</td>
+                <td class="px-3 py-2.5 text-sm">{{ m.doctor || '—' }}</td>
+                <td class="px-3 py-2.5 text-sm">{{ m.hospital || '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <p *ngIf="!data.measurements.length" class="py-8 text-center text-muted italic">
+            No measurements yet. They appear when a doctor records one.
+          </p>
+        </div>
+      </div>
+
+      <!-- REFERRALS -->
+      <div *ngIf="tab === 'referrals'" class="animate-fade-in">
+        <h2 class="mb-4 text-xl font-bold">My Referrals</h2>
+        <div *ngFor="let r of data.referrals"
+             class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-primary-400 bg-surface p-4.5 shadow-card">
+          <div>
+            <p class="m-0 font-bold text-ink">🏥 {{ r.to_hospital }}</p>
+            <p class="m-0 text-sm text-muted">{{ r.reason || 'No reason recorded' }} · 📅 {{ r.date | date:'medium' }}</p>
+          </div>
+          <span class="rounded px-2.5 py-1 text-xs font-bold"
+                [class]="r.status === 'ACCEPTED' ? 'bg-accent-500 text-white'
+                  : r.status === 'DECLINED' ? 'bg-red-500 text-white'
+                  : r.status === 'CANCELLED' ? 'bg-gray-200 text-ink'
+                  : 'bg-primary-300 text-ink'">{{ r.status }}</span>
+        </div>
+        <p *ngIf="!data.referrals.length" class="py-8 text-center text-muted italic">
+          No referrals yet. If your doctor sends you to another hospital, it shows here.
+        </p>
+      </div>
+
       <!-- PERMISSIONS -->
       <div *ngIf="tab === 'permissions'" class="animate-fade-in">
         <h2 class="mb-4 text-xl font-bold">Grant Access to a Doctor</h2>
         <div class="mb-5 flex flex-col gap-3.5 rounded-xl border border-gray-200 bg-gray-50 p-5">
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <input [(ngModel)]="grant.doctor_wallet" placeholder="Doctor's wallet (0x…)"
+            <input [(ngModel)]="grant.doctor_license" placeholder="Doctor's license number"
                    class="rounded-md border border-gray-300 px-2.5 py-2.5 text-sm" />
-            <input [(ngModel)]="grant.doctor_name" placeholder="Doctor's name"
+            <input [(ngModel)]="grant.doctor_name" placeholder="Doctor's name (optional)"
                    class="rounded-md border border-gray-300 px-2.5 py-2.5 text-sm" />
             <input type="number" [(ngModel)]="grant.days" min="1" max="90" placeholder="Days"
                    class="rounded-md border border-gray-300 px-2.5 py-2.5 text-sm" />
@@ -171,9 +221,11 @@ import { AuthService } from '../../../services/auth.service';
   `,
 })
 export class PatientDashboardComponent implements OnInit, OnDestroy {
-  tab: 'records' | 'permissions' | 'requests' | 'audit' = 'records';
+  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'audit' = 'records';
   tabs = [
     { id: 'records', label: '📋 Records' },
+    { id: 'measurements', label: '📊 Measurements' },
+    { id: 'referrals', label: '📨 Referrals' },
     { id: 'permissions', label: '🔐 Permissions' },
     { id: 'requests', label: '📬 Requests' },
     { id: 'audit', label: '👁️ Audit Trail' },
@@ -183,7 +235,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   requests: AccessRequest[] = [];
   loading = false;
   busy = false;
-  grant = { doctor_wallet: '', doctor_name: '', days: 7 };
+  grant = { doctor_license: '', doctor_name: '', days: 7 };
 
   // --- Access-request notifications (popup) ---
   notifications: AccessRequest[] = [];
@@ -284,11 +336,11 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   }
 
   async grantAccess() {
-    if (!this.grant.doctor_wallet) return;
+    if (!this.grant.doctor_license) return;
     this.busy = true;
     try {
       await this.api.grantAccess(this.grant);
-      this.grant = { doctor_wallet: '', doctor_name: '', days: 7 };
+      this.grant = { doctor_license: '', doctor_name: '', days: 7 };
       await this.reload();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));

@@ -37,10 +37,13 @@ export interface ReferralItem {
   id: number;
   patient_health_id?: string;
   patient_name?: string;
+  from_hospital?: string;
+  from_doctor?: string;
   to_hospital: string;
   to_hospital_code: string;
   reason: string;
   status: string;
+  responded_by?: string;
   date?: string;
   created_at?: string;
   responded_at?: string;
@@ -196,12 +199,12 @@ export class ApiService {
     return this.request<AccessRequest[]>('GET', '/patient/requests/');
   }
 
-  grantAccess(payload: { doctor_wallet: string; doctor_name: string; days: number }) {
+  grantAccess(payload: { doctor_license?: string; doctor_wallet?: string; doctor_name: string; days: number }) {
     return this.request('POST', '/patient/grant-access/', payload);
   }
 
-  revokeAccess(doctor_wallet: string) {
-    return this.request('POST', '/patient/revoke-access/', { doctor_wallet });
+  revokeAccess(payload: { doctor_license?: string; doctor_wallet?: string }) {
+    return this.request('POST', '/patient/revoke-access/', payload);
   }
 
   approveRequest(request_id: number) {
@@ -247,6 +250,29 @@ export class ApiService {
 
   myReferralsSent(): Promise<ReferralItem[]> {
     return this.request<ReferralItem[]>('GET', '/doctor/referrals/');
+  }
+
+  /** Pending referrals addressed to my hospital (notification feed). */
+  incomingReferrals(): Promise<ReferralItem[]> {
+    return this.request<ReferralItem[]>('GET', '/doctor/referrals/incoming/');
+  }
+
+  // ---------- Hospital staff ----------
+
+  staffLogin(username: string, password: string) {
+    return this.request<import('./auth.service').StaffLoginResponse>('POST', '/staff/login/', {
+      username,
+      password,
+    });
+  }
+
+  hospitalReferrals(status?: string): Promise<ReferralItem[]> {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return this.request<ReferralItem[]>('GET', `/staff/referrals/${q}`);
+  }
+
+  respondReferral(referral_id: number, action: 'ACCEPTED' | 'DECLINED') {
+    return this.request('POST', `/staff/referrals/${referral_id}/respond/`, { action });
   }
 
   breakGlass(payload: { health_id: string; facility_id: string; reason: string }) {

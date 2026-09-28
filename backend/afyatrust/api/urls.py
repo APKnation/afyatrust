@@ -18,6 +18,11 @@ urlpatterns = [
     path("patient/approve-request/<int:request_id>/", views.approve_request),
     path("patient/reject-request/<int:request_id>/", views.reject_request),
 
+    # Hospital staff (admin-created accounts)
+    path("staff/login/", views.staff_login),
+    path("staff/referrals/", views.hospital_referrals),
+    path("staff/referrals/<int:referral_id>/respond/", views.respond_referral),
+
     # Doctor
     path("doctor/register/", views.doctor_register),
     path("doctor/login/", views.doctor_login),
@@ -29,6 +34,7 @@ urlpatterns = [
     path("doctor/measurements/<str:health_id>/", views.patient_measurements),
     path("doctor/measurements/", views.add_measurement),
     path("doctor/referrals/", views.doctor_referrals),
+    path("doctor/referrals/incoming/", views.doctor_incoming_referrals),
     path("doctor/patient/<str:health_id>/", views.doctor_view_record),
     path("doctor/break-glass/", views.break_glass),
 ]

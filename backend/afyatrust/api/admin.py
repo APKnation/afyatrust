@@ -1,7 +1,12 @@
 from django.contrib import admin
+from django import forms
 from django.utils import timezone
+from django.contrib.auth.hashers import make_password
 
-from .models import AccessRequest, Doctor, Hospital, Measurement, MedicalRecord, Patient, Referral
+from .models import (
+    AccessRequest, Doctor, Hospital, HospitalStaff, Measurement,
+    MedicalRecord, Patient, Referral,
+)
 
 
 @admin.register(Hospital)
@@ -35,12 +40,55 @@ class DoctorAdmin(admin.ModelAdmin):
         self.message_user(request, f"{count} doctor(s) revoked.")
 
 
+class HospitalStaffForm(forms.ModelForm):
+    """Password is set through a write-only field, never stored in clear."""
+    password = forms.CharField(
+        widget=forms.PasswordInput(render_value=False),
+        required=False,
+        help_text="Type a password to set (or reset) it. Leave blank to keep the current password.",
+    )
+
+    class Meta:
+        model = HospitalStaff
+        fields = "__all__"
+
+    def save(self, commit=True):
+        staff = super().save(commit=False)
+        raw = self.cleaned_data.get("password")
+        if raw:
+            staff.password_hash = make_password(raw)
+        elif not staff.password_hash:
+            raise ValueError("HospitalStaff requires a password")
+        if commit:
+            staff.save()
+        return staff
+
+
+@admin.register(HospitalStaff)
+class HospitalStaffAdmin(admin.ModelAdmin):
+    """Admin creates hospital desk accounts (username + password) so staff can
+    respond to referrals on the hospital page without touching Django admin."""
+    form = HospitalStaffForm
+    list_display = ("full_name", "username", "hospital", "created_at")
+    list_filter = ("hospital",)
+    search_fields = ("full_name", "username")
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        if obj:  # editing: blank password keeps the current one
+            form.base_fields["password"].help_text = (
+                "Leave blank to keep the current password."
+            )
+        return form
+
+
 @admin.register(Referral)
 class ReferralAdmin(admin.ModelAdmin):
-    """Receiving-hospital staff respond to referrals here (accept/decline)."""
+    """Referrals overview. Day-to-day responses happen on the hospital staff
+    page; the admin keeps a full audit (who responded, when)."""
     list_display = (
         "patient", "from_hospital", "to_hospital", "reason",
-        "status", "created_at",
+        "status", "responded_by", "responded_at", "created_at",
     )
     list_filter = ("status", "to_hospital")
     search_fields = ("patient__health_id", "patient__full_name", "reason")

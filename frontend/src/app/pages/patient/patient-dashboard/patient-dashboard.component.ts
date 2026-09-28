@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { NgIf, NgFor, SlicePipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -9,17 +9,17 @@ import { AuthService } from '../../../services/auth.service';
   selector: 'app-patient-dashboard',
   imports: [NgIf, NgFor, SlicePipe, DatePipe, FormsModule],
   template: `
-    <div *ngIf="loading && !data" class="py-15 text-center text-gray-600">
+    <div *ngIf="loading && !data" class="py-15 text-center text-muted">
       <h2 class="mb-1 text-xl font-bold">Loading…</h2>
     </div>
 
     <div *ngIf="data" class="mx-auto max-w-6xl">
-      <div class="mb-5 rounded-2xl bg-gradient-to-br from-blue-800 to-blue-500 p-6 text-white">
+      <div class="mb-5 rounded-xl bg-surface p-6 shadow-card">
         <h1 class="mb-2 text-2xl font-bold">Welcome, {{ data.full_name }}</h1>
         <p class="m-0">Health ID: <strong>{{ data.health_id }}</strong></p>
         <p class="m-0">
           Wallet:
-          <code class="rounded bg-white/20 px-1.5 py-1 text-sm">{{ data.wallet_address | slice:0:10 }}…</code>
+          <code class="rounded bg-primary-100 px-1.5 py-1 text-sm">{{ data.wallet_address | slice:0:10 }}…</code>
           <span class="ml-1 text-xs opacity-80">(managed for you — no MetaMask needed)</span>
         </p>
       </div>
@@ -27,10 +27,10 @@ import { AuthService } from '../../../services/auth.service';
       <div class="mb-5 flex flex-wrap gap-2.5 border-b-2 border-gray-200">
         <button
           *ngFor="let t of tabs"
-          class="cursor-pointer border-none bg-transparent px-4.5 py-3 text-[15px] text-gray-500"
+          class="cursor-pointer border-none bg-transparent px-4.5 py-3 text-[15px] text-muted"
           [class]="tab === t.id
-            ? 'border-b-3 border-blue-800 font-bold text-blue-800'
-            : 'text-gray-500'"
+            ? 'border-b-3 border-primary-500 font-bold text-ink'
+            : 'text-muted'"
           (click)="tab = t.id"
         >
           {{ t.label }}
@@ -45,26 +45,26 @@ import { AuthService } from '../../../services/auth.service';
       <div *ngIf="tab === 'records'" class="animate-fade-in">
         <h2 class="mb-4 text-xl font-bold">My Medical History</h2>
         <div *ngFor="let rec of data.records"
-             class="mb-3.5 rounded-xl border-l-4 border-blue-700 bg-white p-4.5 shadow-md">
+             class="mb-3.5 rounded-xl border-l-4 border-primary-500 bg-surface p-4.5 shadow-card">
           <div class="mb-3 flex flex-wrap items-center gap-3">
-            <span class="font-bold text-blue-700">🏥 {{ rec.facility }}</span>
-            <span class="text-sm text-gray-600">📅 {{ rec.date | date:'medium' }}</span>
-            <span class="rounded px-2 py-0.5 text-xs font-bold text-blue-800">{{ rec.type }}</span>
+            <span class="font-bold text-accent-700">🏥 {{ rec.facility }}</span>
+            <span class="text-sm text-muted">📅 {{ rec.date | date:'medium' }}</span>
+            <span class="rounded px-2 py-0.5 text-xs font-bold text-primary-800">{{ rec.type }}</span>
             <span *ngIf="rec.verified"
-                  class="rounded bg-emerald-500 px-2 py-1 text-xs font-semibold text-white">✅ On-chain</span>
+                  class="rounded bg-accent-500 px-2 py-1 text-xs font-semibold text-white">✅ On-chain</span>
             <span *ngIf="!rec.verified"
-                  class="rounded bg-amber-500 px-2 py-1 text-xs font-semibold text-white">⏳ Pending</span>
+                  class="rounded bg-primary-300 px-2 py-1 text-xs font-semibold text-ink">⏳ Pending</span>
           </div>
           <div class="mb-3 rounded-lg bg-gray-50 p-3">
             <div *ngFor="let item of entries(rec.data)"
                  class="flex border-b border-gray-200 py-1 last:border-b-0">
-              <span class="w-48 shrink-0 font-semibold text-gray-700">{{ item.key }}:</span>
+              <span class="w-48 shrink-0 font-semibold text-ink">{{ item.key }}:</span>
               <span class="text-gray-900">{{ item.value }}</span>
             </div>
           </div>
-          <div class="font-mono text-xs text-gray-500">🔒 {{ rec.hash | slice:0:22 }}…</div>
+          <div class="font-mono text-xs text-muted">🔒 {{ rec.hash | slice:0:22 }}…</div>
         </div>
-        <p *ngIf="data.records.length === 0" class="py-8 text-center text-gray-400 italic">
+        <p *ngIf="data.records.length === 0" class="py-8 text-center text-muted italic">
           No records yet. They appear when a facility adds them.
         </p>
       </div>
@@ -82,11 +82,11 @@ import { AuthService } from '../../../services/auth.service';
                    class="rounded-md border border-gray-300 px-2.5 py-2.5 text-sm" />
           </div>
           <button (click)="grantAccess()" [disabled]="busy"
-                  class="self-start rounded-md bg-emerald-500 px-4.5 py-2.5 font-semibold text-white disabled:opacity-50">
+                  class="self-start rounded-lg bg-accent-500 px-4.5 py-2.5 font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">
             {{ busy ? 'Sending…' : '✅ Grant Access' }}
           </button>
         </div>
-        <p class="text-sm text-gray-500">
+        <p class="text-sm text-muted">
           Access expires automatically after the chosen number of days. Revoke from a
           facility or ask staff to end it early.
         </p>
@@ -96,18 +96,18 @@ import { AuthService } from '../../../services/auth.service';
       <div *ngIf="tab === 'requests'" class="animate-fade-in">
         <h2 class="mb-4 text-xl font-bold">Access Requests</h2>
         <div *ngFor="let req of requests"
-             class="mb-3.5 flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-blue-500 bg-white p-4.5 shadow-md">
+             class="mb-3.5 flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-primary-400 bg-surface p-4.5 shadow-card">
           <div>
             <p class="my-1"><strong>👨‍⚕️ {{ req.doctor_name }}</strong> from <strong>{{ req.facility_id }}</strong></p>
-            <p class="my-1 rounded-md bg-gray-100 px-2 py-2 text-[13px] text-gray-600 italic">💬 {{ req.reason }}</p>
-            <p class="my-1 text-xs text-gray-400">📅 {{ req.created_at | date:'medium' }}</p>
+            <p class="my-1 rounded-md bg-gray-100 px-2 py-2 text-[13px] text-muted italic">💬 {{ req.reason }}</p>
+            <p class="my-1 text-xs text-muted">📅 {{ req.created_at | date:'medium' }}</p>
           </div>
           <div class="flex gap-2.5">
-            <button (click)="approve(req)" class="rounded-md bg-emerald-500 px-4.5 py-2.5 font-semibold text-white">✅ Approve</button>
+            <button (click)="approve(req)" class="rounded-lg bg-accent-500 px-4.5 py-2.5 font-semibold text-white transition-colors hover:bg-accent-600">✅ Approve</button>
             <button (click)="reject(req)" class="rounded-md bg-red-500 px-4.5 py-2.5 font-semibold text-white">❌ Reject</button>
           </div>
         </div>
-        <p *ngIf="requests.length === 0" class="py-8 text-center text-gray-400 italic">No pending requests.</p>
+        <p *ngIf="requests.length === 0" class="py-8 text-center text-muted italic">No pending requests.</p>
       </div>
 
       <!-- AUDIT -->
@@ -116,7 +116,7 @@ import { AuthService } from '../../../services/auth.service';
         <div class="max-h-[520px] overflow-y-auto">
           <table class="w-full overflow-hidden rounded-lg bg-white shadow-md">
             <thead>
-              <tr class="bg-blue-800 text-left text-white">
+              <tr class="bg-primary-500 text-left text-ink">
                 <th class="px-3 py-3 text-sm">Date</th>
                 <th class="px-3 py-3 text-sm">Who</th>
                 <th class="px-3 py-3 text-sm">Role</th>
@@ -138,15 +138,39 @@ import { AuthService } from '../../../services/auth.service';
               </tr>
             </tbody>
           </table>
-          <p *ngIf="data.audit_trail.length === 0" class="py-8 text-center text-gray-400 italic">
+          <p *ngIf="data.audit_trail.length === 0" class="py-8 text-center text-muted italic">
             No access events yet.
           </p>
         </div>
       </div>
     </div>
+
+    <!-- ACCESS-REQUEST NOTIFICATIONS (popup, survives tab switches) -->
+    <div class="fixed top-20 right-4 z-[60] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3">
+      <div *ngFor="let n of notifications"
+           class="animate-fade-in rounded-xl border-l-4 border-primary-500 bg-surface p-4 shadow-card">
+        <div class="mb-1 flex items-center justify-between gap-2">
+          <span class="text-sm font-bold text-ink">🔔 New access request</span>
+          <button (click)="dismiss(n.id)" aria-label="Dismiss"
+                  class="cursor-pointer border-none bg-transparent text-lg leading-none text-muted hover:text-ink">✕</button>
+        </div>
+        <p class="m-0 text-sm text-ink">
+          <strong>{{ n.doctor_name }}</strong> from <strong>{{ n.facility_id }}</strong>
+          wants to view your records.
+        </p>
+        <p *ngIf="n.reason" class="mb-0 mt-1 rounded-md bg-primary-50 px-2 py-1.5 text-[13px] text-muted italic">💬 {{ n.reason }}</p>
+        <div class="mt-3 flex gap-2">
+          <button (click)="approveFromToast(n)"
+                  class="flex-1 cursor-pointer rounded-lg bg-accent-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-600">✅ Approve</button>
+          <button (click)="rejectFromToast(n)"
+                  class="flex-1 cursor-pointer rounded-lg bg-red-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600">❌ Reject</button>
+        </div>
+        <p class="mb-0 mt-2 text-center text-[11px] text-muted">Approval grants 7 days of access and is logged on-chain.</p>
+      </div>
+    </div>
   `,
 })
-export class PatientDashboardComponent implements OnInit {
+export class PatientDashboardComponent implements OnInit, OnDestroy {
   tab: 'records' | 'permissions' | 'requests' | 'audit' = 'records';
   tabs = [
     { id: 'records', label: '📋 Records' },
@@ -161,6 +185,11 @@ export class PatientDashboardComponent implements OnInit {
   busy = false;
   grant = { doctor_wallet: '', doctor_name: '', days: 7 };
 
+  // --- Access-request notifications (popup) ---
+  notifications: AccessRequest[] = [];
+  private dismissedIds = new Set<number>();
+  private pollTimer: any = null;
+
   constructor(
     private api: ApiService,
     private auth: AuthService,
@@ -168,11 +197,47 @@ export class PatientDashboardComponent implements OnInit {
   ) {}
 
   async ngOnInit() {
-    if (!this.auth.isAuthenticated()) {
+    if (!this.auth.isPatient) {
       this.router.navigate(['/login']);
       return;
     }
     await this.reload();
+    this.startPolling();
+  }
+
+  ngOnDestroy() {
+    if (this.pollTimer) clearInterval(this.pollTimer);
+  }
+
+  /** Poll for new access requests so the popup appears without a refresh. */
+  private startPolling() {
+    this.pollTimer = setInterval(async () => {
+      try {
+        this.requests = await this.api.myRequests();
+        this.syncNotifications();
+      } catch {
+        // offline tick — retry on the next cycle
+      }
+    }, 15000);
+  }
+
+  private syncNotifications() {
+    this.notifications = this.requests.filter((r) => !this.dismissedIds.has(r.id));
+  }
+
+  dismiss(id: number) {
+    this.dismissedIds.add(id);
+    this.syncNotifications();
+  }
+
+  async approveFromToast(req: AccessRequest) {
+    await this.approve(req);
+    this.dismiss(req.id);
+  }
+
+  async rejectFromToast(req: AccessRequest) {
+    await this.reject(req);
+    this.dismiss(req.id);
   }
 
   async reload() {
@@ -184,6 +249,7 @@ export class PatientDashboardComponent implements OnInit {
       ]);
       this.data = data;
       this.requests = requests;
+      this.syncNotifications();
     } catch (e: any) {
       console.error('Failed to load patient data', e);
     } finally {
@@ -198,22 +264,22 @@ export class PatientDashboardComponent implements OnInit {
 
   roleBadge(role?: string): string {
     switch ((role || '').toLowerCase()) {
-      case 'patient':  return 'bg-blue-100 text-blue-800';
-      case 'doctor':   return 'bg-emerald-100 text-emerald-900';
-      case 'facility': return 'bg-amber-100 text-amber-800';
-      default:         return 'bg-gray-100 text-gray-700';
+      case 'patient':  return 'bg-primary-100 text-primary-900';
+      case 'doctor':   return 'bg-accent-100 text-accent-900';
+      case 'facility': return 'bg-primary-200 text-primary-900';
+      default:         return 'bg-gray-100 text-ink';
     }
   }
 
   actionBadge(action?: string): string {
     switch ((action || '').toLowerCase()) {
-      case 'view':               return 'bg-indigo-100 text-indigo-900';
+      case 'view':               return 'bg-accent-100 text-accent-900';
       case 'break_glass':        return 'bg-red-100 text-red-900';
-      case 'granted_to_doctor':  return 'bg-emerald-100 text-emerald-900';
-      case 'record_added':       return 'bg-blue-100 text-blue-800';
-      case 'patient_registered': return 'bg-pink-100 text-pink-900';
-      case 'revoked_doctor':     return 'bg-amber-100 text-amber-800';
-      default:                   return 'bg-gray-100 text-gray-700';
+      case 'granted_to_doctor':  return 'bg-accent-200 text-accent-900';
+      case 'record_added':       return 'bg-primary-100 text-primary-900';
+      case 'patient_registered': return 'bg-primary-200 text-primary-900';
+      case 'revoked_doctor':     return 'bg-gray-200 text-ink';
+      default:                   return 'bg-gray-100 text-ink';
     }
   }
 

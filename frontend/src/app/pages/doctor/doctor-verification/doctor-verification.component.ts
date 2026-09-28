@@ -16,7 +16,7 @@ import { DoctorSessionService } from '../doctor-landing/doctor-session.service';
   template: `
     <div class="rounded-2xl border border-gray-200 bg-white p-6">
       <h2 class="mb-1 text-xl font-bold">Doctor Verification</h2>
-      <p class="mb-4 text-sm text-gray-500">
+      <p class="mb-4 text-sm text-muted">
         Access to patient data requires a verified account (license + wallet).
         Admin approval is handled at /admin.
       </p>
@@ -24,10 +24,10 @@ import { DoctorSessionService } from '../doctor-landing/doctor-session.service';
       <!-- NOT CONNECTED -->
       <div *ngIf="!wallet" class="flex flex-wrap items-center gap-3">
         <button (click)="connect()"
-                class="cursor-pointer rounded-lg bg-amber-500 px-4 py-2.5 font-semibold text-white transition-colors hover:bg-amber-600">
+                class="cursor-pointer rounded-lg bg-primary-500 px-4 py-2.5 font-semibold text-ink transition-colors hover:bg-primary-400">
           🦊 Connect MetaMask
         </button>
-        <span class="text-sm text-gray-500">required — your wallet is your doctor identity</span>
+        <span class="text-sm text-muted">required — your wallet is your doctor identity</span>
       </div>
 
       <!-- CONNECTED -->
@@ -37,9 +37,9 @@ import { DoctorSessionService } from '../doctor-landing/doctor-session.service';
             {{ wallet | slice:0:8 }}…{{ wallet | slice:-6 }}
           </span>
           <span *ngIf="state === 'APPROVED'"
-                class="rounded bg-emerald-500 px-2.5 py-1.5 text-xs font-bold text-white">✓ VERIFIED</span>
+                class="rounded bg-accent-500 px-2.5 py-1.5 text-xs font-bold text-white">✓ VERIFIED</span>
           <span *ngIf="state === 'PENDING'"
-                class="rounded bg-amber-500 px-2.5 py-1.5 text-xs font-bold text-white">⏳ PENDING REVIEW</span>
+                class="rounded bg-primary-400 px-2.5 py-1.5 text-xs font-bold text-ink">⏳ PENDING REVIEW</span>
           <span *ngIf="state === 'REJECTED'"
                 class="rounded bg-red-500 px-2.5 py-1.5 text-xs font-bold text-white">✕ REVOKED</span>
           <button *ngIf="state !== 'APPROVED'" (click)="check()"
@@ -53,7 +53,7 @@ import { DoctorSessionService } from '../doctor-landing/doctor-session.service';
         </div>
 
         <!-- NOT REGISTERED YET -->
-        <div *ngIf="state === ''" class="grid grid-cols-1 gap-2.5 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
+        <div *ngIf="state === ''" class="grid grid-cols-1 gap-2.5 rounded-xl bg-primary-50 p-4 sm:grid-cols-2">
           <input [(ngModel)]="fullName" placeholder="Full name"
                  class="rounded-md border border-gray-300 px-2.5 py-2.5 text-sm" />
           <input [(ngModel)]="licenseNo" placeholder="Medical license number"
@@ -61,12 +61,12 @@ import { DoctorSessionService } from '../doctor-landing/doctor-session.service';
           <input [(ngModel)]="facilityId" placeholder="Facility ID (e.g. FAC-1)"
                  class="rounded-md border border-gray-300 px-2.5 py-2.5 text-sm sm:col-span-2" />
           <button (click)="register()" [disabled]="busy"
-                  class="cursor-pointer rounded-md bg-teal-700 px-4 py-2.5 font-semibold text-white disabled:opacity-50 sm:col-span-2">
+                  class="cursor-pointer rounded-lg bg-accent-500 px-4 py-2.5 font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50 sm:col-span-2">
             {{ busy ? 'Submitting…' : 'Submit for admin approval' }}
           </button>
         </div>
 
-        <p *ngIf="state === 'PENDING'" class="m-0 text-sm text-amber-700">
+        <p *ngIf="state === 'PENDING'" class="m-0 text-sm text-primary-800">
           Your registration is waiting for an administrator to approve it.
           Once approved, press "Refresh status", then request access and view records below.
         </p>
@@ -79,8 +79,6 @@ export class DoctorVerificationComponent implements OnInit {
   licenseNo = '';
   facilityId = '';
   busy = false;
-
-  private static readonly WALLET_KEY = 'afyatrust_doctor_wallet';
 
   constructor(
     private api: ApiService,
@@ -95,13 +93,9 @@ export class DoctorVerificationComponent implements OnInit {
     return this.session.status;
   }
 
-  async ngOnInit() {
+  ngOnInit() {
     // Restore a previous session so a page refresh keeps the doctor signed in.
-    const saved = localStorage.getItem(DoctorVerificationComponent.WALLET_KEY);
-    if (saved) {
-      this.session.wallet = saved;
-      await this.check();
-    }
+    this.session.init();
   }
 
   async connect() {
@@ -112,9 +106,8 @@ export class DoctorVerificationComponent implements OnInit {
     }
     try {
       const accounts: string[] = await ethereum.request({ method: 'eth_requestAccounts' });
-      this.session.wallet = accounts[0] || '';
+      this.session.setWallet(accounts[0] || '');
       if (this.session.wallet) {
-        localStorage.setItem(DoctorVerificationComponent.WALLET_KEY, this.session.wallet);
         await this.check();
       }
     } catch {
@@ -123,9 +116,7 @@ export class DoctorVerificationComponent implements OnInit {
   }
 
   disconnect() {
-    this.session.wallet = '';
-    this.session.status = '';
-    localStorage.removeItem(DoctorVerificationComponent.WALLET_KEY);
+    this.session.disconnect();
   }
 
   async check() {

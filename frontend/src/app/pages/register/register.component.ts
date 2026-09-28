@@ -15,10 +15,10 @@ import { AuthService } from '../../services/auth.service';
   selector: 'app-register',
   imports: [NgIf, FormsModule, RouterLink],
   template: `
-    <div class="flex min-h-full items-center justify-center p-6">
-      <div class="w-full max-w-[440px] rounded-2xl border border-gray-200 bg-slate-50 p-8">
+    <div class="flex min-h-[calc(100svh-4.5rem)] items-center justify-center px-4 py-8 sm:px-6">
+      <div class="w-full max-w-[440px] rounded-xl bg-surface p-8 shadow-card">
         <h1 class="mb-2 text-2xl font-bold">Register</h1>
-        <p class="mb-6 text-gray-600">
+        <p class="mb-6 text-muted">
           Choose your PIN. Your wallet is created and managed for you — no MetaMask needed.
         </p>
 
@@ -28,48 +28,48 @@ import { AuthService } from '../../services/auth.service';
 
         <form (ngSubmit)="register()" #form="ngForm" class="flex flex-col gap-4">
           <label class="flex flex-col gap-1.5">
-            <span class="text-[13px] font-semibold text-gray-700">Full Name</span>
+            <span class="text-[13px] font-semibold text-ink">Full Name</span>
             <input type="text" name="full_name" [(ngModel)]="model.full_name" required
-                   class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] outline-none focus:border-transparent focus:ring-2 focus:ring-blue-800" />
+                   class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] outline-none focus:border-transparent focus:ring-2 focus:ring-primary-500" />
           </label>
 
           <label class="flex flex-col gap-1.5">
-            <span class="text-[13px] font-semibold text-gray-700">Health ID</span>
+            <span class="text-[13px] font-semibold text-ink">Health ID</span>
             <input type="text" name="health_id" [(ngModel)]="model.health_id" required
-                   class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] outline-none focus:border-transparent focus:ring-2 focus:ring-blue-800" />
+                   class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] outline-none focus:border-transparent focus:ring-2 focus:ring-primary-500" />
           </label>
 
           <label class="flex flex-col gap-1.5">
-            <span class="text-[13px] font-semibold text-gray-700">Phone (optional)</span>
+            <span class="text-[13px] font-semibold text-ink">Phone (optional)</span>
             <input type="text" name="phone" [(ngModel)]="model.phone"
-                   class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] outline-none focus:border-transparent focus:ring-2 focus:ring-blue-800" />
+                   class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] outline-none focus:border-transparent focus:ring-2 focus:ring-primary-500" />
           </label>
 
           <div class="grid grid-cols-2 gap-3">
             <label class="flex flex-col gap-1.5">
-              <span class="text-[13px] font-semibold text-gray-700">PIN (4 digits)</span>
+              <span class="text-[13px] font-semibold text-ink">PIN (4 digits)</span>
               <input type="password" name="pin" [(ngModel)]="model.pin" required minlength="4"
                      maxlength="4" pattern="[0-9]*" inputmode="numeric"
-                     class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] tracking-[0.4em] outline-none focus:border-transparent focus:ring-2 focus:ring-blue-800" />
+                     class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] tracking-[0.4em] outline-none focus:border-transparent focus:ring-2 focus:ring-primary-500" />
             </label>
             <label class="flex flex-col gap-1.5">
-              <span class="text-[13px] font-semibold text-gray-700">Confirm PIN</span>
+              <span class="text-[13px] font-semibold text-ink">Confirm PIN</span>
               <input type="password" name="pin2" [(ngModel)]="model.pin2" required minlength="4"
                      maxlength="4" pattern="[0-9]*" inputmode="numeric"
-                     class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] tracking-[0.4em] outline-none focus:border-transparent focus:ring-2 focus:ring-blue-800" />
+                     class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] tracking-[0.4em] outline-none focus:border-transparent focus:ring-2 focus:ring-primary-500" />
             </label>
           </div>
 
           <button type="submit"
                   [disabled]="loading || !model.full_name || !model.health_id || model.pin.length !== 4"
-                  class="mt-2 w-full rounded-lg bg-blue-800 px-3.5 py-3.5 text-base font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50">
+                  class="mt-2 w-full rounded-lg bg-primary-500 px-3.5 py-3.5 text-base font-semibold text-ink transition-colors hover:bg-primary-400 disabled:opacity-50">
             {{ loading ? 'Registering…' : 'Register' }}
           </button>
         </form>
 
-        <p class="mt-6 text-center text-sm text-gray-600">
+        <p class="mt-6 text-center text-sm text-muted">
           Already registered?
-          <a routerLink="/login" class="font-semibold text-blue-800 hover:underline">Sign in</a>
+          <a routerLink="/login" class="font-semibold text-accent-700 hover:underline">Sign in</a>
         </p>
       </div>
     </div>

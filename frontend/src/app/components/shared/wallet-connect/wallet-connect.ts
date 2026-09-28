@@ -16,20 +16,20 @@ import { AuthService } from '../../../services/auth.service';
     <div class="flex items-center gap-2.5">
       <ng-container *ngIf="!auth.isAuthenticated(); else session">
         <a routerLink="/login"
-           class="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-white no-underline transition-colors hover:bg-amber-600">
+           class="rounded-lg bg-primary-500 px-4 py-2 text-sm font-bold text-ink no-underline transition-colors hover:bg-primary-400">
           Sign in
         </a>
         <a routerLink="/register"
-           class="rounded-lg bg-white/20 px-4 py-2 text-sm font-bold text-white no-underline transition-colors hover:bg-white/30">
+           class="rounded-lg bg-accent-500 px-4 py-2 text-sm font-bold text-white no-underline transition-colors hover:bg-accent-600">
           Register
         </a>
       </ng-container>
 
       <ng-template #session>
-        <div class="flex items-center gap-2.5 rounded-lg bg-gray-100 px-4 py-2">
-          <span class="text-sm font-bold text-blue-800">🏥 {{ auth.healthId }}</span>
+        <div class="flex items-center gap-2.5 rounded-xl bg-surface px-4 py-2 shadow-card">
+          <span class="text-sm font-bold text-ink">🏥 {{ auth.healthId }}</span>
           <button (click)="signOut()"
-                  class="cursor-pointer rounded border-none bg-red-500 px-2.5 py-1.5 text-white transition-colors hover:bg-red-600">
+                  class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">
             Sign out
           </button>
         </div>

@@ -1,10 +1,80 @@
 @import 'tailwindcss';
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Open+Sans:wght@400;600;700&display=swap');
 
 @theme {
+  /* ---------- Palette: primary #FFCC00 (yellow) ---------- */
+  --color-primary-50: #fffbec;
+  --color-primary-100: #fff3c6;
+  --color-primary-200: #ffe888;
+  --color-primary-300: #ffdd4d;
+  --color-primary-400: #ffd21f;
+  --color-primary-500: #ffcc00; /* brand primary */
+  --color-primary-600: #d9ad00;
+  --color-primary-700: #b08a00;
+  --color-primary-800: #876900;
+  --color-primary-900: #644e00;
+  --color-primary-950: #3d3000;
+
+  /* ---------- Palette: accent #82B440 (green) ---------- */
+  --color-accent-50: #f5faec;
+  --color-accent-100: #e7f4d6;
+  --color-accent-200: #cfe9ad;
+  --color-accent-300: #adda7b;
+  --color-accent-400: #93cb51;
+  --color-accent-500: #82b440; /* brand accent */
+  --color-accent-600: #689231;
+  --color-accent-700: #527129;
+  --color-accent-800: #435a25;
+  --color-accent-900: #394c22;
+  --color-accent-950: #1d2a10;
+
+  /* ---------- Palette: neutrals ---------- */
+  --color-surface: #ffffff;
+  --color-ink: #000000;
+  --color-muted: #6b6b6b;
+
+  /* ---------- Typography ---------- */
+  --font-heading: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-body: 'Open Sans', system-ui, -apple-system, sans-serif;
+
+  /* ---------- Radius ---------- */
+  --radius-lg: 8px;   /* buttons, inputs */
+  --radius-xl: 12px;  /* cards */
+
+  /* ---------- Shadow ---------- */
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.08), 0 4px 16px rgb(0 0 0 / 0.06);
+
+  /* ---------- Spacing scale extension ---------- */
+  --spacing-52: 13rem;
+
+  /* ---------- Motion ---------- */
   --animate-fade-in: fade-in 0.25s ease-out;
 }
 
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@layer base {
+  html {
+    font-family: var(--font-body);
+    line-height: 1.6;
+  }
+  body {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+  }
+  /* Inputs focus with brand color (spec: focus #FFCC00) */
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 1px;
+  }
 }

@@ -210,7 +210,6 @@ import { AuthService } from '../../services/auth.service';
     <footer class="border-t border-gray-200">
       <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
         <div class="flex items-center gap-2">
-          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-500 text-sm"></span>
           <strong class="font-heading text-ink">AfyaTrust</strong>
         </div>
         <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>

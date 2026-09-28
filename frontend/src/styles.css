@@ -56,6 +56,39 @@
   to { opacity: 1; }
 }
 
+/* Navbar links: underline accent on hover + active — no background fills */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: var(--color-primary-500);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.18s ease;
+}
+.nav-link:hover::after {
+  transform: scaleX(0.6);
+}
+.nav-link-active::after {
+  transform: scaleX(1);
+}
+.nav-link-active {
+  font-weight: 700;
+}
+
+/* Mobile menu: left border accent instead of background highlight */
+.nav-link-active-mobile {
+  border-left: 3px solid var(--color-primary-500);
+  padding-left: 0.6rem !important;
+}
+
 @layer base {
   html {
     font-family: var(--font-body);

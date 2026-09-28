@@ -58,6 +58,10 @@ import { DoctorSessionService } from '../../../pages/doctor/doctor-landing/docto
               <span class="text-xs">{{ doctor.isApproved ? '✓ verified' : doctor.status === 'PENDING' ? '⏳ pending' : '· unverified' }}</span>
             </a>
 
+            <!-- Doctor sign out (clears the saved MetaMask wallet) -->
+            <button *ngIf="!auth.isPatient && doctor.wallet" (click)="signOutDoctor()"
+                    class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
+
             <!-- Visitor CTAs -->
             <ng-container *ngIf="!auth.isPatient && !doctor.wallet">
               <a routerLink="/login"
@@ -92,6 +96,8 @@ import { DoctorSessionService } from '../../../pages/doctor/doctor-landing/docto
 
         <button *ngIf="auth.isPatient" (click)="signOutPatient()"
                 class="mt-2 w-full cursor-pointer rounded-lg bg-ink px-4 py-3 font-semibold text-white">Sign out</button>
+        <button *ngIf="!auth.isPatient && doctor.wallet" (click)="signOutDoctor()"
+                class="mt-2 w-full cursor-pointer rounded-lg bg-ink px-4 py-3 font-semibold text-white">Sign out</button>
         <ng-container *ngIf="!auth.isPatient && !doctor.wallet">
           <a routerLink="/login" (click)="menuOpen = false"
              class="mt-2 block rounded-lg bg-primary-500 px-4 py-3 text-center font-bold text-ink no-underline">Sign in</a>
@@ -114,6 +120,13 @@ export class NavbarComponent {
   signOutPatient() {
     this.menuOpen = false;
     this.auth.logout();
+    this.router.navigate(['/']);
+  }
+
+  /** Doctor sign out: clears the connected MetaMask wallet (localStorage). */
+  signOutDoctor() {
+    this.menuOpen = false;
+    this.doctor.disconnect();
     this.router.navigate(['/']);
   }
 }

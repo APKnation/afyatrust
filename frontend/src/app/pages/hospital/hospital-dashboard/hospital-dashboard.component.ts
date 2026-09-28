@@ -113,7 +113,7 @@ export class HospitalDashboardComponent implements OnInit {
 
   async ngOnInit() {
     if (!this.auth.isStaff) {
-      this.router.navigate(['/staff-login']);
+      this.router.navigate(['/login']);
       return;
     }
     await this.reload();

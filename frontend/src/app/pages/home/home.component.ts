@@ -73,10 +73,6 @@ import { AuthService } from '../../services/auth.service';
                  class="rounded-lg border-2 border-white/80 bg-transparent px-7 py-3.5 text-center font-semibold text-white no-underline transition-colors hover:bg-white/10">
                 Sign in
               </a>
-              <a routerLink="/doctor-auth"
-                 class="rounded-lg border-2 border-white/80 bg-transparent px-7 py-3.5 text-center font-semibold text-white no-underline transition-colors hover:bg-white/10">
-                Doctor portal
-              </a>
             </ng-template>
           </ng-template>
         </div>
@@ -198,9 +194,9 @@ import { AuthService } from '../../services/auth.service';
              class="rounded-lg bg-primary-500 px-8 py-3.5 font-semibold text-ink no-underline transition-colors hover:bg-primary-400">
             Open my records
           </a>
-          <a routerLink="/doctor-auth"
+          <a routerLink="/login"
              class="rounded-lg border-2 border-white/70 px-8 py-3.5 font-semibold text-white no-underline transition-colors hover:bg-white/10">
-            Doctor portal
+            Sign in
           </a>
         </div>
       </div>
@@ -215,7 +211,6 @@ import { AuthService } from '../../services/auth.service';
         <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
         <div class="flex gap-5">
           <a *ngIf="!auth.isAuthenticated()" routerLink="/login" class="text-accent-700 no-underline hover:underline">Sign in</a>
-          <a *ngIf="!auth.isDoctor" routerLink="/doctor-auth" class="text-accent-700 no-underline hover:underline">Doctors</a>
         </div>
       </div>
     </footer>

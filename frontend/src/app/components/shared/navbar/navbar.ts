@@ -31,15 +31,9 @@ import { AuthService } from '../../../services/auth.service';
           <a *ngIf="auth.isPatient" routerLink="/patient"
              routerLinkActive="nav-link-active"
              class="nav-link px-1 py-2 text-[15px] text-ink no-underline">My Records</a>
-          <a *ngIf="!auth.isDoctor" routerLink="/doctor-auth"
-             routerLinkActive="nav-link-active"
-             class="nav-link px-1 py-2 text-[15px] text-ink no-underline">Doctor Portal</a>
           <a *ngIf="auth.isDoctor" routerLink="/doctor"
              routerLinkActive="nav-link-active"
              class="nav-link px-1 py-2 text-[15px] text-ink no-underline">My Dashboard</a>
-          <a *ngIf="!auth.isStaff" routerLink="/staff-login"
-             routerLinkActive="nav-link-active"
-             class="nav-link px-1 py-2 text-[15px] text-ink no-underline">Hospital</a>
           <a *ngIf="auth.isStaff" routerLink="/hospital"
              routerLinkActive="nav-link-active"
              class="nav-link px-1 py-2 text-[15px] text-ink no-underline">Referral Desk</a>
@@ -100,15 +94,9 @@ import { AuthService } from '../../../services/auth.service';
         <a *ngIf="auth.isPatient" routerLink="/patient" (click)="menuOpen = false"
            routerLinkActive="nav-link-active-mobile"
            class="block px-1 py-3 text-base font-semibold text-ink no-underline">My Records</a>
-        <a *ngIf="!auth.isDoctor" routerLink="/doctor-auth" (click)="menuOpen = false"
-           routerLinkActive="nav-link-active-mobile"
-           class="block px-1 py-3 text-base font-semibold text-ink no-underline">Doctor Portal</a>
         <a *ngIf="auth.isDoctor" routerLink="/doctor" (click)="menuOpen = false"
            routerLinkActive="nav-link-active-mobile"
            class="block px-1 py-3 text-base font-semibold text-ink no-underline">My Dashboard</a>
-        <a *ngIf="!auth.isStaff" routerLink="/staff-login" (click)="menuOpen = false"
-           routerLinkActive="nav-link-active-mobile"
-           class="block px-1 py-3 text-base font-semibold text-ink no-underline">Hospital</a>
         <a *ngIf="auth.isStaff" routerLink="/hospital" (click)="menuOpen = false"
            routerLinkActive="nav-link-active-mobile"
            class="block px-1 py-3 text-base font-semibold text-ink no-underline">Referral Desk</a>

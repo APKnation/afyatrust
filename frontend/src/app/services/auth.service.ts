@@ -1,67 +1,64 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject } from 'rxjs';
 
 export interface LoginResponse {
-  token: string;
-  role: 'PATIENT' | 'DOCTOR';
+  access: string;
+  refresh: string;
+  health_id: string;
+  full_name: string;
   wallet_address: string;
-  health_id?: string;
 }
+
+const KEY_TOKEN = 'afyatrust_token';
+const KEY_REFRESH = 'afyatrust_refresh';
+const KEY_HEALTH_ID = 'afyatrust_health_id';
+const KEY_NAME = 'afyatrust_name';
+const KEY_WALLET = 'afyatrust_wallet';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private walletSubject = new BehaviorSubject<string>(this.getStoredWallet());
-  private roleSubject = new BehaviorSubject<'PATIENT' | 'DOCTOR' | ''>(this.getStoredRole());
-  private tokenSubject = new BehaviorSubject<string | null>(this.getStoredToken());
+  private tokenSubject = new BehaviorSubject<string | null>(localStorage.getItem(KEY_TOKEN));
+  private healthIdSubject = new BehaviorSubject<string>(localStorage.getItem(KEY_HEALTH_ID) || '');
+  private nameSubject = new BehaviorSubject<string>(localStorage.getItem(KEY_NAME) || '');
 
-  wallet$ = this.walletSubject.asObservable();
-  role$ = this.roleSubject.asObservable();
   token$ = this.tokenSubject.asObservable();
+  healthId$ = this.healthIdSubject.asObservable();
+  fullName$ = this.nameSubject.asObservable();
 
-  private getStoredWallet(): string {
-    return localStorage.getItem('afyatrust_wallet') || '';
-  }
-
-  private getStoredRole(): 'PATIENT' | 'DOCTOR' | '' {
-    return localStorage.getItem('afyatrust_role') as 'PATIENT' | 'DOCTOR' | '' || '';
-  }
-
-  private getStoredToken(): string | null {
-    return localStorage.getItem('afyatrust_token');
-  }
-
-  setAuthenticated(wallet: string, role: 'PATIENT' | 'DOCTOR', token: string) {
-    this.walletSubject.next(wallet);
-    this.roleSubject.next(role);
-    this.tokenSubject.next(token);
-    localStorage.setItem('afyatrust_wallet', wallet);
-    localStorage.setItem('afyatrust_role', role);
-    localStorage.setItem('afyatrust_token', token);
+  /** Store session after successful login. */
+  setSession(res: LoginResponse) {
+    localStorage.setItem(KEY_TOKEN, res.access);
+    localStorage.setItem(KEY_REFRESH, res.refresh);
+    localStorage.setItem(KEY_HEALTH_ID, res.health_id);
+    localStorage.setItem(KEY_NAME, res.full_name);
+    localStorage.setItem(KEY_WALLET, res.wallet_address);
+    this.tokenSubject.next(res.access);
+    this.healthIdSubject.next(res.health_id);
+    this.nameSubject.next(res.full_name);
   }
 
   logout() {
-    this.walletSubject.next('');
-    this.roleSubject.next('');
+    [KEY_TOKEN, KEY_REFRESH, KEY_HEALTH_ID, KEY_NAME, KEY_WALLET].forEach((k) =>
+      localStorage.removeItem(k)
+    );
     this.tokenSubject.next(null);
-    localStorage.removeItem('afyatrust_wallet');
-    localStorage.removeItem('afyatrust_role');
-    localStorage.removeItem('afyatrust_token');
+    this.healthIdSubject.next('');
+    this.nameSubject.next('');
   }
 
   isAuthenticated(): boolean {
-    // A stored wallet + role means the signature was verified by the backend.
-    return this.walletSubject.value.length > 0 && this.roleSubject.value !== '';
-  }
-
-  get wallet(): string {
-    return this.walletSubject.value;
-  }
-
-  get role(): 'PATIENT' | 'DOCTOR' | '' {
-    return this.roleSubject.value;
+    return !!this.tokenSubject.value;
   }
 
   get token(): string | null {
     return this.tokenSubject.value;
+  }
+
+  get healthId(): string {
+    return this.healthIdSubject.value;
+  }
+
+  get fullName(): string {
+    return this.nameSubject.value;
   }
 }

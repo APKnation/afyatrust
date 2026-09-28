@@ -1,7 +1,9 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://api.afyatrust.tz/api',
-  contractAddress: '0x...',
+  apiUrl: '/api',
   chainId: 11155111,
-  contractABI: []
+  chainName: 'Sepolia',
+  etherscanUrl: 'https://sepolia.etherscan.io',
+  contractAddress: '0x0000000000000000000000000000000000000000',
+  contractABI: [],
 };

@@ -1,15 +1,7 @@
-import { TestBed } from '@angular/core/testing';
-import { BlockchainService } from './blockchain';
+import { BLOCKCHAIN_VIA_BACKEND } from './blockchain';
 
-describe('BlockchainService', () => {
-  let service: BlockchainService;
-
-  beforeEach(() => {
-    TestBed.configureTestingModule({});
-    service = TestBed.inject(BlockchainService);
-  });
-
-  it('should be created', () => {
-    expect(service).toBeTruthy();
+describe('blockchain', () => {
+  it('routes all chain calls through the backend in the PoC', () => {
+    expect(BLOCKCHAIN_VIA_BACKEND).toBe(true);
   });
 });

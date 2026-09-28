@@ -11,6 +11,13 @@ ALLOWED_HOSTS = ['*']
 ROOT_URLCONF = 'afyatrust.urls'
 WSGI_APPLICATION = 'afyatrust.wsgi.application'
 
+# Simple JWT: short-lived access tokens for the PoC
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': __import__('datetime').timedelta(hours=12),
+    'REFRESH_TOKEN_LIFETIME': __import__('datetime').timedelta(days=7),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -64,7 +71,9 @@ DATABASES = {
 }
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'api.authentication.HealthIdJWTAuthentication',
+    ],
     'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.AllowAny'],
 }
 

@@ -1,93 +1,138 @@
-# afyatrust
+# AfyaTrust — PoC
 
+Blockchain-based patient record access and audit layer.
+**Author:** Atanasi Patrick Kafuka · **University:** UDOM
 
+Clinical data **stays at the facility** that holds it. The blockchain stores
+only the minimum: record hashes, location pointers, permissions, and audit
+events. Patients authorize access; every read is logged; emergencies use an
+auditable break-glass flow.
 
-## Getting started
+## Stack
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+| Layer | Tech |
+|---|---|
+| Frontend | Angular + Tailwind CSS |
+| Backend | Django REST Framework |
+| Database | PostgreSQL |
+| Smart contract | Solidity |
+| Web3 | Ethers.js (deploy) / web3.py (backend) |
+| PoC chain | Ethereum Sepolia testnet (free) |
+| Production (future) | Hyperledger Fabric |
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+PoC simplifications: patients log in with **Health ID + 4-digit PIN** (no
+OTP/SMS, no MetaMask). The backend creates and manages **custodial patient
+wallets** — private keys encrypted with AES-256-GCM (`MASTER_KEY`). Only
+facility/doctor wallets pay gas. Doctors may optionally connect MetaMask.
 
-## Add your files
+## 1. Deploy the contract to Sepolia
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+```bash
+cd blockchain
+npm install
 
+# blockchain/.env
+# SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<YOUR_KEY>
+# DEPLOYER_PRIVATE_KEY=0x...            # a funded Sepolia test wallet
+npx hardhat run scripts/deploy.js --network sepolia
 ```
-cd existing_repo
-git remote add origin http://102.223.8.140:9000/apknation/afyatrust.git
-git branch -M main
-git push -uf origin main
+
+The script prints the address, saves it to `blockchain/contract-address.txt`,
+and shows the line to paste into `backend/.env`.
+
+Free Sepolia ETH: https://sepoliafaucet.com (or any public faucet).
+
+## 2. Configure backend/.env
+
+```ini
+DEBUG=True
+SECRET_KEY=<django-secret>
+DB_NAME=afyatrust
+DB_USER=postgres
+DB_PASSWORD=<db-password>
+DB_HOST=localhost
+DB_PORT=5432
+
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<YOUR_KEY>
+CONTRACT_ADDRESS=0x<from deploy step>
+FACILITY_PRIVATE_KEY=0x<facility wallet key, pays gas>
+MASTER_KEY=<64 hex chars = 32 bytes, encrypts patient keys>
 ```
 
-## Integrate with your tools
+Generate a master key:
 
-- [ ] [Set up project integrations](http://102.223.8.140:9000/apknation/afyatrust/-/settings/integrations)
+```bash
+python -c "import secrets; print(secrets.token_bytes(32).hex())"
+```
 
-## Collaborate with your team
+> PoC note: until `CONTRACT_ADDRESS` is set, the API still works — on-chain
+> steps are skipped and marked `PENDING: ...` in responses.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+## 3. Run backend + frontend
 
-## Test and Deploy
+```bash
+# Backend
+cd backend
+python -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+cd afyatrust
+python manage.py migrate
+python manage.py runserver          # http://localhost:8000
 
-Use the built-in continuous integration in GitLab.
+# Frontend (new terminal)
+cd frontend
+npm install
+npm start                           # http://localhost:4200
+```
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+## 4. Test the 7 steps from the document
 
-***
+1. **Patient receives a Health ID** — register at `/register`
+   (name, Health ID, 4-digit PIN). The backend creates a custodial wallet and
+   calls `registerPatient` on-chain.
+2. **Facility links records** — add a record (via the API or Django admin):
+   data saved off-chain, SHA-256 hash + facility ID written on-chain
+   (`addRecord`).
+3. **Only metadata on-chain** — check the `Patient` row: it holds the
+   encrypted key; the chain holds only `recordHash`, `facilityID`,
+   `metadataURI`.
+4. **Another facility verifies + requests access** — open `/doctor`,
+   connect MetaMask (optional), enter the Health ID, "Access Records".
+   Without permission you get a denial panel → **Request Access**.
+5. **Patient approves** — sign in at `/login`, open **Requests**, **Approve**
+   → `patientGrantAccess` is written on-chain (7 days). The doctor can now
+   view records; `hasAccess` returns true.
+6. **Every access logged** — after the doctor views records, the patient's
+   **Audit Trail** tab shows the `VIEW` event (who, role, facility, time).
+7. **Break-glass** — from the denial panel, enter a reason and press
+   **Break-Glass**. Access is granted for the emergency and a
+   `BREAK_GLASS` event is permanently logged for accountability.
 
-# Editing this README
+Scripted check of the same flow:
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```bash
+cd backend/afyatrust
+python manage.py shell -c "from api.test_poc_flow import run; run()"
+```
 
-## Suggestions for a good README
+## API overview
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+| Method | Endpoint | Auth | Purpose |
+|---|---|---|---|
+| POST | `/api/register/` | — | Register patient (creates wallet, calls contract) |
+| POST | `/api/login/` | — | Health ID + PIN → JWT |
+| POST | `/api/add-record/` | — | Facility adds record (hash on-chain) |
+| GET | `/api/patient/my-records/` | JWT | Own records + audit trail |
+| GET | `/api/patient/requests/` | JWT | Pending doctor requests |
+| POST | `/api/patient/grant-access/` | JWT | Grant a doctor access (N days) |
+| POST | `/api/patient/approve-request/<id>/` | JWT | Approve request |
+| POST | `/api/patient/reject-request/<id>/` | JWT | Reject request |
+| POST | `/api/doctor/request-access/` | — | Doctor asks for access |
+| GET | `/api/doctor/patient/<health_id>/` | wallet header | View records if `hasAccess` |
+| POST | `/api/doctor/break-glass/` | — | Emergency access (logged) |
 
-## Name
-Choose a self-explaining name for your project.
+## Future work
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+- Hyperledger Fabric for production (permissioned chain).
+- NHIF as an integrating target user (fraud/duplicate-claim reduction).
+- OTP/SMS hardening of PIN login; per-record consent granularity.

@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { canActivate, patientGuard, doctorGuard } from './guards/auth.guard';
+import { canActivate } from './guards/auth.guard';
 import { HomeComponent } from './pages/home/home.component';
 import { LoginComponent } from './pages/login/login.component';
 import { RegisterComponent } from './pages/register/register.component';
@@ -14,15 +14,9 @@ export const routes: Routes = [
   {
     path: 'patient',
     component: PatientDashboardComponent,
-    canActivate: [patientGuard],
+    canActivate: [canActivate],
   },
-  {
-    path: 'doctor',
-    component: DoctorLandingComponent,
-    canActivate: [doctorGuard],
-  },
+  // Doctor page is open: doctors identify via optional MetaMask wallet.
+  { path: 'doctor', component: DoctorLandingComponent },
   { path: '**', redirectTo: '' },
 ];
-
-// Keep the old export name working for existing imports.
-export { canActivate };

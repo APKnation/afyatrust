@@ -25,26 +25,14 @@ import { AuthService } from '../../../services/auth.service';
           [routerLinkActiveOptions]="{ exact: true }"
           class="rounded-lg px-4 py-2 text-[15px] no-underline transition-colors hover:bg-white/20"
         >Home</a>
-        <a
-          routerLink="/register"
-          routerLinkActive="bg-white/20"
-          class="rounded-lg px-4 py-2 text-[15px] no-underline transition-colors hover:bg-white/20"
-        >Register</a>
-        <a
-          *ngIf="!auth.wallet"
-          routerLink="/login"
-          routerLinkActive="bg-white/20"
-          class="rounded-lg px-4 py-2 text-[15px] no-underline transition-colors hover:bg-white/20"
-        >Sign in</a>
 
         <a
-          *ngIf="role === 'PATIENT'"
+          *ngIf="auth.isAuthenticated()"
           routerLink="/patient"
           routerLinkActive="bg-white/20"
           class="rounded-lg px-4 py-2 text-[15px] no-underline transition-colors hover:bg-white/20"
-        >Patient</a>
+        >My Records</a>
         <a
-          *ngIf="role === 'DOCTOR'"
           routerLink="/doctor"
           routerLinkActive="bg-white/20"
           class="rounded-lg px-4 py-2 text-[15px] no-underline transition-colors hover:bg-white/20"
@@ -56,9 +44,5 @@ import { AuthService } from '../../../services/auth.service';
   `,
 })
 export class NavbarComponent {
-  role = '';
-
-  constructor(public auth: AuthService) {
-    this.auth.role$.subscribe((role) => (this.role = role));
-  }
+  constructor(public auth: AuthService) {}
 }

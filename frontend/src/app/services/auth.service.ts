@@ -4,6 +4,7 @@ import { BehaviorSubject } from 'rxjs';
 export interface LoginResponse {
   access: string;
   refresh: string;
+  role?: 'PATIENT' | 'DOCTOR' | 'STAFF';
   health_id: string;
   full_name: string;
   wallet_address: string;

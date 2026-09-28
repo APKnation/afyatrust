@@ -15,9 +15,10 @@ import { AuthService } from '../../services/auth.service';
   selector: 'app-account',
   imports: [NgIf, FormsModule, RouterLink],
   template: `
-    <div class="flex min-h-[calc(100svh-4.5rem)] items-center justify-center px-4 py-8 sm:px-6">
-      <div class="w-full max-w-[440px] rounded-xl bg-surface p-8 shadow-card">
-        <h1 class="mb-2 text-2xl font-bold">Account settings</h1>
+    <div class="page-bg flex min-h-[calc(100svh-4.5rem)] items-center justify-center px-4 py-8 sm:px-6">
+      <div class="card w-full max-w-[440px] p-8 sm:p-10">
+        <span class="eyebrow mb-3">Account</span>
+        <h1 class="mb-2 text-2xl font-bold sm:text-3xl">Account settings</h1>
         <p class="mb-6 text-muted">
           {{ isStaff ? 'Change your password.' : 'Change your PIN.' }}
         </p>

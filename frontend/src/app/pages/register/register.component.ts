@@ -15,9 +15,10 @@ import { AuthService } from '../../services/auth.service';
   selector: 'app-register',
   imports: [NgIf, FormsModule, RouterLink],
   template: `
-    <div class="flex min-h-[calc(100svh-4.5rem)] items-center justify-center px-4 py-8 sm:px-6">
-      <div class="w-full max-w-[440px] rounded-xl bg-surface p-8 shadow-card">
-        <h1 class="mb-2 text-2xl font-bold">Register</h1>
+    <div class="page-bg flex min-h-[calc(100svh-4.5rem)] items-center justify-center px-4 py-8 sm:px-6">
+      <div class="card w-full max-w-[440px] p-8 sm:p-10">
+        <span class="eyebrow mb-3">AfyaTrust</span>
+        <h1 class="mb-2 text-2xl font-bold sm:text-3xl">Register</h1>
         <p class="mb-6 text-muted">
           Choose your PIN. Your wallet is created and managed for you — no MetaMask needed.
         </p>

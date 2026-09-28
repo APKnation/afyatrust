@@ -17,9 +17,10 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
   selector: 'app-login',
   imports: [NgIf, FormsModule, RouterLink],
   template: `
-    <div class="flex min-h-[calc(100svh-4.5rem)] items-center justify-center px-4 py-8 sm:px-6">
-      <div class="w-full max-w-[420px] rounded-xl bg-surface p-8 shadow-card">
-        <h1 class="mb-2 text-2xl font-bold">Sign in</h1>
+    <div class="page-bg flex min-h-[calc(100svh-4.5rem)] items-center justify-center px-4 py-8 sm:px-6">
+      <div class="card w-full max-w-[420px] p-8 sm:p-10">
+        <span class="eyebrow mb-3">AfyaTrust</span>
+        <h1 class="mb-2 text-2xl font-bold sm:text-3xl">Sign in</h1>
         <p class="mb-6 text-muted">
           Enter your ID and PIN or password. You will be taken to your workspace.
         </p>
@@ -56,7 +57,7 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
           <button
             type="submit"
             [disabled]="loading || !identity || !secret"
-            class="mt-2 w-full rounded-lg bg-primary-500 px-3.5 py-3.5 text-base font-semibold text-ink transition-colors hover:bg-primary-400 disabled:opacity-50"
+            class="mt-2 w-full rounded-lg bg-primary-500 px-3.5 py-3.5 text-base font-bold text-ink transition-colors hover:bg-primary-400 disabled:opacity-50"
           >
             {{ loading ? 'Signing in…' : 'Sign in' }}
           </button>

@@ -237,7 +237,7 @@ export class ApiService {
     return this.request<AssignedPatient[]>('GET', '/doctor/patients/');
   }
 
-  /** Pending access requests raised by this doctor. */
+  /** This doctor's access requests with patient responses (approve/reject). */
   doctorPendingRequests(): Promise<AccessRequest[]> {
     return this.request<AccessRequest[]>('GET', '/doctor/pending-requests/');
   }

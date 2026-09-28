@@ -424,17 +424,21 @@ def request_access(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def doctor_pending_requests(request):
-    """Doctor's own pending requests, from the JWT."""
+    """Doctor's own access requests with their status (PENDING / APPROVED /
+    REJECTED), newest first — so the doctor can see whether the patient
+    accepted or rejected each request."""
     doctor = _doctor_from_request(request)
     if not doctor:
         return Response([], status=403)
-    reqs = AccessRequest.objects.filter(doctor=doctor, status="PENDING")
+    reqs = AccessRequest.objects.filter(doctor=doctor)[:50]
     return Response([{
         "id": r.id,
         "patient_health_id": r.patient.health_id,
         "patient_name": r.patient.full_name,
         "facility_id": r.facility_id,
         "reason": r.reason,
+        "status": r.status,
+        "responded_at": r.responded_at,
         "created_at": r.created_at,
     } for r in reqs])
 

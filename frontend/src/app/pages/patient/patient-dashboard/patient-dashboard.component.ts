@@ -57,6 +57,39 @@ import { AuthService } from '../../../services/auth.service';
         </div>
       </div>
 
+      <!-- PENDING REQUESTS BANNER (visible on every tab) -->
+      <div *ngIf="requests.length > 0" class="card mb-6 border-l-4 border-accent-500 p-5">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 class="m-0 text-lg font-bold">Doctor waiting for your answer</h2>
+            <p class="m-0 text-sm text-muted">Approving grants 7 days of on-chain access. Rejecting blocks the doctor from your records.</p>
+          </div>
+          <button (click)="setTab('requests')"
+                  class="cursor-pointer rounded-lg border-2 border-ink px-4 py-2 text-sm font-bold text-ink transition-colors hover:bg-ink hover:text-white">
+            See all requests
+          </button>
+        </div>
+        <div *ngFor="let req of requests" class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gray-50 p-4 last:mb-0">
+          <div>
+            <p class="m-0 font-bold text-ink">Dr. {{ req.doctor_name }}</p>
+            <p class="m-0 text-sm text-muted">
+              {{ req.facility_id }} · {{ req.reason || 'wants to view your records' }}
+              · {{ req.created_at | date:'short' }}
+            </p>
+          </div>
+          <div class="flex gap-2">
+            <button (click)="approve(req)" [disabled]="busyRequest === req.id"
+                    class="cursor-pointer rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">
+              Accept
+            </button>
+            <button (click)="reject(req)" [disabled]="busyRequest === req.id"
+                    class="cursor-pointer rounded-lg border-2 border-red-500 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-500 hover:text-white disabled:opacity-50">
+              Reject
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Tabs -->
       <div class="mb-6 flex flex-wrap gap-1 border-b-2 border-gray-200">
         <button
@@ -383,6 +416,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   // --- Access-request notifications (popup) ---
   notifications: AccessRequest[] = [];
+  busyRequest: number | null = null;
   private dismissedIds = new Set<number>();
   private pollTimer: any = null;
 
@@ -557,23 +591,31 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   }
 
   async approve(req: AccessRequest) {
+    this.busyRequest = req.id;
+    this.syncView();
     try {
       await this.api.approveRequest(req.id);
       await this.reload();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
+    } finally {
+      this.busyRequest = null;
+      this.syncView();
     }
-    this.syncView();
   }
 
   async reject(req: AccessRequest) {
+    this.busyRequest = req.id;
+    this.syncView();
     try {
       await this.api.rejectRequest(req.id);
       await this.reload();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
+    } finally {
+      this.busyRequest = null;
+      this.syncView();
     }
-    this.syncView();
   }
 
   /** Patient sends a referral request to another hospital (staff/doctor must accept). */

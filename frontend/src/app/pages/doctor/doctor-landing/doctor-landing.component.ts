@@ -3,7 +3,7 @@ import { NgIf, NgFor, DatePipe, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
-  ApiService, AssignedPatient, HospitalOption, MeasurementItem, PatientRecord, ReferralItem,
+  AccessRequest, ApiService, AssignedPatient, HospitalOption, MeasurementItem, PatientRecord, ReferralItem,
 } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 
@@ -68,6 +68,8 @@ import { AuthService } from '../../../services/auth.service';
           {{ t.label }}
           <span *ngIf="t.id === 'referrals' && pendingIncoming > 0"
                 class="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingIncoming }}</span>
+          <span *ngIf="t.id === 'requests' && pendingRequestCount > 0"
+                class="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingRequestCount }}</span>
         </button>
       </div>
 
@@ -129,15 +131,28 @@ import { AuthService } from '../../../services/auth.service';
             <div class="mt-3 flex flex-wrap items-center gap-2">
               <input [(ngModel)]="requestReason" placeholder="Reason for access"
                      class="flex-1 rounded-lg border border-primary-300 bg-white px-3 py-2 text-sm" />
-              <button (click)="requestAccess()"
-                      class="cursor-pointer rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-600">
-                Request access
+              <button (click)="requestAccess()" [disabled]="requestStatusFor(healthId) === 'PENDING'"
+                      class="cursor-pointer rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">
+                {{ requestStatusFor(healthId) === 'PENDING' ? 'Request awaiting patient' : 'Request access' }}
               </button>
               <button (click)="breakGlass()"
                       class="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700">
                 Break-glass
               </button>
             </div>
+            <p *ngIf="requestStatusFor(healthId) === 'REJECTED'" class="mb-0 mt-2 text-xs font-semibold text-red-700">
+              The patient rejected a previous request for this record.
+            </p>
+          </div>
+
+          <!-- REQUEST SENT: waiting for the patient -->
+          <div *ngIf="requestSent" class="mt-4 rounded-lg border-2 border-accent-300 bg-accent-50 p-4">
+            <p class="m-0 font-bold text-accent-900">Request sent to the patient.</p>
+            <p class="m-0 mt-1 text-sm text-accent-800">
+              You'll see it under <strong>My Requests</strong>. When the patient approves,
+              access unlocks here automatically (checked every 15 seconds) and the patient
+              appears in <strong>My Patients</strong>.
+            </p>
           </div>
         </div>
 
@@ -278,6 +293,36 @@ import { AuthService } from '../../../services/auth.service';
         </div>
       </div>
 
+      <!-- ================= MY REQUESTS ================= -->
+      <div *ngIf="tab === 'requests'" class="animate-fade-in">
+        <h2 class="mb-1 text-xl font-bold">My Access Requests</h2>
+        <p class="mb-4 text-sm text-muted">
+          Every request you've sent, with the patient's response. Approved requests unlock
+          the patient's records and add them to My Patients.
+        </p>
+        <div *ngFor="let r of myRequests" class="card mb-3 flex flex-wrap items-center justify-between gap-3 p-4">
+          <div>
+            <p class="m-0 font-bold text-ink">{{ r.patient_name }} <span class="text-sm font-normal text-muted">({{ r.patient_health_id }})</span></p>
+            <p class="m-0 text-sm text-muted">{{ r.reason || 'No reason given' }} · {{ r.created_at | date:'medium' }}</p>
+            <p *ngIf="r.responded_at" class="m-0 text-xs text-muted">responded {{ r.responded_at | date:'short' }}</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="rounded-full px-3 py-1 text-xs font-bold"
+                  [class]="r.status === 'APPROVED' ? 'bg-accent-500 text-white'
+                    : r.status === 'REJECTED' ? 'bg-red-500 text-white'
+                    : 'bg-primary-300 text-ink'">{{ r.status === 'PENDING' ? 'Awaiting patient' : r.status }}</span>
+            <button *ngIf="r.status === 'APPROVED'" (click)="healthId = r.patient_health_id; setTab('find'); viewRecord()"
+                    class="cursor-pointer rounded-lg bg-primary-500 px-3.5 py-2 text-sm font-bold text-ink transition-colors hover:bg-primary-400">
+              Open records
+            </button>
+          </div>
+        </div>
+        <div *ngIf="myRequests.length === 0" class="card p-10 text-center">
+          <h3 class="mb-1 text-lg font-bold">No requests yet</h3>
+          <p class="m-0 text-muted">Use Find Patient, then Request access. The patient's response shows here.</p>
+        </div>
+      </div>
+
       <!-- ================= REFERRALS ================= -->
       <div *ngIf="tab === 'referrals'" class="animate-fade-in">
         <h2 class="mb-1 text-xl font-bold">Refer a Patient to Another Hospital</h2>
@@ -348,12 +393,13 @@ import { AuthService } from '../../../services/auth.service';
   `,
 })
 export class DoctorLandingComponent implements OnDestroy, OnInit {
-  tab: 'patients' | 'find' | 'measurements' | 'referrals' = 'patients';
+  tab: 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' = 'patients';
   tabs = [
     { id: 'patients', label: 'My Patients' },
     { id: 'find', label: 'Find Patient' },
     { id: 'measurements', label: 'Measurements' },
     { id: 'referrals', label: 'Referrals' },
+    { id: 'requests', label: 'My Requests' },
   ] as const;
 
   license = '';
@@ -371,7 +417,12 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   viewedHealthId = '';
   records: PatientRecord[] = [];
   denied = false;
+  requestSent = false;
   loading = false;
+
+  // my access requests (patient responses)
+  myRequests: AccessRequest[] = [];
+  pendingRequestCount = 0;
 
   // measurements
   measurementKinds = [
@@ -416,8 +467,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.cdr.detectChanges();
   }
 
-  setTab(id: 'patients' | 'find' | 'measurements' | 'referrals') {
+  setTab(id: 'patients' | 'find' | 'measurements' | 'referrals' | 'requests') {
     this.tab = id;
+    if (id === 'requests') void this.loadMyRequests();
     this.syncView();
   }
 
@@ -438,7 +490,25 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
     await this.loadPatients();
     await this.loadReferralsSent();
+    await this.loadMyRequests();
     this.startReferralPolling();
+  }
+
+  /** Poll patient responses so an approval unlocks records without a refresh. */
+  private async pollMyRequests() {
+    const before = this.pendingRequestCount;
+    try {
+      this.myRequests = await this.api.doctorPendingRequests();
+      this.pendingRequestCount = this.myRequests.filter((r) => r.status === 'PENDING').length;
+    } catch {
+      return; // offline tick
+    }
+    if (this.pendingRequestCount < before && this.healthId.trim()) {
+      // A request was just answered — re-check access to this patient.
+      await this.viewRecord();
+      await this.loadPatients();
+    }
+    this.syncView();
   }
 
   ngOnDestroy() {
@@ -447,7 +517,20 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
   /** Poll referrals addressed to my hospital so toasts appear live. */
   private startReferralPolling() {
-    this.referralTimer = setInterval(() => this.refreshIncoming(), 15000);
+    this.referralTimer = setInterval(() => {
+      void this.refreshIncoming();
+      void this.pollMyRequests();
+    }, 15000);
+  }
+
+  async loadMyRequests() {
+    try {
+      this.myRequests = await this.api.doctorPendingRequests();
+      this.pendingRequestCount = this.myRequests.filter((r) => r.status === 'PENDING').length;
+    } catch {
+      this.myRequests = [];
+    }
+    this.syncView();
   }
 
   async refreshIncoming() {
@@ -521,6 +604,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     if (!this.healthId.trim()) return;
     this.loading = true;
     this.denied = false;
+    this.requestSent = false;
     this.records = [];
     this.viewedName = '';
     this.viewedHealthId = '';
@@ -542,14 +626,25 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     }
   }
 
+  /** Status of this doctor's request for the health ID currently being viewed. */
+  requestStatusFor(healthId: string): string | null {
+    const id = healthId.trim().toLowerCase();
+    const req = this.myRequests.find(
+      (r) => (r.patient_health_id || '').trim().toLowerCase() === id
+    );
+    return req ? req.status || 'PENDING' : null;
+  }
+
   async requestAccess() {
     try {
       await this.api.requestAccess({
         health_id: this.healthId.trim(),
         reason: this.requestReason || 'Clinical care',
       });
-      alert('Request sent — the patient will approve or reject it.');
+      this.requestSent = true;
+      this.denied = false;
       this.requestReason = '';
+      await this.loadMyRequests();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
     }

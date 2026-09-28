@@ -14,7 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Patient, MedicalRecord, AccessRequest
+from .models import Patient, MedicalRecord, AccessRequest, Doctor
 from . import wallet_manager
 from .blockchain import contract, send_transaction, ensure_gas, facility_address
 
@@ -212,22 +212,82 @@ def revoke_access(request):
     return Response({"status": "success", "tx_hash": tx_hash})
 
 
-# ============ 5. DOCTOR: REQUEST + VIEW RECORD ============
+# ============ 5. DOCTOR: REGISTRY (verified doctors only) ============
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def doctor_register(request):
+    """Doctor self-registers with a license number. An admin approves the
+    account in the Django admin before any patient data can be accessed."""
+    data = request.data
+    required = ["full_name", "license_no", "wallet_address", "facility_id"]
+    missing = [f for f in required if not data.get(f)]
+    if missing:
+        return Response({"error": f"Missing fields: {', '.join(missing)}"}, status=400)
+
+    wallet = data["wallet_address"].strip()
+    license_no = data["license_no"].strip()
+    if Doctor.objects.filter(wallet_address__iexact=wallet).exists():
+        return Response({"error": "This wallet is already registered"}, status=409)
+    if Doctor.objects.filter(license_no__iexact=license_no).exists():
+        return Response({"error": "This license number is already registered"}, status=409)
+
+    doctor = Doctor.objects.create(
+        full_name=data["full_name"].strip(),
+        license_no=license_no,
+        wallet_address=wallet,
+        facility_id=data["facility_id"].strip(),
+    )
+    return Response({
+        "status": "PENDING",
+        "doctor_id": doctor.id,
+        "message": "Registration received. An administrator must approve your account "
+                   "before you can access patient data.",
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def doctor_status(request):
+    """Doctor checks their verification status by wallet address."""
+    wallet = request.query_params.get("wallet", "").strip()
+    doctor = Doctor.objects.filter(wallet_address__iexact=wallet).first()
+    if not doctor:
+        return Response({"registered": False})
+    return Response({
+        "registered": True,
+        "status": doctor.status,
+        "full_name": doctor.full_name,
+        "facility_id": doctor.facility_id,
+    })
+
+
+# ============ 5b. DOCTOR: REQUEST + VIEW RECORD ============
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def request_access(request):
-    """Doctor asks the patient for access (off-chain request)."""
+    """Verified doctor asks the patient for access (off-chain request)."""
     data = request.data
+
+    doctor = Doctor.objects.filter(
+        wallet_address__iexact=data.get("doctor_wallet", "")
+    ).first()
+    if not doctor or doctor.status != "APPROVED":
+        return Response(
+            {"error": "Doctor not verified. Register and wait for admin approval."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     patient = Patient.objects.filter(health_id=data.get("health_id", "")).first()
     if not patient:
         return Response({"error": "Health ID not found"}, status=404)
 
     req = AccessRequest.objects.create(
         patient=patient,
-        doctor_wallet=data.get("doctor_wallet", ""),
-        doctor_name=data.get("doctor_name", ""),
-        facility_id=data.get("facility_id", ""),
+        doctor_wallet=doctor.wallet_address,
+        doctor_name=doctor.full_name,
+        facility_id=doctor.facility_id,  # from the verified profile, not free text
         reason=data.get("reason", ""),
     )
     return Response({
@@ -259,6 +319,14 @@ def doctor_view_record(request, health_id):
     """Doctor fetches records; checks hasAccess on-chain (step 5) and logs (step 6)."""
     wallet = request.headers.get("X-Wallet-Address", "")
     facility_id = request.headers.get("X-Facility-ID", "UNKNOWN")
+
+    # Only APPROVED doctors may pull patient data.
+    doctor = Doctor.objects.filter(wallet_address__iexact=wallet).first()
+    if not doctor or doctor.status != "APPROVED":
+        return Response({
+            "error": "Doctor not verified. Register and wait for admin approval.",
+            "action": "REGISTER",
+        }, status=status.HTTP_403_FORBIDDEN)
 
     try:
         allowed = contract.functions.hasAccess(health_id, wallet).call()

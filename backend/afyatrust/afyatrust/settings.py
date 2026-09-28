@@ -63,6 +63,13 @@ MIDDLEWARE = [
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Custom headers the Angular app sends to identify doctors on-chain.
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "x-wallet-address",
+    "x-facility-id",
+]
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',

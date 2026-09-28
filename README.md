@@ -98,8 +98,11 @@ npm start                           # http://localhost:4200
 3. **Only metadata on-chain** — check the `Patient` row: it holds the
    encrypted key; the chain holds only `recordHash`, `facilityID`,
    `metadataURI`.
-4. **Another facility verifies + requests access** — open `/doctor`,
-   connect MetaMask (optional), enter the Health ID, "Access Records".
+4. **Doctor verifies + requests access** — create an admin account
+   (`python manage.py createsuperuser`), then open `/doctor` in a second
+   browser profile: connect MetaMask, submit **full name + license number +
+   facility ID**, and approve the doctor at `/admin` (✅ Approve selected
+   doctors). Back on `/doctor`, enter the Health ID → "Access Records".
    Without permission you get a denial panel → **Request Access**.
 5. **Patient approves** — sign in at `/login`, open **Requests**, **Approve**
    → `patientGrantAccess` is written on-chain (7 days). The doctor can now
@@ -130,7 +133,9 @@ python manage.py shell -c "from api.test_poc_flow import run; run()"
 | POST | `/api/patient/grant-access/` | JWT | Grant a doctor access (N days) |
 | POST | `/api/patient/approve-request/<id>/` | JWT | Approve request |
 | POST | `/api/patient/reject-request/<id>/` | JWT | Reject request |
-| POST | `/api/doctor/request-access/` | — | Doctor asks for access |
+| POST | `/api/doctor/register/` | — | Doctor self-registration (license + wallet, PENDING until admin approves) |
+| GET | `/api/doctor/status/?wallet=0x…` | — | Doctor checks verification status |
+| POST | `/api/doctor/request-access/` | — | **Verified** doctor asks for access |
 | GET | `/api/doctor/patient/<health_id>/` | wallet header | View records if `hasAccess` |
 | POST | `/api/doctor/break-glass/` | — | Emergency access (logged) |
 

@@ -92,7 +92,22 @@ def run():
     print('5. grant-access     ->', r.json()['message'],
           '| tx', r.json()['tx_hash'][:18] + '...')
 
-    # --- 6. Doctor requests access, patient approves, doctor views ----------
+    # --- 6. Doctor verifies, requests access, patient approves, views -------
+    # An unverified doctor must be rejected.
+    r = c.post('/api/doctor/request-access/', content_type='application/json', data={
+        'health_id': health_id, 'doctor_wallet': doctor.address, 'reason': 'x'})
+    assert r.status_code == 403, f"unverified doctor not blocked: {r.status_code}"
+    print('   unverified doctor -> 403 blocked OK')
+
+    # Doctor self-registers and an admin approves the account.
+    from django.utils import timezone
+    from api.models import Doctor
+    Doctor.objects.create(
+        full_name='Dr. Test', license_no=f'LIC-{int(time.time())}',
+        wallet_address=doctor.address, facility_id='FAC-2',
+        status='APPROVED', approved_at=timezone.now(),
+    )
+
     r = c.post('/api/doctor/request-access/', content_type='application/json', data={
         'health_id': health_id,
         'doctor_wallet': doctor.address,
@@ -140,4 +155,5 @@ def run():
 
     # --- cleanup -------------------------------------------------------------
     Patient.objects.filter(health_id=health_id).delete()
+    Doctor.objects.filter(wallet_address__iexact=doctor.address).delete()
     print('\nALL POC FLOW TESTS PASSED (real Sepolia transactions)')

@@ -127,6 +127,21 @@ export class ApiService {
 
   // ---------- Doctor ----------
 
+  registerDoctor(payload: {
+    full_name: string;
+    license_no: string;
+    wallet_address: string;
+    facility_id: string;
+  }) {
+    return this.request('POST', '/doctor/register/', payload);
+  }
+
+  doctorStatus(wallet: string) {
+    return this.request<{ registered: boolean; status?: string; full_name?: string; facility_id?: string }>(
+      'GET', `/doctor/status/?wallet=${encodeURIComponent(wallet)}`
+    );
+  }
+
   requestAccess(payload: {
     health_id: string;
     doctor_wallet: string;

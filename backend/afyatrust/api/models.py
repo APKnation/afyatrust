@@ -32,6 +32,26 @@ class MedicalRecord(models.Model):
         ordering = ["-created_at"]
 
 
+class Doctor(models.Model):
+    """Verified doctor. Self-registers with a license number; an admin
+    approves. Only APPROVED doctors can request access or view records."""
+    STATUS_CHOICES = [
+        ("PENDING", "Pending review"),
+        ("APPROVED", "Approved"),
+        ("REJECTED", "Rejected"),
+    ]
+    full_name = models.CharField(max_length=200)
+    license_no = models.CharField(max_length=50, unique=True)   # medical license
+    facility_id = models.CharField(max_length=50)
+    wallet_address = models.CharField(max_length=42, unique=True)  # identity on-chain
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+    created_at = models.DateTimeField(auto_now_add=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Dr. {self.full_name} [{self.status}]"
+
+
 class AccessRequest(models.Model):
     """Doctor asks the patient for access; patient approves or rejects."""
     STATUS_CHOICES = [

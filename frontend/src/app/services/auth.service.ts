@@ -29,6 +29,9 @@ export interface StaffLoginResponse {
   hospital_name: string;
 }
 
+/** Whatever /api/login/ returns — the role field decides the session type. */
+export type UnifiedLoginResponse = LoginResponse | DoctorLoginResponse | StaffLoginResponse;
+
 const KEY_TOKEN = 'afyatrust_token';
 const KEY_REFRESH = 'afyatrust_refresh';
 const KEY_HEALTH_ID = 'afyatrust_health_id';
@@ -100,6 +103,20 @@ export class AuthService {
     this.healthIdSubject.next('');
     this.nameSubject.next(res.full_name);
     this.roleSubject.next('STAFF');
+  }
+
+  /** Store a session from the unified login, dispatching on the role claim. */
+  setUnifiedSession(res: UnifiedLoginResponse) {
+    switch (res.role) {
+      case 'DOCTOR':
+        this.setDoctorSession(res as DoctorLoginResponse);
+        break;
+      case 'STAFF':
+        this.setStaffSession(res as StaffLoginResponse);
+        break;
+      default:
+        this.setSession(res as LoginResponse);
+    }
   }
 
   logout() {

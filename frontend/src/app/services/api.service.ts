@@ -125,8 +125,17 @@ export class ApiService {
     return data as T;
   }
 
-  // ---------- Auth (patient) ----------
+  // ---------- Auth ----------
 
+  /** Single sign-in for every role; the backend decides the role. */
+  unifiedLogin(identity: string, secret: string) {
+    return this.request<import('./auth.service').UnifiedLoginResponse>('POST', '/login/', {
+      identity,
+      secret,
+    });
+  }
+
+  /** Legacy patient login (Health ID + PIN). */
   login(health_id: string, pin: string) {
     return this.request<import('./auth.service').LoginResponse>('POST', '/login/', {
       health_id,
@@ -144,29 +153,7 @@ export class ApiService {
     return this.request('POST', '/register/', payload);
   }
 
-  // ---------- Auth (doctor) ----------
-
-  doctorLogin(license_no: string, pin: string) {
-    return this.request<import('./auth.service').DoctorLoginResponse>('POST', '/doctor/login/', {
-      license_no,
-      pin,
-    });
-  }
-
-  registerDoctor(payload: {
-    full_name: string;
-    license_no: string;
-    pin: string;
-    hospital_code: string;
-  }) {
-    return this.request('POST', '/doctor/register/', payload);
-  }
-
-  doctorStatus(license_no: string) {
-    return this.request<{ registered: boolean; status?: string; full_name?: string; hospital_code?: string }>(
-      'GET', `/doctor/status/?license_no=${encodeURIComponent(license_no)}`
-    );
-  }
+  // ---------- Doctor (JWT; accounts are admin-created) ----------
 
   doctorMe() {
     return this.request<{
@@ -258,13 +245,6 @@ export class ApiService {
   }
 
   // ---------- Hospital staff ----------
-
-  staffLogin(username: string, password: string) {
-    return this.request<import('./auth.service').StaffLoginResponse>('POST', '/staff/login/', {
-      username,
-      password,
-    });
-  }
 
   hospitalReferrals(status?: string): Promise<ReferralItem[]> {
     const q = status ? `?status=${encodeURIComponent(status)}` : '';

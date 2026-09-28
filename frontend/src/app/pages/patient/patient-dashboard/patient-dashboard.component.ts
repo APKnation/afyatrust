@@ -8,42 +8,62 @@ import { AuthService } from '../../../services/auth.service';
   selector: 'app-patient-dashboard',
   imports: [NgIf, NgFor, SlicePipe, DatePipe, FormsModule],
   template: `
-    <div class="dashboard" *ngIf="!loading && !patient; else content">
-      <div class="loading">
-        <h2>Loading data...</h2>
+    <div *ngIf="!loading && !patient; else content" class="dashboard-loading">
+      <div class="py-15 text-center text-gray-600">
+        <h2 class="mb-1 text-xl font-bold">Loading data...</h2>
         <p>Please wait.</p>
       </div>
     </div>
 
     <ng-template #content>
-      <div class="dashboard">
-        <div class="welcome-card">
-          <h1>Welcome, {{ patient.full_name }}</h1>
-          <p>Health ID: <strong>{{ patient.health_id }}</strong></p>
-          <p>Wallet: <code>{{ wallet | slice:0:10 }}...{{ wallet | slice:-8 }}</code></p>
+      <div class="mx-auto max-w-6xl">
+        <div class="mb-5 rounded-2xl bg-gradient-to-br from-blue-800 to-blue-500 p-6 text-white">
+          <h1 class="mb-2 text-2xl font-bold">Welcome, {{ patient?.full_name }}</h1>
+          <p class="m-0">Health ID: <strong>{{ patient?.health_id }}</strong></p>
+          <p class="m-0">Wallet: <code class="rounded bg-white/20 px-1.5 py-1 text-sm">{{ wallet | slice:0:10 }}...{{ wallet | slice:-8 }}</code></p>
         </div>
 
-        <div class="tabs">
+        <div class="mb-5 flex flex-wrap gap-2.5 border-b-2 border-gray-200">
           <button
-            [class.active]="tab === 'records'"
+            class="relative cursor-pointer border-none bg-transparent px-4.5 py-3 text-[15px] text-gray-500"
+            [class.!border-b-3]="tab === 'records'"
+            [class.border-blue-800]="tab === 'records'"
+            [class.font-bold]="tab === 'records'"
+            [class.text-blue-800]="tab === 'records'"
             (click)="tab = 'records'"
           >
-            📋 My Records ({{ patient.records.length }})
+            📋 My Records ({{ patient?.records?.length || 0 }})
           </button>
           <button
-            [class.active]="tab === 'permissions'"
+            class="relative cursor-pointer border-none bg-transparent px-4.5 py-3 text-[15px] text-gray-500"
+            [class.!border-b-3]="tab === 'permissions'"
+            [class.border-blue-800]="tab === 'permissions'"
+            [class.font-bold]="tab === 'permissions'"
+            [class.text-blue-800]="tab === 'permissions'"
             (click)="tab = 'permissions'"
           >
             🔐 My Permissions
           </button>
           <button
-            [class.active]="tab === 'requests'"
+            class="relative cursor-pointer border-none bg-transparent px-4.5 py-3 text-[15px] text-gray-500"
+            [class.!border-b-3]="tab === 'requests'"
+            [class.border-blue-800]="tab === 'requests'"
+            [class.font-bold]="tab === 'requests'"
+            [class.text-blue-800]="tab === 'requests'"
             (click)="tab = 'requests'"
           >
-            📬 Requests <span *ngIf="pendingRequests.length > 0" class="badge">{{ pendingRequests.length }}</span>
+            📬 Requests
+            <span
+              *ngIf="pendingRequests.length > 0"
+              class="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white"
+            >{{ pendingRequests.length }}</span>
           </button>
           <button
-            [class.active]="tab === 'audit'"
+            class="relative cursor-pointer border-none bg-transparent px-4.5 py-3 text-[15px] text-gray-500"
+            [class.!border-b-3]="tab === 'audit'"
+            [class.border-blue-800]="tab === 'audit'"
+            [class.font-bold]="tab === 'audit'"
+            [class.text-blue-800]="tab === 'audit'"
             (click)="tab = 'audit'"
           >
             👁️ Who Viewed My Data
@@ -51,377 +71,140 @@ import { AuthService } from '../../../services/auth.service';
         </div>
 
         <!-- RECORDS -->
-        <div *ngIf="tab === 'records'" class="tab-content">
-          <h2>My Medical History</h2>
-          <div *ngFor="let rec of patient.records" class="record-card">
-            <div class="record-header">
-              <span class="facility">🏥 {{ rec.facility }}</span>
-              <span class="date">📅 {{ rec.date | date:'medium' }}</span>
-              <span *ngIf="rec.verified" class="verified">✅ Verified</span>
-              <span *ngIf="!rec.verified" class="unverified">⚠️ Unverified</span>
+        <div *ngIf="tab === 'records'" class="animate-fade-in">
+          <h2 class="mb-4 text-xl font-bold">My Medical History</h2>
+          <div
+            *ngFor="let rec of patient?.records"
+            class="mb-3.5 rounded-xl border-l-4 border-blue-700 bg-white p-4.5 shadow-md"
+          >
+            <div class="mb-3 flex flex-wrap items-center gap-3">
+              <span class="font-bold text-blue-700">🏥 {{ rec.facility }}</span>
+              <span class="text-sm text-gray-600">📅 {{ rec.date | date:'medium' }}</span>
+              <span *ngIf="rec.verified" class="rounded bg-emerald-500 px-2 py-1 text-xs font-semibold text-white">✅ Verified</span>
+              <span *ngIf="!rec.verified" class="rounded bg-amber-500 px-2 py-1 text-xs font-semibold text-white">⚠️ Unverified</span>
             </div>
-            <div class="record-type">
-              <strong>{{ rec.type }}</strong>
-            </div>
-            <div class="record-body">
-              <div *ngFor="let item of getDataEntries(rec.data)" class="data-row">
-                <span class="key">{{ item.key }}:</span>
-                <span class="value">{{ item.value }}</span>
+            <div class="mb-3 rounded-md bg-blue-50 px-3 py-2 font-bold text-blue-700">{{ rec.type }}</div>
+            <div class="mb-3 rounded-lg bg-gray-50 p-3">
+              <div *ngFor="let item of getDataEntries(rec.data)" class="flex border-b border-gray-200 py-1 last:border-b-0">
+                <span class="w-48 shrink-0 font-semibold text-gray-700">{{ item.key }}:</span>
+                <span class="text-gray-900">{{ item.value }}</span>
               </div>
             </div>
-            <div class="record-footer">
-              <span class="hash">🔒 Hash: {{ rec.hash | slice:0:15 }}...</span>
-              <a *ngIf="rec.tx_hash" href="https://sepolia.etherscan.io/tx/{{ rec.tx_hash }}" target="_blank" class="etherscan-link">🔗 View on Etherscan</a>
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+              <span class="font-mono">🔒 Hash: {{ rec.hash | slice:0:15 }}...</span>
+              <a
+                *ngIf="rec.tx_hash"
+                [href]="'https://sepolia.etherscan.io/tx/' + rec.tx_hash"
+                target="_blank"
+                class="text-blue-700 no-underline hover:underline"
+              >🔗 View on Etherscan</a>
             </div>
           </div>
-          <p *ngIf="patient.records.length === 0" class="empty">
+          <p *ngIf="(patient?.records?.length || 0) === 0" class="py-8 text-center text-gray-400 italic">
             No records yet. Visit a registered facility to get started.
           </p>
         </div>
 
         <!-- PERMISSIONS -->
-        <div *ngIf="tab === 'permissions'" class="tab-content">
-          <div class="header-actions">
-            <h2>Permissions You Granted</h2>
-            <button (click)="showGrantForm = true" class="btn btn-primary">➕ Grant Doctor Access</button>
+        <div *ngIf="tab === 'permissions'" class="animate-fade-in">
+          <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-xl font-bold">Permissions You Granted</h2>
+            <button (click)="showGrantForm = true" class="rounded-md bg-blue-800 px-4.5 py-2.5 font-semibold text-white transition-colors hover:bg-blue-700">
+              ➕ Grant Doctor Access
+            </button>
           </div>
 
-          <div *ngIf="showGrantForm" class="form-card">
-            <h3>Grant Access</h3>
-            <div class="form-grid">
-              <input [(ngModel)]="newPermission.doctor_wallet" placeholder="Doctor's wallet (0x...)" />
-              <input [(ngModel)]="newPermission.doctor_name" placeholder="Doctor's name" />
-              <input type="number" [(ngModel)]="newPermission.days" placeholder="Days (e.g. 7)" min="1" />
+          <div *ngIf="showGrantForm" class="mb-5 flex flex-col gap-3.5 rounded-xl border border-gray-200 bg-gray-50 p-5">
+            <h3 class="m-0 text-base font-bold">Grant Access</h3>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <input [(ngModel)]="newPermission.doctor_wallet" placeholder="Doctor's wallet (0x...)" class="box-border rounded-md border border-gray-300 px-2.5 py-2.5 text-sm" />
+              <input [(ngModel)]="newPermission.doctor_name" placeholder="Doctor's name" class="box-border rounded-md border border-gray-300 px-2.5 py-2.5 text-sm" />
+              <input type="number" [(ngModel)]="newPermission.days" placeholder="Days (e.g. 7)" min="1" class="box-border rounded-md border border-gray-300 px-2.5 py-2.5 text-sm" />
             </div>
-            <div class="form-actions">
-              <button (click)="grantAccess()" [disabled]="loading" class="btn btn-success">
+            <div class="flex justify-end gap-2.5">
+              <button (click)="grantAccess()" [disabled]="loading" class="rounded-md bg-emerald-500 px-4.5 py-2.5 font-semibold text-white transition-opacity disabled:opacity-50">
                 {{ loading ? 'Sending...' : '✅ Grant Access' }}
               </button>
-              <button (click)="showGrantForm = false" class="btn btn-secondary">Cancel</button>
+              <button (click)="showGrantForm = false" class="rounded-md bg-gray-500 px-4.5 py-2.5 font-semibold text-white">Cancel</button>
             </div>
           </div>
 
-          <div *ngFor="let perm of permissions" class="permission-card">
-            <div class="perm-info">
-              <p><strong>👨‍⚕️ {{ perm.doctor_name || 'Doctor' }}</strong></p>
-              <p class="wallet">Wallet: <code>{{ perm.grantedTo || perm.doctor_wallet }}</code></p>
-              <p class="expiry">📅 Expires: {{ formatDate(perm.expiry) }}</p>
-              <p class="granted-by">
-                Granted by: <span [class]="'role-' + perm.grantedByRole?.toLowerCase()">
-                  {{ perm.grantedByRole }}
+          <div
+            *ngFor="let perm of permissions"
+            class="mb-3.5 flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-blue-500 bg-white p-4.5 shadow-md"
+          >
+            <div>
+              <p class="my-1"><strong>👨‍⚕️ {{ perm.doctor_name || 'Doctor' }}</strong></p>
+              <p class="my-1 text-[13px] text-gray-600">Wallet: <code>{{ perm.grantedTo || perm.doctor_wallet }}</code></p>
+              <p class="my-1 text-[13px] text-amber-500">📅 Expires: {{ formatDate(perm.expiry) }}</p>
+              <p class="my-1 text-xs text-gray-600">
+                Granted by:
+                <span class="rounded px-2 py-0.5 text-xs font-bold" [class]="permBadgeClass(perm.grantedByRole)">
+                  {{ perm.grantedByRole || '—' }}
                 </span>
               </p>
             </div>
-            <button (click)="revokeAccess(perm.grantedTo || perm.doctor_wallet)" class="btn btn-danger">❌ Revoke</button>
+            <button (click)="revokeAccess(perm.grantedTo || perm.doctor_wallet)" class="rounded-md bg-red-500 px-4.5 py-2.5 font-semibold text-white transition-colors hover:bg-red-600">
+              ❌ Revoke
+            </button>
           </div>
-          <p *ngIf="permissions.length === 0" class="empty">You haven't granted any access yet.</p>
+          <p *ngIf="permissions.length === 0" class="py-8 text-center text-gray-400 italic">You haven't granted any access yet.</p>
         </div>
 
         <!-- REQUESTS -->
-        <div *ngIf="tab === 'requests'" class="tab-content">
-          <h2>Access Requests</h2>
-          <div *ngFor="let req of pendingRequests" class="request-card">
-            <p><strong>👨‍⚕️ {{ req.doctor_name }}</strong> from <strong>{{ req.facility_id }}</strong></p>
-            <p class="reason">💬 {{ req.reason }}</p>
-            <p class="time">📅 {{ req.created_at | date:'medium' }}</p>
-            <div class="actions">
-              <button (click)="approveRequest(req)" class="btn btn-success">✅ Approve</button>
-              <button (click)="rejectRequest(req)" class="btn btn-danger">❌ Reject</button>
+        <div *ngIf="tab === 'requests'" class="animate-fade-in">
+          <h2 class="mb-4 text-xl font-bold">Access Requests</h2>
+          <div
+            *ngFor="let req of pendingRequests"
+            class="mb-3.5 flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-blue-500 bg-white p-4.5 shadow-md"
+          >
+            <div>
+              <p class="my-1"><strong>👨‍⚕️ {{ req.doctor_name }}</strong> from <strong>{{ req.facility_id }}</strong></p>
+              <p class="my-1 rounded-md bg-gray-100 px-2 py-2 text-[13px] text-gray-600 italic">💬 {{ req.reason }}</p>
+              <p class="my-1 text-xs text-gray-400">📅 {{ req.created_at | date:'medium' }}</p>
+            </div>
+            <div class="mt-2.5 flex flex-wrap gap-2.5">
+              <button (click)="approveRequest(req)" class="rounded-md bg-emerald-500 px-4.5 py-2.5 font-semibold text-white transition-colors hover:bg-emerald-600">✅ Approve</button>
+              <button (click)="rejectRequest(req)" class="rounded-md bg-red-500 px-4.5 py-2.5 font-semibold text-white transition-colors hover:bg-red-600">❌ Reject</button>
             </div>
           </div>
-          <p *ngIf="pendingRequests.length === 0" class="empty">No new requests.</p>
+          <p *ngIf="pendingRequests.length === 0" class="py-8 text-center text-gray-400 italic">No new requests.</p>
         </div>
 
         <!-- AUDIT -->
-        <div *ngIf="tab === 'audit'" class="tab-content">
-          <h2>Who Viewed My Data</h2>
-          <div class="audit-scroll">
-            <table class="audit-table">
+        <div *ngIf="tab === 'audit'" class="animate-fade-in">
+          <h2 class="mb-4 text-xl font-bold">Who Viewed My Data</h2>
+          <div class="max-h-[520px] overflow-y-auto">
+            <table class="w-full overflow-hidden rounded-lg bg-white shadow-md">
               <thead>
-                <tr>
-                <th>Date</th>
-                <th>Who</th>
-                <th>Role</th>
-                <th>Action</th>
-                <th>Facility</th>
+                <tr class="bg-blue-800 text-left text-white">
+                  <th class="px-3 py-3 text-sm">Date</th>
+                  <th class="px-3 py-3 text-sm">Who</th>
+                  <th class="px-3 py-3 text-sm">Role</th>
+                  <th class="px-3 py-3 text-sm">Action</th>
+                  <th class="px-3 py-3 text-sm">Facility</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let event of patient.audit_trail">
-                  <td>{{ event.timestamp * 1000 | date:'short' }}</td>
-                  <td><code>{{ event.accessor | slice:0:10 }}...</code></td>
-                  <td>
-                    <span [class]="'role-badge role-' + event.role.toLowerCase()">{{ event.role }}</span>
+                <tr *ngFor="let event of patient?.audit_trail" class="border-b border-gray-200 hover:bg-gray-50">
+                  <td class="px-3 py-3">{{ event.timestamp * 1000 | date:'short' }}</td>
+                  <td class="px-3 py-3"><code>{{ event.accessor | slice:0:10 }}...</code></td>
+                  <td class="px-3 py-3">
+                    <span class="rounded px-2 py-1 text-xs font-bold" [class]="permBadgeClass(event.role)">{{ event.role }}</span>
                   </td>
-                  <td>
-                    <span [class]="'action-badge action-' + event.action.toLowerCase()">{{ event.action }}</span>
+                  <td class="px-3 py-3">
+                    <span class="rounded px-2 py-1 text-xs font-bold" [class]="actionBadgeClass(event.action)">{{ event.action }}</span>
                   </td>
-                  <td>{{ event.facility || '-' }}</td>
+                  <td class="px-3 py-3">{{ event.facility || '-' }}</td>
                 </tr>
               </tbody>
             </table>
-            <p *ngIf="patient.audit_trail.length === 0" class="empty">No activity yet.</p>
+            <p *ngIf="(patient?.audit_trail?.length || 0) === 0" class="py-8 text-center text-gray-400 italic">No activity yet.</p>
           </div>
         </div>
       </div>
     </ng-template>
   `,
-  styles: [`
-    .dashboard {
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-    .welcome-card {
-      background: linear-gradient(135deg, #1e40af, #3b82f6);
-      color: white;
-      padding: 24px;
-      border-radius: 14px;
-      margin-bottom: 20px;
-    }
-
-    .welcome-card h1 { margin: 0 0 8px; }
-    .welcome-card code { background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 6px; }
-
-    .tabs {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 20px;
-      border-bottom: 2px solid #e5e7eb;
-    }
-
-    .tabs button {
-      background: none;
-      border: none;
-      padding: 12px 18px;
-      cursor: pointer;
-      font-size: 15px;
-      color: #6b7280;
-      border-bottom: 3px solid transparent;
-      position: relative;
-      flex: 1 1 160px;
-      text-align: center;
-    }
-
-    .tabs button.active {
-      color: #1e40af;
-      border-bottom-color: #1e40af;
-      font-weight: 700;
-    }
-
-    .badge {
-      background: #ef4444;
-      color: white;
-      border-radius: 10px;
-      padding: 2px 8px;
-      font-size: 12px;
-      margin-left: 6px;
-    }
-
-    .tab-content { animation: fadeIn 0.25s; }
-
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-    .header-actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-
-    .form-card {
-      background: #f9fafb;
-      padding: 20px;
-      border-radius: 12px;
-      margin-bottom: 20px;
-      border: 1px solid #e5e7eb;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .form-card input {
-      padding: 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: 14px;
-      box-sizing: border-box;
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 12px;
-    }
-
-    .form-actions {
-      display: flex;
-      gap: 10px;
-      justify-content: flex-end;
-      margin-top: 6px;
-    }
-
-    .btn {
-      padding: 10px 18px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: opacity 0.2s;
-    }
-
-    .btn-primary { background: #1e40af; color: white; }
-    .btn-success { background: #10b981; color: white; }
-    .btn-danger { background: #ef4444; color: white; }
-    .btn-secondary { background: #6b7280; color: white; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .permission-card, .request-card {
-      background: white;
-      padding: 18px;
-      border-radius: 12px;
-      margin-bottom: 14px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-      border-left: 4px solid #3b82f6;
-    }
-
-    .perm-info p { margin: 4px 0; }
-    .wallet code, .reason { font-size: 13px; color: #666; }
-    .expiry { color: #f59e0b; font-size: 13px; }
-    .granted-by { font-size: 12px; color: #666; }
-
-    .request-card .reason {
-      font-style: italic;
-      background: #f3f4f6;
-      padding: 8px;
-      border-radius: 6px;
-    }
-
-    .request-card .time { font-size: 12px; color: #999; }
-    .request-card .actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-
-    .audit-scroll { max-height: 520px; overflow-y: auto; }
-    .audit-table {
-      width: 100%;
-      border-collapse: collapse;
-      background: white;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-
-    .audit-table th {
-      background: #1e40af;
-      color: white;
-      padding: 12px;
-      text-align: left;
-      font-size: 14px;
-    }
-    .audit-table td { padding: 12px; border-bottom: 1px solid #e5e7eb; }
-    .audit-table tr:hover { background: #f9fafb; }
-
-    .role-badge, .action-badge {
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .role-patient { background: #dbeafe; color: #1e40af; }
-    .role-doctor  { background: #dcfce7; color: #166534; }
-    .role-facility{ background: #fef3c7; color: #92400e; }
-
-    .action-view        { background: #e0e7ff; color: #3730a3; }
-    .action-break_glass { background: #fee2e2; color: #991b1b; }
-    .action-granted_to_do { background: #dcfce7; color: #166534; }
-    .action-record_added{ background: #dbeafe; color: #1e40af; }
-    .action-patient_registered { background: #fce7f3; color: #9d174d; }
-    .action-revoked_doctor { background: #fef3c7; color: #92400e; }
-
-    .record-card {
-      background: white;
-      border-radius: 12px;
-      padding: 18px;
-      margin-bottom: 14px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-      border-left: 4px solid #1e40af;
-    }
-
-    .record-header {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-    }
-
-    .record-header .facility { font-weight: 700; color: #1e40af; }
-    .record-header .date { color: #666; font-size: 14px; }
-    .verified { background: #10b981; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-    .unverified { background: #f59e0b; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; }
-
-    .record-type {
-      background: #eff6ff;
-      padding: 8px 12px;
-      border-radius: 6px;
-      margin-bottom: 12px;
-      color: #1e40af;
-    }
-
-    .record-body {
-      background: #f9fafb;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 12px;
-    }
-
-    .data-row {
-      display: flex;
-      padding: 5px 0;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .data-row:last-child { border-bottom: none; }
-    .data-row .key { font-weight: 600; width: 200px; color: #374151; }
-    .data-row .value { color: #111827; }
-
-    .record-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 12px;
-      color: #6b7280;
-    }
-
-    .hash { font-family: monospace; }
-    .etherscan-link { color: #1e40af; text-decoration: none; }
-    .etherscan-link:hover { text-decoration: underline; }
-
-    .empty {
-      text-align: center;
-      color: #999;
-      padding: 32px;
-      font-style: italic;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 60px;
-      color: #666;
-    }
-  `],
 })
 export class PatientDashboardComponent implements OnInit {
   tab: 'records' | 'permissions' | 'requests' | 'audit' = 'records';
@@ -429,7 +212,6 @@ export class PatientDashboardComponent implements OnInit {
   wallet = '';
   permissions: any[] = [];
   pendingRequests: any[] = [];
-  auditTrail: any[] = [];
   showGrantForm = false;
   loading = false;
   newPermission = { doctor_wallet: '', doctor_name: '', days: 7 };
@@ -446,9 +228,8 @@ export class PatientDashboardComponent implements OnInit {
     try {
       const data = await this.api.myRecords();
       this.patient = data;
-      this.permissions = this.patient.permissions || [];
-      this.pendingRequests = this.patient.pendingRequests || [];
-      this.auditTrail = this.patient.audit_trail || [];
+      this.permissions = (data as any)?.permissions || [];
+      this.pendingRequests = (data as any)?.pendingRequests || [];
     } catch (e: any) {
       console.error('Failed to load patient data', e);
     } finally {
@@ -465,6 +246,29 @@ export class PatientDashboardComponent implements OnInit {
     const ts = Number(value);
     if (!isNaN(ts) && ts > 10000000000) return new Date(ts * 1000).toLocaleDateString();
     return String(value);
+  }
+
+  /** Tailwind classes for role badges. */
+  permBadgeClass(role?: string): string {
+    switch ((role || '').toLowerCase()) {
+      case 'patient':  return 'bg-blue-100 text-blue-800';
+      case 'doctor':   return 'bg-emerald-100 text-emerald-900';
+      case 'facility': return 'bg-amber-100 text-amber-800';
+      default:         return 'bg-gray-100 text-gray-700';
+    }
+  }
+
+  /** Tailwind classes for audit action badges. */
+  actionBadgeClass(action?: string): string {
+    switch ((action || '').toLowerCase()) {
+      case 'view':              return 'bg-indigo-100 text-indigo-900';
+      case 'break_glass':       return 'bg-red-100 text-red-900';
+      case 'granted_to_doctor': return 'bg-emerald-100 text-emerald-900';
+      case 'record_added':      return 'bg-blue-100 text-blue-800';
+      case 'patient_registered':return 'bg-pink-100 text-pink-900';
+      case 'revoked_doctor':    return 'bg-amber-100 text-amber-800';
+      default:                  return 'bg-gray-100 text-gray-700';
+    }
   }
 
   async grantAccess() {

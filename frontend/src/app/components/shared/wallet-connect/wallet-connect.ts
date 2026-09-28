@@ -8,46 +8,39 @@ import { Web3Service } from '../../../services/web3.service';
   selector: 'app-wallet-connect',
   imports: [SlicePipe, NgIf],
   template: `
-    <div class="wallet-box">
-      <button *ngIf="!wallet" (click)="connect()" class="btn-connect">
+    <div class="flex items-center gap-2.5">
+      <button
+        *ngIf="!wallet"
+        (click)="connect()"
+        class="rounded-lg bg-amber-500 px-5 py-2.5 font-bold text-white cursor-pointer transition-colors hover:bg-amber-600"
+      >
         🦊 Connect MetaMask
       </button>
 
-      <div *ngIf="wallet" class="wallet-info">
-        <span class="wallet-address">
+      <div
+        *ngIf="wallet"
+        class="flex flex-wrap items-center gap-2.5 rounded-lg bg-gray-100 px-4 py-2"
+      >
+        <span class="font-mono font-bold text-sm">
           {{ wallet | slice:0:6 }}...{{ wallet | slice:-4 }}
         </span>
-        <span class="network-badge" [class.wrong]="network !== 'sepolia'">
+        <span
+          class="rounded px-2 py-1 text-xs font-semibold text-white"
+          [class.bg-emerald-500]="network === 'sepolia'"
+          [class.bg-red-500]="network !== 'sepolia'"
+        >
           {{ network }}
         </span>
-        <span class="balance">{{ balance }} ETH</span>
-        <button (click)="disconnect()" class="btn-disconnect">Disconnect</button>
+        <span class="text-xs text-gray-500">{{ balance }} ETH</span>
+        <button
+          (click)="disconnect()"
+          class="rounded cursor-pointer border-none bg-red-500 px-2.5 py-1.5 text-white transition-colors hover:bg-red-600"
+        >
+          Disconnect
+        </button>
       </div>
     </div>
   `,
-  styles: [`
-    .wallet-box { display: flex; align-items: center; gap: 10px; }
-    .btn-connect {
-      background: #f6851b; color: white; padding: 10px 20px;
-      border: none; border-radius: 8px; cursor: pointer;
-      font-weight: bold;
-    }
-    .wallet-info {
-      display: flex; gap: 10px; align-items: center;
-      background: #f0f0f0; padding: 8px 15px; border-radius: 8px;
-    }
-    .wallet-address { font-family: monospace; font-weight: bold; }
-    .network-badge {
-      background: #10b981; color: white; padding: 4px 8px;
-      border-radius: 4px; font-size: 12px;
-    }
-    .network-badge.wrong { background: #ef4444; }
-    .balance { font-size: 12px; color: #666; }
-    .btn-disconnect {
-      background: #ef4444; color: white; border: none;
-      padding: 5px 10px; border-radius: 4px; cursor: pointer;
-    }
-  `]
 })
 export class WalletConnectComponent implements OnInit {
   wallet = '';

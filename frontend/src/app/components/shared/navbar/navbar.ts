@@ -8,68 +8,51 @@ import { AuthService } from '../../../services/auth.service';
   selector: 'app-navbar',
   imports: [RouterLink, RouterLinkActive, NgIf, WalletConnectComponent],
   template: `
-    <nav class="navbar">
-      <a class="logo" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+    <nav class="flex items-center justify-between bg-blue-800 px-6 py-3.5 text-white shadow-md">
+      <a
+        class="flex items-center gap-2.5 text-[22px] font-bold no-underline"
+        routerLink="/"
+        routerLinkActive="bg-white/20"
+        [routerLinkActiveOptions]="{ exact: true }"
+      >
         🏥 <strong>AfyaTrust</strong>
       </a>
 
-      <div class="nav-links">
-        <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
-        <a routerLink="/register" routerLinkActive="active">Register</a>
+      <div class="hidden items-center gap-4 sm:flex">
+        <a
+          routerLink="/"
+          routerLinkActive="bg-white/20"
+          [routerLinkActiveOptions]="{ exact: true }"
+          class="rounded-lg px-4 py-2 text-[15px] no-underline transition-colors hover:bg-white/20"
+        >Home</a>
+        <a
+          routerLink="/register"
+          routerLinkActive="bg-white/20"
+          class="rounded-lg px-4 py-2 text-[15px] no-underline transition-colors hover:bg-white/20"
+        >Register</a>
 
-        <a *ngIf="role === 'PATIENT'" routerLink="/patient" routerLinkActive="active">Patient</a>
-        <a *ngIf="role === 'DOCTOR'" routerLink="/doctor" routerLinkActive="active">Doctor</a>
+        <a
+          *ngIf="role === 'PATIENT'"
+          routerLink="/patient"
+          routerLinkActive="bg-white/20"
+          class="rounded-lg px-4 py-2 text-[15px] no-underline transition-colors hover:bg-white/20"
+        >Patient</a>
+        <a
+          *ngIf="role === 'DOCTOR'"
+          routerLink="/doctor"
+          routerLinkActive="bg-white/20"
+          class="rounded-lg px-4 py-2 text-[15px] no-underline transition-colors hover:bg-white/20"
+        >Doctor</a>
       </div>
 
       <app-wallet-connect />
     </nav>
   `,
-  styles: [`
-    .navbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #1e40af;
-      color: white;
-      padding: 14px 24px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    }
-
-    .logo {
-      font-size: 22px;
-      font-weight: 700;
-      text-decoration: none;
-      color: white;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .nav-links {
-      display: flex;
-      gap: 16px;
-    }
-
-    .nav-links a {
-      color: white;
-      text-decoration: none;
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-size: 15px;
-      transition: background 0.2s;
-    }
-
-    .nav-links a:hover,
-    .nav-links a.active {
-      background: rgba(255, 255, 255, 0.18);
-    }
-  `],
 })
 export class NavbarComponent {
   role = '';
 
   constructor(private auth: AuthService) {
-    // role is populated by the wallet-connect component once connected
     this.auth.role$.subscribe((role) => (this.role = role));
   }
 }

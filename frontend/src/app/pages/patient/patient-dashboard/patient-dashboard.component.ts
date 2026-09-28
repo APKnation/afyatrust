@@ -445,7 +445,7 @@ export class PatientDashboardComponent implements OnInit {
     this.loading = true;
     try {
       const data = await this.api.myRecords();
-      this.patient = data.data;
+      this.patient = data;
       this.permissions = this.patient.permissions || [];
       this.pendingRequests = this.patient.pendingRequests || [];
       this.auditTrail = this.patient.audit_trail || [];

@@ -1,16 +1,16 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { WalletConnect } from './wallet-connect';
+import { WalletConnectComponent } from './wallet-connect';
 
 describe('WalletConnect', () => {
-  let component: WalletConnect;
-  let fixture: ComponentFixture<WalletConnect>;
+  let component: WalletConnectComponent;
+  let fixture: ComponentFixture<WalletConnectComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [WalletConnect],
+      imports: [WalletConnectComponent],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(WalletConnect);
+    fixture = TestBed.createComponent(WalletConnectComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

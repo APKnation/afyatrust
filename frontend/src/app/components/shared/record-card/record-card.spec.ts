@@ -1,17 +1,25 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { RecordCard } from './record-card';
+import { RecordCardComponent } from './record-card';
 
 describe('RecordCard', () => {
-  let component: RecordCard;
-  let fixture: ComponentFixture<RecordCard>;
+  let component: RecordCardComponent;
+  let fixture: ComponentFixture<RecordCardComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [RecordCard],
+      imports: [RecordCardComponent],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(RecordCard);
+    fixture = TestBed.createComponent(RecordCardComponent);
     component = fixture.componentInstance;
+    component.record = {
+      facility: 'Test Hospital',
+      type: 'Lab',
+      data: { result: 'ok' },
+      hash: '0xabc',
+      date: new Date().toISOString(),
+      verified: true,
+    };
     await fixture.whenStable();
   });
 

@@ -230,6 +230,7 @@ export class DoctorLandingComponent implements OnInit {
   recordHealthId = '';
   recordFacility = '';
   records: any[] = [];
+  doctorsRecord: any = null;
   loading = false;
 
   constructor(private api: ApiService, private auth: AuthService) {}
@@ -270,6 +271,11 @@ export class DoctorLandingComponent implements OnInit {
     } catch (e: any) {
       alert('Hitilafu: ' + (e.error?.message || e.message || 'Kitatipatia'));
     }
+  }
+
+  async loadRecords() {
+    if (!this.recordHealthId) return;
+    await this.viewRecord();
   }
 
   async viewRecord() {

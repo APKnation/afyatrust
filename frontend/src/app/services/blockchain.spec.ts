@@ -1,12 +1,12 @@
 import { TestBed } from '@angular/core/testing';
-import { Blockchain } from './blockchain';
+import { BlockchainService } from './blockchain';
 
-describe('Blockchain', () => {
-  let service: Blockchain;
+describe('BlockchainService', () => {
+  let service: BlockchainService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(Blockchain);
+    service = TestBed.inject(BlockchainService);
   });
 
   it('should be created', () => {

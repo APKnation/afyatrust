@@ -24,6 +24,7 @@ from . import wallet_manager
 from .blockchain import (
     cached_has_access,
     cache_invalidate,
+    checksum_address,
     contract,
     ensure_gas,
     facility_address,
@@ -298,7 +299,8 @@ def grant_access(request):
             patient.encrypted_private_key, patient.encryption_iv
         )
         tx = contract.functions.patientGrantAccess(
-            patient.health_id, patient.wallet_address, doctor_wallet, days
+            patient.health_id, checksum_address(patient.wallet_address),
+            checksum_address(doctor_wallet), days
         )
         tx_hash = send_transaction(tx, patient_key)
     except Exception as e:
@@ -348,7 +350,8 @@ def revoke_access(request):
             patient.encrypted_private_key, patient.encryption_iv
         )
         tx = contract.functions.patientRevokeAccess(
-            patient.health_id, patient.wallet_address, doctor_wallet
+            patient.health_id, checksum_address(patient.wallet_address),
+            checksum_address(doctor_wallet)
         )
         tx_hash = send_transaction(tx, patient_key)
     except Exception as e:
@@ -488,7 +491,7 @@ def doctor_view_record(request, health_id):
     # Step 6: log the view on-chain (viewer passed explicitly — the facility
     # wallet signs but the audit entry must name the real accessor).
     try:
-        tx = contract.functions.recordView(health_id, wallet, facility_id)
+        tx = contract.functions.recordView(health_id, checksum_address(wallet), facility_id)
         send_transaction(tx)
     except Exception:
         pass  # PoC: audit write is best-effort
@@ -626,7 +629,8 @@ def approve_request(request, request_id):
             patient.encrypted_private_key, patient.encryption_iv
         )
         tx = contract.functions.patientGrantAccess(
-            patient.health_id, patient.wallet_address, req.doctor_wallet, 7
+            patient.health_id, checksum_address(patient.wallet_address),
+            checksum_address(req.doctor_wallet), 7
         )
         tx_hash = send_transaction(tx, patient_key)
     except Exception as e:
@@ -996,7 +1000,7 @@ def break_glass(request):
     wallet = doctor.wallet_address if doctor else facility_address()
     tx_hash = ""
     try:
-        tx = contract.functions.breakGlass(health_id, wallet, facility_id, reason)
+        tx = contract.functions.breakGlass(health_id, checksum_address(wallet), facility_id, reason)
         tx_hash = send_transaction(tx)
     except Exception as e:
         tx_hash = f"PENDING: {e}"

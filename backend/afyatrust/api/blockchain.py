@@ -84,6 +84,21 @@ def cache_invalidate(prefix: str) -> None:
             del _cache[key]
 
 
+def checksum_address(wallet: str) -> str:
+    """Normalize an address for web3.py, which rejects non-checksummed ones.
+
+    Wallets typed into the Django admin are often all-lowercase; without this
+    every hasAccess/grant call would raise InvalidAddress and read as denial.
+    Returns the input unchanged if it is not a valid address (callers then
+    see the normal web3 error).
+    """
+    wallet = (wallet or "").strip()
+    try:
+        return Web3.to_checksum_address(wallet)
+    except Exception:
+        return wallet
+
+
 def cached_has_access(health_id: str, wallet: str) -> tuple[bool, bool]:
     """hasAccess with a 60s cache. Returns (allowed, chain_ok).
 
@@ -96,7 +111,9 @@ def cached_has_access(health_id: str, wallet: str) -> tuple[bool, bool]:
         allowed, chain_ok = cached
         return allowed, True
     try:
-        allowed = contract.functions.hasAccess(health_id, wallet).call()
+        allowed = contract.functions.hasAccess(
+            health_id.strip(), checksum_address(wallet)
+        ).call()
     except Exception:
         return False, False  # chain unreachable — never cached
     cache_set(key, (allowed, True))

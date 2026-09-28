@@ -1037,3 +1037,33 @@ def add_record(request):
         "hash": record_hash,
         "tx_hash": record.tx_hash,
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def facility_records(request):
+    """Recent records added by the signed-in staff member's hospital,
+    newest first — shows the on-chain status (hash + tx) of each."""
+    staff = _staff_from_request(request)
+    if not staff:
+        return Response({"error": "Staff account not found"}, status=403)
+
+    records = (
+        MedicalRecord.objects.filter(
+            patient__hospital=staff.hospital
+        )
+        .select_related("patient")
+        .order_by("-created_at")[:50]
+    )
+    return Response([{
+        "id": r.id,
+        "health_id": r.patient.health_id,
+        "patient_name": r.patient.full_name,
+        "facility": r.facility_name,
+        "record_type": r.record_type,
+        "record_data": r.record_data,
+        "record_hash": r.record_hash,
+        "tx_hash": r.tx_hash,
+        "verified": bool(r.tx_hash) and not r.tx_hash.startswith("PENDING"),
+        "created_at": r.created_at,
+    } for r in records])

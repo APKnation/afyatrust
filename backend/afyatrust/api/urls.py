@@ -6,6 +6,7 @@ urlpatterns = [
     path("register/", views.register_patient),
     path("login/", views.login),
     path("add-record/", views.add_record),
+    path("facility/records/", views.facility_records),
     path("hospitals/", views.list_hospitals),
     path("account/change-secret/", views.change_secret),
 

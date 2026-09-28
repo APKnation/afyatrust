@@ -15,4 +15,9 @@ module.exports = {
       accounts: normalizedKey ? [normalizedKey] : [],
     },
   },
+  // Etherscan verification: get a free API key at https://etherscan.io/myapikey
+  // (Sepolia uses the main Etherscan API). Without it, `verify` is skipped.
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY || "",
+  },
 };

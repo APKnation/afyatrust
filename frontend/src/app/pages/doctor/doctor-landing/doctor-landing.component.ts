@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { NgIf, NgFor, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -395,8 +395,17 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
   constructor(
     private api: ApiService,
-    public auth: AuthService
+    public auth: AuthService,
+    private cdr: ChangeDetectorRef
   ) {}
+
+  /**
+   * Angular 22 is zoneless by default — async property assignments don't
+   * re-render the page. Call after every async state mutation.
+   */
+  private syncView() {
+    this.cdr.detectChanges();
+  }
 
   async ngOnInit() {
     if (!this.auth.isDoctor) {
@@ -412,6 +421,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
     const safeHospitals = await this.api.hospitals().catch(() => [] as HospitalOption[]);
     this.hospitals = safeHospitals;
+    this.syncView();
 
     await this.loadPatients();
     await this.loadReferralsSent();
@@ -435,6 +445,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     } catch {
       // offline tick — retry on the next cycle
     }
+    this.syncView();
   }
 
   dismissReferral(id: number) {
@@ -448,6 +459,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
   async respondIncoming(r: ReferralItem, action: 'ACCEPTED' | 'DECLINED') {
     this.busyIncoming = r.id;
+    this.syncView();
     try {
       await this.api.respondReferral(r.id, action);
       await this.refreshIncoming();
@@ -456,6 +468,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
     } finally {
       this.busyIncoming = null;
+      this.syncView();
     }
   }
 
@@ -476,12 +489,14 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
   async loadPatients() {
     this.loadingPatients = true;
+    this.syncView();
     try {
       this.patients = await this.api.myPatients();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed to load patients'));
     } finally {
       this.loadingPatients = false;
+      this.syncView();
     }
   }
 
@@ -498,6 +513,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.records = [];
     this.viewedName = '';
     this.viewedHealthId = '';
+    this.syncView();
     try {
       const res = await this.api.doctorViewRecord(this.healthId.trim());
       this.viewedName = res.full_name;
@@ -511,6 +527,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       }
     } finally {
       this.loading = false;
+      this.syncView();
     }
   }
 
@@ -555,6 +572,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       return;
     }
     this.busyMeas = true;
+    this.syncView();
     try {
       const res: any = await this.api.addMeasurement({
         health_id: this.meas.health_id.trim(),
@@ -573,6 +591,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       this.measMsg = e?.error?.error || e?.message || 'Failed to record measurement';
     } finally {
       this.busyMeas = false;
+      this.syncView();
     }
   }
 
@@ -586,6 +605,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed to load measurements'));
     }
+    this.syncView();
   }
 
   async sendReferral() {
@@ -596,6 +616,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       return;
     }
     this.busyRef = true;
+    this.syncView();
     try {
       const res: any = await this.api.createReferral({
         health_id: this.referral.health_id.trim(),
@@ -610,6 +631,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       this.refMsg = e?.error?.error || e?.message || 'Failed to send referral';
     } finally {
       this.busyRef = false;
+      this.syncView();
     }
   }
 
@@ -619,6 +641,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     } catch {
       this.referralsSent = [];
     }
+    this.syncView();
   }
 
   // ---------- Measurement trend chart ----------

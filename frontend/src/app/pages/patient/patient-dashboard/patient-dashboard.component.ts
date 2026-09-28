@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { NgIf, NgFor, SlicePipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -361,8 +361,19 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   constructor(
     private api: ApiService,
     private auth: AuthService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
+
+  /**
+   * Angular 22 runs ZONELESS by default: plain property assignments after an
+   * async fetch do NOT trigger change detection, so the page would stay on
+   * "Loading…" forever even with data loaded. Call this after every async
+   * state mutation to re-render immediately.
+   */
+  private syncView() {
+    this.cdr.detectChanges();
+  }
 
   async ngOnInit() {
     if (!this.auth.isPatient) {
@@ -385,6 +396,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     } catch {
       this.sendHospitals = [];
     }
+    this.syncView();
   }
 
   /**
@@ -394,9 +406,11 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
    */
   private startPolling() {
     this.pollTimer = setInterval(async () => {
+      let changed = false;
       try {
         this.requests = await this.api.myRequests();
         this.syncNotifications();
+        changed = true;
       } catch {
         // offline tick — retry on the next cycle
       }
@@ -405,14 +419,17 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
         const fresh = await this.api.myRecords();
         this.data = fresh;
         this.errorMsg = '';
+        changed = true;
       } catch {
         // offline tick — the current data stays on screen
       }
+      if (changed) this.syncView();
     }, 15000);
   }
 
   private syncNotifications() {
     this.notifications = this.requests.filter((r) => !this.dismissedIds.has(r.id));
+    this.syncView();
   }
 
   dismiss(id: number) {
@@ -433,6 +450,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   async reload() {
     this.loading = true;
     this.errorMsg = '';
+    this.syncView();
     try {
       // Records first — render the dashboard as soon as the core payload
       // arrives instead of waiting on the (non-critical) request list.
@@ -447,9 +465,11 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       }
       this.errorMsg = e?.error?.error || e?.message || 'Could not load your records.';
       this.loading = false;
+      this.syncView();
       return;
     } finally {
       this.loading = false;
+      this.syncView();
     }
 
     // Requests are non-blocking: the dashboard is already visible.
@@ -459,6 +479,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     } catch {
       // non-critical — retry happens on the next poll tick
     }
+    this.syncView();
   }
 
   retry() {
@@ -494,6 +515,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   async grantAccess() {
     if (!this.grant.doctor_license) return;
     this.busy = true;
+    this.syncView();
     try {
       await this.api.grantAccess(this.grant);
       this.grant = { doctor_license: '', doctor_name: '', days: 7 };
@@ -502,6 +524,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
     } finally {
       this.busy = false;
+      this.syncView();
     }
   }
 
@@ -512,6 +535,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
     }
+    this.syncView();
   }
 
   async reject(req: AccessRequest) {
@@ -521,6 +545,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
     }
+    this.syncView();
   }
 
   /** Patient sends a referral request to another hospital (staff/doctor must accept). */
@@ -532,6 +557,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     }
     this.sendBusy = true;
     this.sendMsg = '';
+    this.syncView();
     try {
       const res: any = await this.api.sendPatientReferral({
         to_hospital: this.referralForm.to_hospital,
@@ -546,6 +572,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       this.sendOk = false;
     } finally {
       this.sendBusy = false;
+      this.syncView();
     }
   }
 

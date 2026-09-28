@@ -86,6 +86,20 @@ export interface AccessRequest {
   created_at: string;
 }
 
+/** A record added by hospital staff (facility view). */
+export interface FacilityRecord {
+  id: number;
+  health_id: string;
+  patient_name: string;
+  facility: string;
+  record_type: string;
+  record_data: Record<string, any>;
+  record_hash: string;
+  tx_hash: string;
+  verified: boolean;
+  created_at: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private api = environment.apiUrl;
@@ -275,6 +289,7 @@ export class ApiService {
 
   // ---------- Facility ----------
 
+  /** Staff adds a clinical record: data off-chain, SHA-256 hash on-chain. */
   addRecord(payload: {
     health_id: string;
     facility_id: string;
@@ -282,6 +297,13 @@ export class ApiService {
     record_type: string;
     record_data: any;
   }) {
-    return this.request('POST', '/add-record/', payload);
+    return this.request<{ status: string; record_id: number; hash: string; tx_hash: string }>(
+      'POST', '/add-record/', payload
+    );
+  }
+
+  /** Recent records added by my hospital (staff view, on-chain status). */
+  facilityRecords(): Promise<FacilityRecord[]> {
+    return this.request<FacilityRecord[]>('GET', '/facility/records/');
   }
 }

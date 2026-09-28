@@ -7,6 +7,7 @@ urlpatterns = [
     path("login/", views.login),
     path("add-record/", views.add_record),
     path("hospitals/", views.list_hospitals),
+    path("account/change-secret/", views.change_secret),
 
     # Patient (JWT required)
     path("patient/my-records/", views.my_records),

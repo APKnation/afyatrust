@@ -244,6 +244,13 @@ export class ApiService {
     return this.request<ReferralItem[]>('GET', '/doctor/referrals/incoming/');
   }
 
+  // ---------- Account ----------
+
+  /** Rotate the signed-in user's own PIN/password (any role). */
+  changeSecret(current_secret: string, new_secret: string) {
+    return this.request('POST', '/account/change-secret/', { current_secret, new_secret });
+  }
+
   // ---------- Hospital staff ----------
 
   hospitalReferrals(status?: string): Promise<ReferralItem[]> {

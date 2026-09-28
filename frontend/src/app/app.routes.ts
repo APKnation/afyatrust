@@ -7,6 +7,16 @@ import { RegisterComponent } from './pages/register/register.component';
 import { PatientDashboardComponent } from './pages/patient/patient-dashboard/patient-dashboard.component';
 import { DoctorLandingComponent } from './pages/doctor/doctor-landing/doctor-landing.component';
 import { HospitalDashboardComponent } from './pages/hospital/hospital-dashboard/hospital-dashboard.component';
+import { AccountComponent } from './pages/account/account.component';
+
+/** Any authenticated role (patient, doctor or staff). */
+const authGuard = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  if (auth.isAuthenticated()) return true;
+  router.navigate(['/login']);
+  return false;
+};
 
 /**
  * Single public entry points: /login and /register. Workspace routes are
@@ -56,6 +66,12 @@ export const routes: Routes = [
     path: 'hospital',
     component: HospitalDashboardComponent,
     canActivate: [staffGuard],
+  },
+  // Self-service credential rotation, available to every signed-in role.
+  {
+    path: 'account',
+    component: AccountComponent,
+    canActivate: [authGuard],
   },
   // Old per-role pages no longer exist — quietly send them to the login.
   { path: 'doctor-auth', redirectTo: 'login', pathMatch: 'full' },

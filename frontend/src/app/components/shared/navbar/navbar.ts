@@ -43,6 +43,7 @@ import { AuthService } from '../../../services/auth.service';
             <!-- Patient chip -->
             <div *ngIf="auth.isPatient" class="flex items-center gap-2.5 rounded-xl bg-surface px-4 py-2 shadow-card">
               <span class="text-sm font-bold text-ink">{{ auth.healthId }}</span>
+              <a routerLink="/account" class="text-sm font-semibold text-accent-700 no-underline hover:underline">Account</a>
               <button (click)="signOut()"
                       class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
             </div>
@@ -51,6 +52,7 @@ import { AuthService } from '../../../services/auth.service';
             <div *ngIf="auth.isDoctor" class="flex items-center gap-2.5 rounded-xl bg-surface px-4 py-2 shadow-card">
               <span class="text-sm font-bold text-ink">Dr. {{ auth.fullName }}</span>
               <span class="text-xs font-bold text-accent-700">✓ verified</span>
+              <a routerLink="/account" class="text-sm font-semibold text-accent-700 no-underline hover:underline">Account</a>
               <button (click)="signOut()"
                       class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
             </div>
@@ -58,6 +60,7 @@ import { AuthService } from '../../../services/auth.service';
             <!-- Staff chip -->
             <div *ngIf="auth.isStaff" class="flex items-center gap-2.5 rounded-xl bg-surface px-4 py-2 shadow-card">
               <span class="text-sm font-bold text-ink">{{ auth.fullName }}</span>
+              <a routerLink="/account" class="text-sm font-semibold text-accent-700 no-underline hover:underline">Account</a>
               <button (click)="signOut()"
                       class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
             </div>
@@ -101,6 +104,8 @@ import { AuthService } from '../../../services/auth.service';
            routerLinkActive="nav-link-active-mobile"
            class="block px-1 py-3 text-base font-semibold text-ink no-underline">Referral Desk</a>
 
+        <a *ngIf="auth.isAuthenticated()" routerLink="/account" (click)="menuOpen = false"
+           class="mt-2 block rounded-lg px-4 py-3 text-center font-semibold text-accent-700 no-underline hover:underline">Account settings</a>
         <button *ngIf="auth.isAuthenticated()" (click)="signOut()"
                 class="mt-2 w-full cursor-pointer rounded-lg bg-ink px-4 py-3 font-semibold text-white">Sign out</button>
         <ng-container *ngIf="!auth.isAuthenticated()">

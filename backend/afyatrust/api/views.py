@@ -779,6 +779,54 @@ def doctor_referrals(request):
     return _create_referral(doctor, request)
 
 
+# ============ ACCOUNT: CHANGE PIN / PASSWORD (all roles) ============
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def change_secret(request):
+    """Rotate the caller's own credential. Requires the CURRENT secret.
+    - PATIENT: 4-digit PIN
+    - DOCTOR:  4-digit PIN
+    - STAFF:   password (8+ chars)
+    Always returns the same generic error on a wrong current secret so the
+    endpoint cannot be used to discover which roles exist."""
+    if not request.auth:
+        return Response({"error": "Authentication required"}, status=401)
+    role = request.auth.get("role", "")
+    current = str(request.data.get("current_secret", ""))
+    new = str(request.data.get("new_secret", ""))
+
+    if role == "STAFF":
+        if len(new) < 8:
+            return Response({"error": "New password must be at least 8 characters"}, status=400)
+        staff = HospitalStaff.objects.filter(
+            username__iexact=request.auth.get("username", "")
+        ).first()
+        if not staff or not current or not check_password(current, staff.password_hash):
+            return Response({"error": "Current password is incorrect"}, status=401)
+        staff.password_hash = make_password(new)
+        staff.save(update_fields=["password_hash"])
+        return Response({"status": "success", "message": "Password updated."})
+
+    if role not in {"PATIENT", "DOCTOR"} or len(new) != 4 or not new.isdigit():
+        return Response({"error": "New PIN must be exactly 4 digits"}, status=400)
+
+    if role == "PATIENT":
+        obj = Patient.objects.filter(
+            health_id__iexact=request.auth.get("health_id", "")
+        ).first()
+    else:
+        obj = Doctor.objects.filter(
+            license_no__iexact=request.auth.get("license_no", "")
+        ).first()
+    if not obj or not current or not check_password(current, obj.pin_hash):
+        return Response({"error": "Current PIN is incorrect"}, status=401)
+
+    obj.pin_hash = make_password(new)
+    obj.save(update_fields=["pin_hash"])
+    return Response({"status": "success", "message": "PIN updated."})
+
+
 def _referral_json(r):
     return {
         "id": r.id,

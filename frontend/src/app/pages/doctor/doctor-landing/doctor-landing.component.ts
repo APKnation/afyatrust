@@ -39,7 +39,7 @@ import { AuthService } from '../../../services/auth.service';
         <div *ngFor="let n of incomingToasts"
              class="animate-fade-in rounded-xl border-l-4 border-accent-500 bg-surface p-4 shadow-card">
           <div class="mb-1 flex items-center justify-between gap-2">
-            <span class="text-sm font-bold text-ink">📨 Referral received</span>
+            <span class="text-sm font-bold text-ink"> Referral received</span>
             <button (click)="dismissReferral(n.id)" aria-label="Dismiss"
                     class="cursor-pointer border-none bg-transparent text-lg leading-none text-muted hover:text-ink">✕</button>
           </div>
@@ -48,12 +48,12 @@ import { AuthService } from '../../../services/auth.service';
             <strong>{{ n.from_hospital }}</strong>
             <span *ngIf="n.from_doctor" class="block">by Dr. {{ n.from_doctor }}</span>
           </p>
-          <p *ngIf="n.reason" class="mb-0 mt-1 rounded-md bg-primary-50 px-2 py-1.5 text-[13px] text-muted italic">💬 {{ n.reason }}</p>
+          <p *ngIf="n.reason" class="mb-0 mt-1 rounded-md bg-primary-50 px-2 py-1.5 text-[13px] text-muted italic"> {{ n.reason }}</p>
           <div class="mt-3 flex gap-2">
             <button (click)="respondIncoming(n, 'ACCEPTED')" [disabled]="busyIncoming === n.id"
-                    class="flex-1 cursor-pointer rounded-lg bg-accent-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">✅ Accept</button>
+                    class="flex-1 cursor-pointer rounded-lg bg-accent-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50"> Accept</button>
             <button (click)="respondIncoming(n, 'DECLINED')" [disabled]="busyIncoming === n.id"
-                    class="flex-1 cursor-pointer rounded-lg bg-red-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50">❌ Decline</button>
+                    class="flex-1 cursor-pointer rounded-lg bg-red-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50"> Decline</button>
           </div>
         </div>
       </div>
@@ -87,7 +87,7 @@ import { AuthService } from '../../../services/auth.service';
              (click)="openPatient(p)"
              class="mb-3 flex cursor-pointer flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-surface p-4.5 shadow-card transition-shadow hover:shadow-lg">
           <div>
-            <p class="m-0 font-bold text-ink">🧑 {{ p.full_name }}</p>
+            <p class="m-0 font-bold text-ink"> {{ p.full_name }}</p>
             <p class="m-0 text-sm text-muted">Health ID: {{ p.health_id }}</p>
           </div>
           <div class="text-right text-sm">
@@ -113,7 +113,7 @@ import { AuthService } from '../../../services/auth.service';
                    class="min-w-50 flex-1 rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm" />
             <button (click)="viewRecord()" [disabled]="loading"
                     class="cursor-pointer rounded-lg bg-primary-500 px-4 py-2.5 font-bold text-ink transition-colors hover:bg-primary-400 disabled:opacity-50">
-              {{ loading ? 'Checking…' : '🔍 Access Records' }}
+              {{ loading ? 'Checking…' : ' Access Records' }}
             </button>
           </div>
 
@@ -128,11 +128,11 @@ import { AuthService } from '../../../services/auth.service';
                      class="flex-1 rounded-md border border-primary-300 px-2.5 py-2 text-sm" />
               <button (click)="requestAccess()"
                       class="cursor-pointer rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-600">
-                📨 Request Access
+                 Request Access
               </button>
               <button (click)="breakGlass()"
                       class="cursor-pointer rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white">
-                🔓 Break-Glass
+                 Break-Glass
               </button>
             </div>
           </div>
@@ -147,11 +147,11 @@ import { AuthService } from '../../../services/auth.service';
             <div *ngFor="let rec of records"
                  class="mb-3.5 rounded-xl border border-accent-200 bg-surface p-4.5 shadow-card">
               <div class="mb-3 flex flex-wrap items-center gap-3">
-                <span class="font-bold text-accent-700">🏥 {{ rec.facility }}</span>
-                <span class="text-sm text-muted">📅 {{ rec.date | date:'medium' }}</span>
+                <span class="font-bold text-accent-700"> {{ rec.facility }}</span>
+                <span class="text-sm text-muted"> {{ rec.date | date:'medium' }}</span>
                 <span class="rounded bg-accent-100 px-2 py-0.5 text-xs font-bold text-accent-900">{{ rec.type }}</span>
                 <span *ngIf="rec.verified"
-                      class="rounded bg-accent-500 px-2 py-1 text-xs font-semibold text-white">✅ Verified</span>
+                      class="rounded bg-accent-500 px-2 py-1 text-xs font-semibold text-white"> Verified</span>
               </div>
               <div class="rounded-lg bg-gray-50 p-3">
                 <div *ngFor="let item of entries(rec.data)"
@@ -238,7 +238,7 @@ import { AuthService } from '../../../services/auth.service';
         <!-- TREND CHART -->
         <div *ngIf="measurementHistory.length" class="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-5">
           <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h3 class="m-0 text-lg font-bold">📈 Trend over time</h3>
+            <h3 class="m-0 text-lg font-bold"> Trend over time</h3>
             <select [(ngModel)]="trendKind"
                     class="rounded-md border border-gray-300 bg-white px-2.5 py-2 text-sm">
               <option *ngFor="let k of trendKinds" [value]="k">{{ k }}</option>
@@ -297,25 +297,25 @@ import { AuthService } from '../../../services/auth.service';
           </div>
           <button (click)="sendReferral()" [disabled]="busyRef || !referral.to_hospital"
                   class="mt-3 cursor-pointer rounded-lg bg-accent-500 px-4.5 py-2.5 font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">
-            {{ busyRef ? 'Sending…' : '📨 Send referral' }}
+            {{ busyRef ? 'Sending…' : ' Send referral' }}
           </button>
           <p *ngIf="refMsg" class="mb-0 mt-2 text-sm" [class]="refOk ? 'text-accent-700' : 'text-red-600'">{{ refMsg }}</p>
         </div>
 
         <!-- Incoming to my hospital (doctors of the receiving hospital can respond) -->
         <div *ngIf="incomingAll.length" class="mb-6">
-          <h3 class="mb-3 text-lg font-bold">📬 Incoming — {{ hospitalName || 'my hospital' }}</h3>
+          <h3 class="mb-3 text-lg font-bold"> Incoming — {{ hospitalName || 'my hospital' }}</h3>
           <div *ngFor="let r of incomingAll"
                class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-accent-500 bg-surface p-4 shadow-card">
             <div>
-              <p class="m-0 font-bold text-ink">🧑 {{ r.patient_name }} <span class="text-sm font-normal text-muted">({{ r.patient_health_id }})</span></p>
+              <p class="m-0 font-bold text-ink"> {{ r.patient_name }} <span class="text-sm font-normal text-muted">({{ r.patient_health_id }})</span></p>
               <p class="m-0 text-sm text-muted">from {{ r.from_hospital }}<span *ngIf="r.from_doctor"> · Dr. {{ r.from_doctor }}</span> · {{ r.reason || 'no reason given' }}</p>
             </div>
             <div class="flex gap-2">
               <button (click)="respondIncoming(r, 'ACCEPTED')" [disabled]="busyIncoming === r.id"
-                      class="cursor-pointer rounded-lg bg-accent-500 px-3.5 py-2 text-sm font-semibold text-white hover:bg-accent-600 disabled:opacity-50">✅ Accept</button>
+                      class="cursor-pointer rounded-lg bg-accent-500 px-3.5 py-2 text-sm font-semibold text-white hover:bg-accent-600 disabled:opacity-50"> Accept</button>
               <button (click)="respondIncoming(r, 'DECLINED')" [disabled]="busyIncoming === r.id"
-                      class="cursor-pointer rounded-md bg-red-500 px-3.5 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50">❌ Decline</button>
+                      class="cursor-pointer rounded-md bg-red-500 px-3.5 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"> Decline</button>
             </div>
           </div>
         </div>
@@ -324,8 +324,8 @@ import { AuthService } from '../../../services/auth.service';
         <div *ngFor="let r of referralsSent"
              class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-surface p-4 shadow-card">
           <div>
-            <p class="m-0 font-bold text-ink">🧑 {{ r.patient_name }} <span class="text-sm font-normal text-muted">({{ r.patient_health_id }})</span></p>
-            <p class="m-0 text-sm text-muted">→ 🏥 {{ r.to_hospital }} · {{ r.reason || 'no reason given' }}</p>
+            <p class="m-0 font-bold text-ink"> {{ r.patient_name }} <span class="text-sm font-normal text-muted">({{ r.patient_health_id }})</span></p>
+            <p class="m-0 text-sm text-muted">→  {{ r.to_hospital }} · {{ r.reason || 'no reason given' }}</p>
           </div>
           <span class="rounded px-2.5 py-1 text-xs font-bold"
                 [class]="referralBadge(r.status)">{{ r.status }}</span>
@@ -338,10 +338,10 @@ import { AuthService } from '../../../services/auth.service';
 export class DoctorLandingComponent implements OnDestroy, OnInit {
   tab: 'patients' | 'find' | 'measurements' | 'referrals' = 'patients';
   tabs = [
-    { id: 'patients', label: '🧑‍🤝‍🧑 My Patients' },
-    { id: 'find', label: '🔍 Find Patient' },
-    { id: 'measurements', label: '📊 Measurements' },
-    { id: 'referrals', label: '📨 Referrals' },
+    { id: 'patients', label: '‍‍ My Patients' },
+    { id: 'find', label: ' Find Patient' },
+    { id: 'measurements', label: ' Measurements' },
+    { id: 'referrals', label: ' Referrals' },
   ] as const;
 
   license = '';

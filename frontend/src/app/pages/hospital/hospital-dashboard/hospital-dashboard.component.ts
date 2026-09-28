@@ -26,7 +26,7 @@ import { AuthService } from '../../../services/auth.service';
             </p>
           </div>
           <span class="rounded bg-accent-100 px-3 py-1.5 text-sm font-bold text-accent-800">
-            🏥 {{ pendingCount }} pending
+             {{ pendingCount }} pending
           </span>
         </div>
       </div>
@@ -47,7 +47,7 @@ import { AuthService } from '../../../services/auth.service';
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p class="m-0 text-lg font-bold text-ink">
-              🧑 {{ r.patient_name }}
+               {{ r.patient_name }}
               <span class="text-sm font-normal text-muted">({{ r.patient_health_id }})</span>
             </p>
             <p class="m-0 mt-1 text-sm text-muted">
@@ -55,9 +55,9 @@ import { AuthService } from '../../../services/auth.service';
               <span *ngIf="r.from_doctor" class="ml-1">· Dr. {{ r.from_doctor }}</span>
             </p>
             <p *ngIf="r.reason" class="mb-0 mt-2 rounded-md bg-gray-100 px-3 py-2 text-sm text-ink italic">
-              💬 {{ r.reason }}
+               {{ r.reason }}
             </p>
-            <p class="m-0 mt-2 text-xs text-muted">📅 Sent {{ r.created_at | date:'medium' }}</p>
+            <p class="m-0 mt-2 text-xs text-muted"> Sent {{ r.created_at | date:'medium' }}</p>
             <p *ngIf="r.responded_by" class="m-0 text-xs text-muted">
               Responded by {{ r.responded_by }} {{ r.responded_at ? ('· ' + (r.responded_at | date:'short')) : '' }}
             </p>
@@ -67,11 +67,11 @@ import { AuthService } from '../../../services/auth.service';
             <div *ngIf="r.status === 'PENDING'" class="flex gap-2">
               <button (click)="respond(r, 'ACCEPTED')" [disabled]="busyId === r.id"
                       class="cursor-pointer rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">
-                ✅ Accept
+                 Accept
               </button>
               <button (click)="respond(r, 'DECLINED')" [disabled]="busyId === r.id"
                       class="cursor-pointer rounded-md bg-red-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50">
-                ❌ Decline
+                 Decline
               </button>
             </div>
           </div>
@@ -79,7 +79,7 @@ import { AuthService } from '../../../services/auth.service';
       </div>
 
       <p *ngIf="referrals.length === 0 && !loading" class="py-10 text-center text-muted italic">
-        {{ filter === 'PENDING' ? 'No pending referrals — all caught up! 🎉' : 'No referrals found.' }}
+        {{ filter === 'PENDING' ? 'No pending referrals — all caught up! ' : 'No referrals found.' }}
       </p>
     </div>
   `,
@@ -87,10 +87,10 @@ import { AuthService } from '../../../services/auth.service';
 export class HospitalDashboardComponent implements OnInit {
   filter = 'PENDING';
   filters = [
-    { label: '📬 Pending', value: 'PENDING' },
-    { label: '✅ Accepted', value: 'ACCEPTED' },
-    { label: '❌ Declined', value: 'DECLINED' },
-    { label: '🗂️ All', value: '' },
+    { label: ' Pending', value: 'PENDING' },
+    { label: ' Accepted', value: 'ACCEPTED' },
+    { label: ' Declined', value: 'DECLINED' },
+    { label: ' All', value: '' },
   ] as const;
 
   referrals: ReferralItem[] = [];

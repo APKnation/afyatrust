@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { ApiService } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 
@@ -11,7 +11,7 @@ import { AuthService } from '../../../services/auth.service';
  */
 @Component({
   selector: 'app-staff-login',
-  imports: [NgIf, FormsModule, RouterLink],
+  imports: [NgIf, FormsModule],
   template: `
     <div class="flex min-h-[calc(100svh-4.5rem)] items-center justify-center px-4 py-8 sm:px-6">
       <div class="w-full max-w-[440px] rounded-xl bg-surface p-8 shadow-card">

@@ -47,13 +47,13 @@ import { AuthService } from '../../../services/auth.service';
         <div *ngFor="let rec of data.records"
              class="mb-3.5 rounded-xl border-l-4 border-primary-500 bg-surface p-4.5 shadow-card">
           <div class="mb-3 flex flex-wrap items-center gap-3">
-            <span class="font-bold text-accent-700">🏥 {{ rec.facility }}</span>
-            <span class="text-sm text-muted">📅 {{ rec.date | date:'medium' }}</span>
+            <span class="font-bold text-accent-700"> {{ rec.facility }}</span>
+            <span class="text-sm text-muted"> {{ rec.date | date:'medium' }}</span>
             <span class="rounded px-2 py-0.5 text-xs font-bold text-primary-800">{{ rec.type }}</span>
             <span *ngIf="rec.verified"
-                  class="rounded bg-accent-500 px-2 py-1 text-xs font-semibold text-white">✅ On-chain</span>
+                  class="rounded bg-accent-500 px-2 py-1 text-xs font-semibold text-white"> On-chain</span>
             <span *ngIf="!rec.verified"
-                  class="rounded bg-primary-300 px-2 py-1 text-xs font-semibold text-ink">⏳ Pending</span>
+                  class="rounded bg-primary-300 px-2 py-1 text-xs font-semibold text-ink"> Pending</span>
           </div>
           <div class="mb-3 rounded-lg bg-gray-50 p-3">
             <div *ngFor="let item of entries(rec.data)"
@@ -62,7 +62,7 @@ import { AuthService } from '../../../services/auth.service';
               <span class="text-gray-900">{{ item.value }}</span>
             </div>
           </div>
-          <div class="font-mono text-xs text-muted">🔒 {{ rec.hash | slice:0:22 }}…</div>
+          <div class="font-mono text-xs text-muted"> {{ rec.hash | slice:0:22 }}…</div>
         </div>
         <p *ngIf="data.records.length === 0" class="py-8 text-center text-muted italic">
           No records yet. They appear when a facility adds them.
@@ -105,8 +105,8 @@ import { AuthService } from '../../../services/auth.service';
         <div *ngFor="let r of data.referrals"
              class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-primary-400 bg-surface p-4.5 shadow-card">
           <div>
-            <p class="m-0 font-bold text-ink">🏥 {{ r.to_hospital }}</p>
-            <p class="m-0 text-sm text-muted">{{ r.reason || 'No reason recorded' }} · 📅 {{ r.date | date:'medium' }}</p>
+            <p class="m-0 font-bold text-ink"> {{ r.to_hospital }}</p>
+            <p class="m-0 text-sm text-muted">{{ r.reason || 'No reason recorded' }} ·  {{ r.date | date:'medium' }}</p>
           </div>
           <span class="rounded px-2.5 py-1 text-xs font-bold"
                 [class]="r.status === 'ACCEPTED' ? 'bg-accent-500 text-white'
@@ -133,7 +133,7 @@ import { AuthService } from '../../../services/auth.service';
           </div>
           <button (click)="grantAccess()" [disabled]="busy"
                   class="self-start rounded-lg bg-accent-500 px-4.5 py-2.5 font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">
-            {{ busy ? 'Sending…' : '✅ Grant Access' }}
+            {{ busy ? 'Sending…' : ' Grant Access' }}
           </button>
         </div>
         <p class="text-sm text-muted">
@@ -148,13 +148,13 @@ import { AuthService } from '../../../services/auth.service';
         <div *ngFor="let req of requests"
              class="mb-3.5 flex flex-wrap items-center justify-between gap-3 rounded-xl border-l-4 border-primary-400 bg-surface p-4.5 shadow-card">
           <div>
-            <p class="my-1"><strong>👨‍⚕️ {{ req.doctor_name }}</strong> from <strong>{{ req.facility_id }}</strong></p>
-            <p class="my-1 rounded-md bg-gray-100 px-2 py-2 text-[13px] text-muted italic">💬 {{ req.reason }}</p>
-            <p class="my-1 text-xs text-muted">📅 {{ req.created_at | date:'medium' }}</p>
+            <p class="my-1"><strong> {{ req.doctor_name }}</strong> from <strong>{{ req.facility_id }}</strong></p>
+            <p class="my-1 rounded-md bg-gray-100 px-2 py-2 text-[13px] text-muted italic"> {{ req.reason }}</p>
+            <p class="my-1 text-xs text-muted"> {{ req.created_at | date:'medium' }}</p>
           </div>
           <div class="flex gap-2.5">
-            <button (click)="approve(req)" class="rounded-lg bg-accent-500 px-4.5 py-2.5 font-semibold text-white transition-colors hover:bg-accent-600">✅ Approve</button>
-            <button (click)="reject(req)" class="rounded-md bg-red-500 px-4.5 py-2.5 font-semibold text-white">❌ Reject</button>
+            <button (click)="approve(req)" class="rounded-lg bg-accent-500 px-4.5 py-2.5 font-semibold text-white transition-colors hover:bg-accent-600"> Approve</button>
+            <button (click)="reject(req)" class="rounded-md bg-red-500 px-4.5 py-2.5 font-semibold text-white"> Reject</button>
           </div>
         </div>
         <p *ngIf="requests.length === 0" class="py-8 text-center text-muted italic">No pending requests.</p>
@@ -200,7 +200,7 @@ import { AuthService } from '../../../services/auth.service';
       <div *ngFor="let n of notifications"
            class="animate-fade-in rounded-xl border-l-4 border-primary-500 bg-surface p-4 shadow-card">
         <div class="mb-1 flex items-center justify-between gap-2">
-          <span class="text-sm font-bold text-ink">🔔 New access request</span>
+          <span class="text-sm font-bold text-ink"> New access request</span>
           <button (click)="dismiss(n.id)" aria-label="Dismiss"
                   class="cursor-pointer border-none bg-transparent text-lg leading-none text-muted hover:text-ink">✕</button>
         </div>
@@ -208,12 +208,12 @@ import { AuthService } from '../../../services/auth.service';
           <strong>{{ n.doctor_name }}</strong> from <strong>{{ n.facility_id }}</strong>
           wants to view your records.
         </p>
-        <p *ngIf="n.reason" class="mb-0 mt-1 rounded-md bg-primary-50 px-2 py-1.5 text-[13px] text-muted italic">💬 {{ n.reason }}</p>
+        <p *ngIf="n.reason" class="mb-0 mt-1 rounded-md bg-primary-50 px-2 py-1.5 text-[13px] text-muted italic"> {{ n.reason }}</p>
         <div class="mt-3 flex gap-2">
           <button (click)="approveFromToast(n)"
-                  class="flex-1 cursor-pointer rounded-lg bg-accent-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-600">✅ Approve</button>
+                  class="flex-1 cursor-pointer rounded-lg bg-accent-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-600"> Approve</button>
           <button (click)="rejectFromToast(n)"
-                  class="flex-1 cursor-pointer rounded-lg bg-red-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600">❌ Reject</button>
+                  class="flex-1 cursor-pointer rounded-lg bg-red-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600"> Reject</button>
         </div>
         <p class="mb-0 mt-2 text-center text-[11px] text-muted">Approval grants 7 days of access and is logged on-chain.</p>
       </div>
@@ -223,12 +223,12 @@ import { AuthService } from '../../../services/auth.service';
 export class PatientDashboardComponent implements OnInit, OnDestroy {
   tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'audit' = 'records';
   tabs = [
-    { id: 'records', label: '📋 Records' },
-    { id: 'measurements', label: '📊 Measurements' },
-    { id: 'referrals', label: '📨 Referrals' },
-    { id: 'permissions', label: '🔐 Permissions' },
-    { id: 'requests', label: '📬 Requests' },
-    { id: 'audit', label: '👁️ Audit Trail' },
+    { id: 'records', label: ' Records' },
+    { id: 'measurements', label: ' Measurements' },
+    { id: 'referrals', label: ' Referrals' },
+    { id: 'permissions', label: ' Permissions' },
+    { id: 'requests', label: ' Requests' },
+    { id: 'audit', label: ' Audit Trail' },
   ] as const;
 
   data: PatientData | null = null;

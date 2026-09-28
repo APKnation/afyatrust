@@ -5,9 +5,7 @@ import { AuthService } from '../../../services/auth.service';
 
 /**
  * Role-aware responsive navbar.
- * - Patient session: shows Health ID chip + Sign out.
- * - Doctor session: shows doctor chip + Sign out.
- * - Visitor: Sign in / Register / Doctor Portal CTAs.
+ * Active/hover states use an underline accent — no background highlights.
  * Desktop (≥md) shows inline links; mobile gets a hamburger dropdown.
  */
 @Component({
@@ -20,55 +18,52 @@ import { AuthService } from '../../../services/auth.service';
         <a
           class="flex shrink-0 items-center gap-2.5 text-xl font-heading text-ink no-underline sm:text-[22px]"
           routerLink="/"
-          routerLinkActive="bg-primary-100"
-          [routerLinkActiveOptions]="{ exact: true }"
         >
-          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-500 text-lg">🏥</span>
           <strong>AfyaTrust</strong>
         </a>
 
         <!-- Desktop links -->
-        <div class="hidden items-center gap-1 md:flex">
+        <div class="hidden items-center gap-6 md:flex">
           <a routerLink="/"
-             routerLinkActive="bg-primary-100"
+             routerLinkActive="nav-link-active"
              [routerLinkActiveOptions]="{ exact: true }"
-             class="rounded-lg px-4 py-2 text-[15px] text-ink no-underline transition-colors hover:bg-primary-100">Home</a>
+             class="nav-link px-1 py-2 text-[15px] text-ink no-underline">Home</a>
           <a *ngIf="auth.isPatient" routerLink="/patient"
-             routerLinkActive="bg-primary-100"
-             class="rounded-lg px-4 py-2 text-[15px] text-ink no-underline transition-colors hover:bg-primary-100">My Records</a>
+             routerLinkActive="nav-link-active"
+             class="nav-link px-1 py-2 text-[15px] text-ink no-underline">My Records</a>
           <a *ngIf="!auth.isDoctor" routerLink="/doctor-auth"
-             routerLinkActive="bg-primary-100"
-             class="rounded-lg px-4 py-2 text-[15px] text-ink no-underline transition-colors hover:bg-primary-100">Doctor Portal</a>
+             routerLinkActive="nav-link-active"
+             class="nav-link px-1 py-2 text-[15px] text-ink no-underline">Doctor Portal</a>
           <a *ngIf="auth.isDoctor" routerLink="/doctor"
-             routerLinkActive="bg-primary-100"
-             class="rounded-lg px-4 py-2 text-[15px] text-ink no-underline transition-colors hover:bg-primary-100">My Dashboard</a>
+             routerLinkActive="nav-link-active"
+             class="nav-link px-1 py-2 text-[15px] text-ink no-underline">My Dashboard</a>
           <a *ngIf="!auth.isStaff" routerLink="/staff-login"
-             routerLinkActive="bg-primary-100"
-             class="rounded-lg px-4 py-2 text-[15px] text-ink no-underline transition-colors hover:bg-primary-100">Hospital</a>
+             routerLinkActive="nav-link-active"
+             class="nav-link px-1 py-2 text-[15px] text-ink no-underline">Hospital</a>
           <a *ngIf="auth.isStaff" routerLink="/hospital"
-             routerLinkActive="bg-primary-100"
-             class="rounded-lg px-4 py-2 text-[15px] text-ink no-underline transition-colors hover:bg-primary-100">Referral Desk</a>
+             routerLinkActive="nav-link-active"
+             class="nav-link px-1 py-2 text-[15px] text-ink no-underline">Referral Desk</a>
 
           <!-- Desktop session area -->
           <div class="ml-2 flex items-center gap-2.5">
             <!-- Patient chip -->
             <div *ngIf="auth.isPatient" class="flex items-center gap-2.5 rounded-xl bg-surface px-4 py-2 shadow-card">
-              <span class="text-sm font-bold text-ink">🏥 {{ auth.healthId }}</span>
+              <span class="text-sm font-bold text-ink">{{ auth.healthId }}</span>
               <button (click)="signOut()"
                       class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
             </div>
 
             <!-- Doctor chip -->
             <div *ngIf="auth.isDoctor" class="flex items-center gap-2.5 rounded-xl bg-surface px-4 py-2 shadow-card">
-              <span class="text-sm font-bold text-ink">🩺 Dr. {{ auth.fullName }}</span>
-              <span class="rounded bg-accent-100 px-2 py-0.5 text-xs font-bold text-accent-800">✓ verified</span>
+              <span class="text-sm font-bold text-ink">Dr. {{ auth.fullName }}</span>
+              <span class="text-xs font-bold text-accent-700">✓ verified</span>
               <button (click)="signOut()"
                       class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
             </div>
 
             <!-- Staff chip -->
             <div *ngIf="auth.isStaff" class="flex items-center gap-2.5 rounded-xl bg-surface px-4 py-2 shadow-card">
-              <span class="text-sm font-bold text-ink">🏥 {{ auth.fullName }}</span>
+              <span class="text-sm font-bold text-ink">{{ auth.fullName }}</span>
               <button (click)="signOut()"
                       class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
             </div>
@@ -85,13 +80,12 @@ import { AuthService } from '../../../services/auth.service';
 
         <!-- Mobile: compact session + hamburger -->
         <div class="flex items-center gap-2 md:hidden">
-          <span *ngIf="auth.isPatient" class="rounded-lg bg-primary-100 px-2.5 py-1.5 text-xs font-bold text-ink">🏥 {{ auth.healthId }}</span>
-          <span *ngIf="auth.isDoctor" class="rounded-lg bg-accent-100 px-2.5 py-1.5 text-xs font-bold text-accent-800">🩺 ✓</span>
-          <span *ngIf="auth.isStaff" class="rounded-lg bg-primary-100 px-2.5 py-1.5 text-xs font-bold text-ink">🏥</span>
+          <span *ngIf="auth.isPatient" class="text-xs font-bold text-ink">{{ auth.healthId }}</span>
+          <span *ngIf="auth.isDoctor" class="text-xs font-bold text-accent-700">✓</span>
           <button (click)="menuOpen = !menuOpen"
                   aria-label="Toggle menu"
                   [attr.aria-expanded]="menuOpen"
-                  class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-2xl text-ink transition-colors hover:bg-primary-100">
+                  class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-2xl text-ink transition-opacity hover:opacity-70">
             {{ menuOpen ? '✕' : '☰' }}
           </button>
         </div>
@@ -100,17 +94,24 @@ import { AuthService } from '../../../services/auth.service';
       <!-- Mobile menu panel -->
       <div *ngIf="menuOpen" class="border-t border-gray-100 bg-surface px-4 pb-4 pt-2 md:hidden">
         <a routerLink="/" (click)="menuOpen = false"
-           class="block rounded-lg px-4 py-3 text-base font-semibold text-ink no-underline transition-colors hover:bg-primary-100">Home</a>
+           routerLinkActive="nav-link-active-mobile"
+           [routerLinkActiveOptions]="{ exact: true }"
+           class="block px-1 py-3 text-base font-semibold text-ink no-underline">Home</a>
         <a *ngIf="auth.isPatient" routerLink="/patient" (click)="menuOpen = false"
-           class="block rounded-lg px-4 py-3 text-base font-semibold text-ink no-underline transition-colors hover:bg-primary-100">My Records</a>
+           routerLinkActive="nav-link-active-mobile"
+           class="block px-1 py-3 text-base font-semibold text-ink no-underline">My Records</a>
         <a *ngIf="!auth.isDoctor" routerLink="/doctor-auth" (click)="menuOpen = false"
-           class="block rounded-lg px-4 py-3 text-base font-semibold text-ink no-underline transition-colors hover:bg-primary-100">Doctor Portal</a>
+           routerLinkActive="nav-link-active-mobile"
+           class="block px-1 py-3 text-base font-semibold text-ink no-underline">Doctor Portal</a>
         <a *ngIf="auth.isDoctor" routerLink="/doctor" (click)="menuOpen = false"
-           class="block rounded-lg px-4 py-3 text-base font-semibold text-ink no-underline transition-colors hover:bg-primary-100">My Dashboard</a>
+           routerLinkActive="nav-link-active-mobile"
+           class="block px-1 py-3 text-base font-semibold text-ink no-underline">My Dashboard</a>
         <a *ngIf="!auth.isStaff" routerLink="/staff-login" (click)="menuOpen = false"
-           class="block rounded-lg px-4 py-3 text-base font-semibold text-ink no-underline transition-colors hover:bg-primary-100">Hospital</a>
+           routerLinkActive="nav-link-active-mobile"
+           class="block px-1 py-3 text-base font-semibold text-ink no-underline">Hospital</a>
         <a *ngIf="auth.isStaff" routerLink="/hospital" (click)="menuOpen = false"
-           class="block rounded-lg px-4 py-3 text-base font-semibold text-ink no-underline transition-colors hover:bg-primary-100">Referral Desk</a>
+           routerLinkActive="nav-link-active-mobile"
+           class="block px-1 py-3 text-base font-semibold text-ink no-underline">Referral Desk</a>
 
         <button *ngIf="auth.isAuthenticated()" (click)="signOut()"
                 class="mt-2 w-full cursor-pointer rounded-lg bg-ink px-4 py-3 font-semibold text-white">Sign out</button>

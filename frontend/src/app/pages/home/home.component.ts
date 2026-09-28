@@ -84,16 +84,13 @@ import { AuthService } from '../../services/auth.service';
         <!-- Trust strip -->
         <div class="mt-10 grid max-w-2xl grid-cols-3 gap-3 text-center sm:mt-12 sm:gap-6">
           <div class="rounded-xl bg-white/10 px-2 py-3 backdrop-blur-sm sm:px-4">
-            <div class="text-lg font-bold text-primary-400 sm:text-2xl">🔒</div>
-            <div class="mt-1 text-[11px] leading-snug sm:text-sm">Tamper-proof audit</div>
+            <div class="text-[11px] leading-snug sm:text-sm">Tamper-proof audit</div>
           </div>
           <div class="rounded-xl bg-white/10 px-2 py-3 backdrop-blur-sm sm:px-4">
-            <div class="text-lg font-bold text-primary-400 sm:text-2xl">⏱️</div>
-            <div class="mt-1 text-[11px] leading-snug sm:text-sm">Consent with expiry</div>
+            <div class="text-[11px] leading-snug sm:text-sm">Consent with expiry</div>
           </div>
           <div class="rounded-xl bg-white/10 px-2 py-3 backdrop-blur-sm sm:px-4">
-            <div class="text-lg font-bold text-primary-400 sm:text-2xl">🚨</div>
-            <div class="mt-1 text-[11px] leading-snug sm:text-sm">Emergency break-glass</div>
+            <div class="text-[11px] leading-snug sm:text-sm">Emergency break-glass</div>
           </div>
         </div>
       </div>
@@ -165,23 +162,19 @@ import { AuthService } from '../../services/auth.service';
           </div>
           <div class="grid gap-4 sm:grid-cols-2">
             <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
-              <div class="text-2xl">🔐</div>
-              <h3 class="mt-3 font-bold">Encrypted custodial wallets</h3>
+              <h3 class="font-bold">Encrypted custodial wallets</h3>
               <p class="mt-1 text-sm text-muted">Patient keys encrypted with AES-256-GCM.</p>
             </div>
             <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
-              <div class="text-2xl">🧾</div>
-              <h3 class="mt-3 font-bold">On-chain verification</h3>
+              <h3 class="font-bold">On-chain verification</h3>
               <p class="mt-1 text-sm text-muted">SHA-256 record hashes verifiable on Etherscan.</p>
             </div>
             <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
-              <div class="text-2xl">🏥</div>
-              <h3 class="mt-3 font-bold">Facility-first privacy</h3>
+              <h3 class="font-bold">Facility-first privacy</h3>
               <p class="mt-1 text-sm text-muted">Data stays at the source; only metadata moves.</p>
             </div>
             <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
-              <div class="text-2xl">🚨</div>
-              <h3 class="mt-3 font-bold">Accountable emergencies</h3>
+              <h3 class="font-bold">Accountable emergencies</h3>
               <p class="mt-1 text-sm text-muted">Break-glass saves lives and is logged forever.</p>
             </div>
           </div>
@@ -217,7 +210,7 @@ import { AuthService } from '../../services/auth.service';
     <footer class="border-t border-gray-200">
       <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
         <div class="flex items-center gap-2">
-          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-500 text-sm">🏥</span>
+          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-500 text-sm"></span>
           <strong class="font-heading text-ink">AfyaTrust</strong>
         </div>
         <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>

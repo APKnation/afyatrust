@@ -9,6 +9,7 @@ import { AuthService } from '../../../services/auth.service';
 
 /**
  * Hospital workspace: referral desk + staff record entry.
+ * Clean typographic design matching the landing page — no decorative glyphs.
  * Staff of the receiving hospital see incoming referrals and accept or
  * decline them. The Add Record form writes the SHA-256 hash of clinical
  * data to Sepolia (real addRecord transaction) and lists each record's
@@ -18,36 +19,38 @@ import { AuthService } from '../../../services/auth.service';
   selector: 'app-hospital-dashboard',
   imports: [NgIf, NgFor, DatePipe, SlicePipe, FormsModule],
   template: `
-    <div class="mx-auto max-w-6xl">
-      <!-- Header -->
-      <div class="mb-5 rounded-xl bg-surface p-6 shadow-card">
-        <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <!-- Hero header -->
+      <div class="card mb-6 p-6 sm:p-8">
+        <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 class="mb-1 text-2xl font-bold">{{ hospitalName || 'Hospital' }} — Hospital Desk</h1>
+            <span class="eyebrow mb-2">Hospital Desk</span>
+            <h1 class="mb-1 text-2xl font-bold text-ink sm:text-3xl">{{ hospitalName || 'Hospital' }}</h1>
             <p class="m-0 text-sm text-muted">
-              Signed in as <strong>{{ auth.fullName }}</strong>
-              <span *ngIf="auth.hospitalCode" class="ml-1">({{ auth.hospitalCode }})</span>
+              Signed in as <strong class="text-ink">{{ auth.fullName }}</strong>
+              <span *ngIf="auth.hospitalCode" class="mx-2 text-gray-300">|</span>
+              Facility code <strong class="text-ink">{{ auth.hospitalCode }}</strong>
             </p>
           </div>
-          <span class="rounded bg-accent-100 px-3 py-1.5 text-sm font-bold text-accent-800">
-             {{ pendingCount }} pending referrals
+          <span class="rounded-full bg-accent-100 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-accent-800">
+            {{ pendingCount }} pending referrals
           </span>
         </div>
       </div>
 
       <!-- Tabs -->
-      <div class="mb-5 flex flex-wrap gap-2.5 border-b-2 border-gray-200">
-        <button (click)="tab = 'referrals'"
-                class="cursor-pointer border-none bg-transparent px-4.5 py-3 text-[15px]"
-                [class]="tab === 'referrals' ? 'border-b-3 border-primary-500 font-bold text-ink' : 'text-muted'">
-          📥 Referral Desk
+      <div class="mb-6 flex flex-wrap gap-1 border-b-2 border-gray-200">
+        <button (click)="setTab('referrals')"
+                class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
+                [class]="tab === 'referrals' ? 'border-b-3 border-primary-500 font-bold text-ink' : 'text-muted hover:text-ink'">
+          Referral Desk
           <span *ngIf="pendingCount > 0"
                 class="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingCount }}</span>
         </button>
-        <button (click)="tab = 'records'; loadFacilityRecords()"
-                class="cursor-pointer border-none bg-transparent px-4.5 py-3 text-[15px]"
-                [class]="tab === 'records' ? 'border-b-3 border-primary-500 font-bold text-ink' : 'text-muted'">
-          🏥 Add Record
+        <button (click)="setTab('records'); loadFacilityRecords()"
+                class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
+                [class]="tab === 'records' ? 'border-b-3 border-primary-500 font-bold text-ink' : 'text-muted hover:text-ink'">
+          Add Record
         </button>
       </div>
 
@@ -65,151 +68,153 @@ import { AuthService } from '../../../services/auth.service';
         </div>
 
         <!-- Referral list -->
-        <div *ngFor="let r of referrals" class="mb-3.5 rounded-xl border border-gray-200 bg-surface p-5 shadow-card">
+        <div *ngFor="let r of referrals" class="card mb-4 p-5">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p class="m-0 text-lg font-bold text-ink">
-                 {{ r.patient_name }}
+                {{ r.patient_name }}
                 <span class="text-sm font-normal text-muted">({{ r.patient_health_id }})</span>
               </p>
               <p class="m-0 mt-1 text-sm text-muted">
                 From: <strong>{{ r.from_hospital || 'Unknown facility' }}</strong>
                 <span *ngIf="r.from_doctor" class="ml-1">· Dr. {{ r.from_doctor }}</span>
               </p>
-              <p *ngIf="r.reason" class="mb-0 mt-2 rounded-md bg-gray-100 px-3 py-2 text-sm text-ink italic">
-                 {{ r.reason }}
+              <p *ngIf="r.reason" class="mb-0 mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm italic text-ink">
+                {{ r.reason }}
               </p>
-              <p class="m-0 mt-2 text-xs text-muted"> Sent {{ r.created_at | date:'medium' }}</p>
+              <p class="m-0 mt-2 text-xs text-muted">Sent {{ r.created_at | date:'medium' }}</p>
               <p *ngIf="r.responded_by" class="m-0 text-xs text-muted">
                 Responded by {{ r.responded_by }} {{ r.responded_at ? ('· ' + (r.responded_at | date:'short')) : '' }}
               </p>
             </div>
             <div class="flex flex-col items-end gap-2.5">
-              <span class="rounded px-2.5 py-1 text-xs font-bold" [class]="badge(r.status)">{{ r.status }}</span>
+              <span class="rounded-full px-3 py-1 text-xs font-bold" [class]="badge(r.status)">{{ r.status }}</span>
               <div *ngIf="r.status === 'PENDING'" class="flex gap-2">
                 <button (click)="respond(r, 'ACCEPTED')" [disabled]="busyId === r.id"
                         class="cursor-pointer rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">
-                   Accept
+                  Accept
                 </button>
                 <button (click)="respond(r, 'DECLINED')" [disabled]="busyId === r.id"
-                        class="cursor-pointer rounded-md bg-red-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50">
-                   Decline
+                        class="cursor-pointer rounded-lg border-2 border-red-500 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-500 hover:text-white disabled:opacity-50">
+                  Decline
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        <p *ngIf="referrals.length === 0 && !loading" class="py-10 text-center text-muted italic">
-          {{ filter === 'PENDING' ? 'No pending referrals — all caught up! ' : 'No referrals found.' }}
-        </p>
+        <div *ngIf="referrals.length === 0 && !loading" class="card p-10 text-center">
+          <h3 class="mb-1 text-lg font-bold">
+            {{ filter === 'PENDING' ? 'All caught up' : 'Nothing here yet' }}
+          </h3>
+          <p class="m-0 text-muted">
+            {{ filter === 'PENDING' ? 'No pending referrals right now.' : 'No referrals match this filter.' }}
+          </p>
+        </div>
       </div>
 
       <!-- ================= ADD RECORD ================= -->
       <div *ngIf="tab === 'records'" class="animate-fade-in">
-        <div class="mb-4 rounded-xl bg-surface p-6 shadow-card">
+        <div class="card mb-6 p-6">
           <h2 class="mb-1 text-xl font-bold">Add Medical Record</h2>
           <p class="m-0 text-sm text-muted">
             Clinical data stays off-chain. A SHA-256 hash of the content is written to
-            Sepolia (contract <code class="rounded bg-primary-100 px-1.5 py-0.5 text-xs">addRecord</code>),
-            so patients and doctors can verify it on Etherscan.
+            Sepolia, so patients and doctors can verify it on Etherscan.
           </p>
         </div>
 
-        <div class="mb-5 rounded-xl border border-gray-200 bg-gray-50 p-5">
+        <div class="card mb-5 p-6">
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Patient Health ID</span>
               <input [(ngModel)]="form.health_id" placeholder="e.g. 1234"
-                     class="rounded-md border border-gray-300 px-2.5 py-2.5 text-sm" />
+                     class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
             </label>
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Record type</span>
               <select [(ngModel)]="form.record_type"
-                      class="rounded-md border border-gray-300 bg-white px-2.5 py-2.5 text-sm">
+                      class="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm">
                 <option *ngFor="let t of recordTypes" [value]="t">{{ t }}</option>
               </select>
             </label>
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Facility name (shown to patient)</span>
               <input [(ngModel)]="form.facility_name" [placeholder]="hospitalName || 'Hospital name'"
-                     class="rounded-md border border-gray-300 px-2.5 py-2.5 text-sm" />
+                     class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
             </label>
           </div>
 
           <!-- key/value rows -->
           <div class="mt-4">
             <div class="mb-2 flex items-center justify-between">
-              <span class="text-[13px] font-semibold text-ink">Clinical data (key → value)</span>
+              <span class="text-[13px] font-semibold text-ink">Clinical data (field — value)</span>
               <button (click)="addRow()" type="button"
-                      class="cursor-pointer rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:bg-gray-50">
-                ＋ Add field
+                      class="cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-ink">
+                Add field
               </button>
             </div>
             <div *ngFor="let row of rows; let i = index" class="mb-2 flex flex-wrap gap-2">
-              <input [(ngModel)]="row.key" [placeholder]="'e.g. ' + keyHints[i % keyHints.length]"
-                     class="min-w-40 flex-1 rounded-md border border-gray-300 px-2.5 py-2 text-sm" />
+              <input [(ngModel)]="row.key" [placeholder]="'field, e.g. ' + keyHints[i % keyHints.length]"
+                     class="min-w-40 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" />
               <input [(ngModel)]="row.value" placeholder="value"
-                     class="min-w-40 flex-1 rounded-md border border-gray-300 px-2.5 py-2 text-sm" />
+                     class="min-w-40 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" />
               <button *ngIf="rows.length > 1" (click)="removeRow(i)" type="button" aria-label="Remove field"
-                      class="cursor-pointer rounded-md border border-gray-300 bg-white px-3 text-sm text-red-600 hover:bg-red-50">
-                ✕
+                      class="cursor-pointer rounded-lg border border-gray-300 bg-white px-3.5 text-sm font-semibold text-red-600 transition-colors hover:border-red-500">
+                ×
               </button>
             </div>
           </div>
 
           <button (click)="submitRecord()" [disabled]="busy || !form.health_id"
-                  class="mt-3 cursor-pointer rounded-lg bg-accent-500 px-5 py-2.5 font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">
-            {{ busy ? 'Writing to Sepolia… (this can take ~30s)' : '⛓️ Add Record to Blockchain' }}
+                  class="mt-4 cursor-pointer rounded-lg bg-accent-500 px-6 py-3 font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">
+            {{ busy ? 'Writing to Sepolia — this can take about 30 seconds…' : 'Add record to blockchain' }}
           </button>
           <p *ngIf="formMsg" class="mb-0 mt-2 text-sm" [class]="formOk ? 'text-accent-700' : 'text-red-600'">{{ formMsg }}</p>
         </div>
 
         <!-- Success box with Etherscan link -->
-        <div *ngIf="lastResult" class="mb-5 rounded-xl border-2 border-accent-300 bg-accent-50 p-5">
-          <h3 class="mb-2 text-lg font-bold text-accent-900">✅ Record written to Sepolia</h3>
+        <div *ngIf="lastResult" class="card mb-5 border-l-4 border-accent-500 p-6">
+          <h3 class="mb-2 text-lg font-bold text-accent-900">Record written to Sepolia</h3>
           <div class="flex flex-col gap-1.5 text-sm">
             <div class="flex flex-wrap items-center gap-2">
               <span class="font-semibold text-ink">Record hash:</span>
-              <code class="rounded bg-white px-2 py-1 font-mono text-xs">{{ lastResult.hash }}</code>
+              <code class="rounded bg-gray-50 px-2 py-1 font-mono text-xs">{{ lastResult.hash }}</code>
             </div>
             <div class="flex flex-wrap items-center gap-2">
               <span class="font-semibold text-ink">Transaction:</span>
               <a *ngIf="!lastResult.tx_hash.startsWith('PENDING')"
                  [href]="'https://sepolia.etherscan.io/tx/' + lastResult.tx_hash"
                  target="_blank" rel="noopener"
-                 class="rounded bg-white px-2 py-1 font-mono text-xs text-accent-700 underline">
-                {{ lastResult.tx_hash | slice:0:26 }}… — view on Etherscan ↗
+                 class="rounded bg-gray-50 px-2 py-1 font-mono text-xs text-accent-700 underline">
+                {{ lastResult.tx_hash | slice:0:26 }}… view on Etherscan
               </a>
               <code *ngIf="lastResult.tx_hash.startsWith('PENDING')"
-                    class="rounded bg-white px-2 py-1 font-mono text-xs text-red-600">
+                    class="rounded bg-gray-50 px-2 py-1 font-mono text-xs text-red-600">
                 {{ lastResult.tx_hash }}
               </code>
             </div>
             <p class="m-0 text-xs text-muted">
-              Verify it: Etherscan → contract → Read Contract → getRecords → enter the patient's Health ID.
+              Verify it: Etherscan — contract — Read Contract — getRecords — enter the patient's Health ID.
             </p>
           </div>
         </div>
 
         <!-- Recent facility records -->
-        <div class="rounded-xl border border-gray-200 bg-surface p-5 shadow-card">
-          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div class="card p-6">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h3 class="m-0 text-lg font-bold">Recent records — {{ hospitalName || 'my hospital' }}</h3>
             <button (click)="loadFacilityRecords()" [disabled]="loadingRecords"
-                    class="cursor-pointer rounded border border-gray-300 bg-white px-3 py-1.5 text-sm hover:bg-gray-50">
-              ⟳ Refresh
+                    class="cursor-pointer rounded-lg border-2 border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-ink">
+              Refresh
             </button>
           </div>
           <div *ngFor="let r of facilityRecords" class="mb-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
             <div class="mb-2 flex flex-wrap items-center gap-3">
               <span class="font-bold text-ink">{{ r.patient_name }}</span>
               <span class="text-xs text-muted">({{ r.health_id }})</span>
-              <span class="rounded bg-primary-100 px-2 py-0.5 text-xs font-bold text-primary-800">{{ r.record_type }}</span>
-              <span *ngIf="r.verified"
-                    class="rounded bg-accent-500 px-2 py-1 text-xs font-semibold text-white">⛓️ On-chain</span>
-              <span *ngIf="!r.verified"
-                    class="rounded bg-primary-300 px-2 py-1 text-xs font-semibold text-ink">⏳ Pending</span>
+              <span class="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-bold text-primary-900">{{ r.record_type }}</span>
+              <span *ngIf="r.verified" class="rounded-full bg-accent-500 px-2.5 py-0.5 text-xs font-semibold text-white">On-chain</span>
+              <span *ngIf="!r.verified" class="rounded-full bg-primary-200 px-2.5 py-0.5 text-xs font-semibold text-primary-900">Pending</span>
               <span class="ml-auto text-xs text-muted">{{ r.created_at | date:'medium' }}</span>
             </div>
             <div class="mb-2 flex flex-wrap gap-3 text-xs text-muted">
@@ -222,7 +227,7 @@ import { AuthService } from '../../../services/auth.service';
               <a *ngIf="r.verified"
                  [href]="'https://sepolia.etherscan.io/tx/' + r.tx_hash"
                  target="_blank" rel="noopener"
-                 class="font-mono text-accent-700 underline">tx {{ r.tx_hash | slice:0:14 }}… ↗</a>
+                 class="font-mono text-accent-700 underline">tx {{ r.tx_hash | slice:0:14 }}…</a>
             </div>
           </div>
           <p *ngIf="facilityRecords.length === 0 && !loadingRecords" class="py-6 text-center text-muted italic">
@@ -238,10 +243,10 @@ export class HospitalDashboardComponent implements OnInit {
 
   filter = 'PENDING';
   filters = [
-    { label: ' Pending', value: 'PENDING' },
-    { label: ' Accepted', value: 'ACCEPTED' },
-    { label: ' Declined', value: 'DECLINED' },
-    { label: ' All', value: '' },
+    { label: 'Pending', value: 'PENDING' },
+    { label: 'Accepted', value: 'ACCEPTED' },
+    { label: 'Declined', value: 'DECLINED' },
+    { label: 'All', value: '' },
   ] as const;
 
   referrals: ReferralItem[] = [];
@@ -271,6 +276,11 @@ export class HospitalDashboardComponent implements OnInit {
   /** Angular 22 is zoneless by default — re-render after async mutations. */
   private syncView() {
     this.cdr.detectChanges();
+  }
+
+  setTab(t: 'referrals' | 'records') {
+    this.tab = t;
+    this.syncView();
   }
 
   get hospitalName(): string {
@@ -349,7 +359,7 @@ export class HospitalDashboardComponent implements OnInit {
       if (row.key.trim()) data[row.key.trim()] = row.value.trim();
     }
     if (Object.keys(data).length === 0) {
-      this.formMsg = 'Add at least one data field (key + value).';
+      this.formMsg = 'Add at least one data field (field + value).';
       this.syncView();
       return;
     }

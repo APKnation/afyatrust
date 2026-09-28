@@ -15,7 +15,7 @@ import { RouterLink } from '@angular/router';
         </p>
         <div class="hero-buttons">
           <a routerLink="/register" class="btn btn-primary">Usajili</a>
-          <a routerLink="/patient" class="btn btn-ghost">Mgonjwa</td>
+          <a routerLink="/patient" class="btn btn-ghost">Mgonjwa</a>
         </div>
       </div>
       <div class="hero-visual">

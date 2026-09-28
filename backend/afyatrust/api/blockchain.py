@@ -5,6 +5,8 @@ still work before CONTRACT_ADDRESS is configured.
 """
 import json
 import os
+import threading
+import time
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -41,6 +43,78 @@ class _LazyContract:
 
 
 contract = _LazyContract()
+
+
+# ---------------------------------------------------------------------------
+# Small TTL cache for on-chain READS (never for transactions).
+#
+# A single hasAccess RPC round-trip takes ~2-6s on Sepolia, and the doctor
+# record view does one on every call. Permissions only change when someone
+# grants/revokes, so caching for a short window is safe: every mutating call
+# below invalidates the affected entries immediately.
+# ---------------------------------------------------------------------------
+
+_CACHE_TTL_SECONDS = 60
+_cache: dict = {}
+_cache_lock = threading.Lock()
+
+
+def cache_get(key: str):
+    """Return the cached value for key, or None if absent/expired."""
+    with _cache_lock:
+        item = _cache.get(key)
+        if not item:
+            return None
+        expires_at, value = item
+        if time.monotonic() > expires_at:
+            del _cache[key]
+            return None
+        return value
+
+
+def cache_set(key: str, value) -> None:
+    with _cache_lock:
+        _cache[key] = (time.monotonic() + _CACHE_TTL_SECONDS, value)
+
+
+def cache_invalidate(prefix: str) -> None:
+    """Drop every cache entry whose key starts with prefix."""
+    with _cache_lock:
+        for key in [k for k in _cache if k.startswith(prefix)]:
+            del _cache[key]
+
+
+def cached_has_access(health_id: str, wallet: str) -> tuple[bool, bool]:
+    """hasAccess with a 60s cache. Returns (allowed, chain_ok).
+
+    Key is case-insensitive on the wallet (addresses are checksummed on-chain
+    but callers may pass either form).
+    """
+    key = f"hasAccess:{health_id.strip().lower()}:{wallet.strip().lower()}"
+    cached = cache_get(key)
+    if cached is not None:
+        allowed, chain_ok = cached
+        return allowed, True
+    try:
+        allowed = contract.functions.hasAccess(health_id, wallet).call()
+    except Exception:
+        return False, False  # chain unreachable — never cached
+    cache_set(key, (allowed, True))
+    return allowed, True
+
+
+def cached_patient_wallet(health_id: str) -> str:
+    """patientWallet mapping with the same short TTL."""
+    key = f"patientWallet:{health_id.strip().lower()}"
+    cached = cache_get(key)
+    if cached is not None:
+        return cached
+    try:
+        wallet = contract.functions.patientWallet(health_id).call()
+    except Exception:
+        return ""
+    cache_set(key, wallet)
+    return wallet
 
 
 def facility_address() -> str:

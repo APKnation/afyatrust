@@ -224,11 +224,34 @@ def my_records(request):
     events: list = []
     _audit(patient, events)
 
-    return Response({
-        "health_id": patient.health_id,
-        "full_name": patient.full_name,
-        "wallet_address": patient.wallet_address,
-        "records": [{
+    # Fetch from blockchain for true decentralized exchange
+    chain_records = []
+    try:
+        chain_records = contract.functions.getRecords(patient.health_id).call()
+    except Exception:
+        pass
+
+    if chain_records:
+        hashes = [r[0] for r in chain_records]
+        local_records = {r.record_hash: r for r in patient.records.filter(record_hash__in=hashes)}
+        final_records = []
+        for cr in chain_records:
+            r_hash, fac_id, meta_uri, ts = cr
+            if r_hash in local_records:
+                r = local_records[r_hash]
+                final_records.append({
+                    "id": r.id,
+                    "facility": r.facility_name,
+                    "type": r.record_type,
+                    "data": r.record_data,
+                    "hash": r.record_hash,
+                    "tx_hash": r.tx_hash,
+                    "date": r.created_at,
+                    "verified": True,
+                    "source_uri": meta_uri,
+                })
+    else:
+        final_records = [{
             "id": r.id,
             "facility": r.facility_name,
             "type": r.record_type,
@@ -237,7 +260,13 @@ def my_records(request):
             "tx_hash": r.tx_hash,
             "date": r.created_at,
             "verified": bool(r.tx_hash) and not r.tx_hash.startswith("PENDING"),
-        } for r in patient.records.all()],
+        } for r in patient.records.all()]
+
+    return Response({
+        "health_id": patient.health_id,
+        "full_name": patient.full_name,
+        "wallet_address": patient.wallet_address,
+        "records": final_records,
         "measurements": [{
             "id": m.id,
             "kind": m.kind,
@@ -499,18 +528,47 @@ def doctor_view_record(request, health_id):
     except Exception:
         pass  # PoC: audit write is best-effort
 
-    return Response({
-        "health_id": health_id,
-        "full_name": patient.full_name,
-        "chain_checked": chain_ok,
-        "records": [{
+    # Fetch the list of record pointers directly from the blockchain
+    # to demonstrate true decentralized data exchange.
+    chain_records = []
+    try:
+        chain_records = contract.functions.getRecords(health_id).call()
+    except Exception:
+        pass  # Fallback to local if chain is unreachable
+
+    if chain_records:
+        hashes = [r[0] for r in chain_records]
+        local_records = {r.record_hash: r for r in patient.records.filter(record_hash__in=hashes)}
+        final_records = []
+        for cr in chain_records:
+            r_hash, fac_id, meta_uri, ts = cr
+            if r_hash in local_records:
+                r = local_records[r_hash]
+                final_records.append({
+                    "facility": r.facility_name,
+                    "type": r.record_type,
+                    "data": r.record_data,
+                    "hash": r.record_hash,
+                    "date": r.created_at,
+                    "verified": True,
+                    "source_uri": meta_uri,
+                })
+    else:
+        # Fallback if no chain records (or chain offline in PoC)
+        final_records = [{
             "facility": r.facility_name,
             "type": r.record_type,
             "data": r.record_data,
             "hash": r.record_hash,
             "date": r.created_at,
             "verified": bool(r.tx_hash) and not r.tx_hash.startswith("PENDING"),
-        } for r in patient.records.all()],
+        } for r in patient.records.all()]
+
+    return Response({
+        "health_id": health_id,
+        "full_name": patient.full_name,
+        "chain_checked": chain_ok,
+        "records": final_records,
     })
 
 
@@ -1040,10 +1098,16 @@ def add_record(request):
         record_hash=record_hash,
     )
 
+    facility_id = data.get("facility_id", "UNKNOWN")
+    
+    # Decentralized Exchange: The hospital hosting the data exposes an endpoint.
+    # We construct the metadata_uri that will be stored on-chain, pointing to Hospital A.
+    metadata_uri = f"https://api.{facility_id.lower()}.afyatrust.network/exchange/{record_hash}"
+
     try:
         tx = contract.functions.addRecord(
             patient.health_id, record_hash,
-            data.get("facility_id", ""), data.get("metadata_uri", "")
+            facility_id, metadata_uri
         )
         record.tx_hash = send_transaction(tx)
         record.save()

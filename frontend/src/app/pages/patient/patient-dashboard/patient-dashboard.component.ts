@@ -126,6 +126,10 @@ import { AuthService } from '../../../services/auth.service';
             <span *ngIf="!rec.verified"
                   class="rounded-full bg-primary-200 px-2.5 py-0.5 text-xs font-semibold text-primary-900">Pending</span>
           </div>
+          <div *ngIf="rec.source_uri" class="mb-3 text-xs text-muted flex items-center gap-1.5">
+            <span class="font-semibold">Source:</span>
+            <a [href]="rec.source_uri" target="_blank" rel="noopener" class="text-accent-600 hover:underline break-all">{{ rec.source_uri }}</a>
+          </div>
           <div class="mb-3 rounded-lg bg-gray-50 p-3">
             <div *ngFor="let item of entries(rec.data)"
                  class="flex border-b border-gray-200 py-1.5 last:border-b-0">

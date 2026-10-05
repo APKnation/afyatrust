@@ -7,6 +7,7 @@ from .models import (
     AccessRequest, Doctor, Hospital, HospitalStaff, Measurement,
     MedicalRecord, Patient, Referral,
 )
+from . import wallet_manager
 
 
 @admin.register(Hospital)
@@ -17,7 +18,9 @@ class HospitalAdmin(admin.ModelAdmin):
 
 
 class DoctorForm(forms.ModelForm):
-    """Admin creates doctor accounts: sets the initial PIN at creation."""
+    """Admin creates doctor accounts: sets the initial PIN at creation.
+    The wallet is NOT entered here — a custodial wallet is generated
+    automatically, exactly like for patients."""
     pin = forms.CharField(
         widget=forms.PasswordInput(render_value=False),
         required=False,
@@ -26,7 +29,8 @@ class DoctorForm(forms.ModelForm):
 
     class Meta:
         model = Doctor
-        fields = "__all__"
+        # wallet_address + key material are generated in save(), never typed.
+        fields = ("full_name", "license_no", "pin", "facility_id", "hospital", "status")
 
     def clean_pin(self):
         pin = self.cleaned_data.get("pin") or ""
@@ -40,6 +44,15 @@ class DoctorForm(forms.ModelForm):
             pass  # keep existing pin_hash
         elif self.cleaned_data.get("pin"):
             doctor.pin_hash = make_password(self.cleaned_data["pin"])
+
+        # Custodial wallet: generate when missing (new doctor, or legacy row
+        # created before auto-generation existed).
+        if not doctor.wallet_address:
+            wallet = wallet_manager.create_wallet()
+            doctor.wallet_address = wallet["address"]
+            doctor.encrypted_private_key = wallet["encrypted_key"]
+            doctor.encryption_iv = wallet["iv"]
+
         if commit:
             doctor.save()
         return doctor
@@ -47,13 +60,21 @@ class DoctorForm(forms.ModelForm):
 
 @admin.register(Doctor)
 class DoctorAdmin(admin.ModelAdmin):
-    """Doctors are created here by the admin (name, license, hospital, PIN),
-    then approved. There is no public doctor registration."""
+    """Doctors are created here by the admin (name, license, hospital, PIN);
+    the custodial wallet is generated automatically, then an admin approves.
+    There is no public doctor registration."""
     form = DoctorForm
-    list_display = ("full_name", "license_no", "facility_id", "status", "has_pin")
+    list_display = ("full_name", "license_no", "facility_id", "status", "short_wallet", "has_pin")
     list_filter = ("status", "hospital")
-    search_fields = ("full_name", "license_no")
+    search_fields = ("full_name", "license_no", "wallet_address")
+    readonly_fields = ("wallet_address", "encrypted_private_key", "encryption_iv")
     actions = ["approve_doctors", "reject_doctors", "reset_pin_action"]
+
+    @admin.display(description="Wallet")
+    def short_wallet(self, obj):
+        if not obj.wallet_address:
+            return "—"
+        return f"{obj.wallet_address[:10]}…{obj.wallet_address[-6:]}"
 
     @admin.display(boolean=True, description="PIN set")
     def has_pin(self, obj):

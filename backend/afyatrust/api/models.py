@@ -47,9 +47,10 @@ class MedicalRecord(models.Model):
 
 
 class Doctor(models.Model):
-    """Verified doctor. Self-registers with license number + PIN (no
-    MetaMask — the backend creates a custodial wallet); an admin approves.
-    Only APPROVED doctors can log in, request access or view records."""
+    """Verified doctor. Created by an admin with license number + PIN; the
+    backend generates a custodial wallet (no MetaMask) so the doctor has an
+    on-chain identity for permission grants. Only APPROVED doctors can log in,
+    request access or view records."""
     STATUS_CHOICES = [
         ("PENDING", "Pending review"),
         ("APPROVED", "Approved"),
@@ -63,6 +64,8 @@ class Doctor(models.Model):
         Hospital, null=True, blank=True, on_delete=models.SET_NULL, related_name="doctors"
     )
     wallet_address = models.CharField(max_length=42, unique=True)  # custodial, on-chain identity
+    encrypted_private_key = models.TextField(blank=True, default="")   # AES-256-GCM ciphertext
+    encryption_iv = models.CharField(max_length=64, blank=True, default="")  # base64 nonce/IV
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
     created_at = models.DateTimeField(auto_now_add=True)
     approved_at = models.DateTimeField(null=True, blank=True)

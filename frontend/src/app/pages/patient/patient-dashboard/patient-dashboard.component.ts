@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { NgIf, NgFor, DatePipe } from '@angular/common';
+import { NgIf, NgFor, SlicePipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService, PatientData, AccessRequest } from '../../../services/api.service';
@@ -7,7 +7,7 @@ import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-patient-dashboard',
-  imports: [NgIf, NgFor, DatePipe, FormsModule],
+  imports: [NgIf, NgFor, SlicePipe, DatePipe, FormsModule],
   template: `
     <!-- LOADING (only when there really is nothing yet) -->
     <div *ngIf="loading && !data" class="py-20 text-center text-muted">

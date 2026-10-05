@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { NgIf, NgFor, DatePipe } from '@angular/common';
+import { NgIf, NgFor, DatePipe, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
@@ -16,7 +16,7 @@ import { AuthService } from '../../../services/auth.service';
  */
 @Component({
   selector: 'app-doctor-dashboard',
-  imports: [NgIf, NgFor, DatePipe, FormsModule],
+  imports: [NgIf, NgFor, DatePipe, SlicePipe, FormsModule],
   template: `
     <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <!-- Hero header -->

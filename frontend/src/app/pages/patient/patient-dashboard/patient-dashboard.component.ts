@@ -287,6 +287,10 @@ import { AuthService } from '../../../services/auth.service';
             {{ busy ? 'Granting…' : 'Grant access' }}
           </button>
         </div>
+        <p class="text-sm text-muted">
+          Access expires automatically. Revoke any time — the revoke event is logged on-chain too.
+        </p>
+      </div>
 
       <!-- REQUESTS -->
       <div *ngIf="tab === 'requests'" class="animate-fade-in">
@@ -421,10 +425,7 @@ import { AuthService } from '../../../services/auth.service';
   `,
 })
 export class PatientDashboardComponent implements OnInit, OnDestroy {
-  // Valid tab ids, derived from the tabs dropdown so the template
-  // type-checker never narrows against a stale union.
-  type TabId = (typeof tabs)[number]['id'];
-  tab: TabId = tabs[0].id;
+  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'audit' = 'records';
   tabs = [
     { id: 'records', label: 'Records' },
     { id: 'measurements', label: 'Measurements' },
@@ -475,7 +476,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  setTab(id: TabId) {
+  setTab(id: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'audit') {
     this.tab = id;
     this.syncView();
   }

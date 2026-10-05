@@ -475,7 +475,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  setTab(id: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'audit') {
+  setTab(id: TabId) {
     this.tab = id;
     this.syncView();
   }

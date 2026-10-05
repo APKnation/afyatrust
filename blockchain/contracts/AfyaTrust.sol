@@ -35,12 +35,19 @@ contract AfyaTrust {
     mapping(string => AccessPermission[]) private permissions;
     mapping(string => AuditEvent[]) private auditTrail;
 
+    // Emergency (break-glass) windows: healthID => clinician => expiry time.
+    // Opened by breakGlass(); makes hasAccess() true until the expiry passes.
+    mapping(string => mapping(address => uint256)) public emergencyExpiry;
+
+    uint256 public constant EMERGENCY_PERIOD = 1 hours;
+
     event PatientRegistered(string healthID, address wallet, string fullName);
     event RecordAdded(string healthID, string facilityID, string recordHash);
     event AccessGranted(string healthID, address grantedTo, uint256 expiry);
     event AccessRevoked(string healthID, address revokedFrom);
     event RecordViewed(string healthID, address viewer, string facilityID);
     event BreakGlassUsed(string healthID, address clinician, string facilityID, string reason);
+    event EmergencyAccessGranted(string healthID, address clinician, uint256 expiry);
 
     // Step 1-2: facility registers a patient and links their Health ID.
     function registerPatient(
@@ -111,8 +118,10 @@ contract AfyaTrust {
     }
 
     // Step 5: provider checks authorization (patient's own wallet always has access).
+    // An unexpired break-glass emergency window also grants access.
     function hasAccess(string memory _healthID, address _doctor) public view returns (bool) {
         if (patientWallet[_healthID] == _doctor && _doctor != address(0)) return true;
+        if (emergencyExpiry[_healthID][_doctor] > block.timestamp) return true;
         for (uint i = 0; i < permissions[_healthID].length; i++) {
             AccessPermission memory p = permissions[_healthID][i];
             if (p.grantedTo == _doctor && p.isActive && p.expiry > block.timestamp) {
@@ -135,17 +144,30 @@ contract AfyaTrust {
         emit RecordViewed(_healthID, _viewer, _facilityID);
     }
 
-    // Step 7: emergency access — allowed for anyone, but permanently logged.
-    // The clinician wallet is passed explicitly so the audit log names them,
-    // not the operator wallet that pays gas.
+    // Step 7: emergency access — opens a real 1-hour on-chain permission for
+    // the clinician AND permanently logs the use. The clinician wallet is
+    // passed explicitly so the audit log names them, not the operator wallet
+    // that pays gas.
     function breakGlass(
         string memory _healthID,
         address _clinician,
         string memory _facilityID,
         string memory _reason
     ) public {
+        uint256 expiry = block.timestamp + EMERGENCY_PERIOD;
+        emergencyExpiry[_healthID][_clinician] = expiry;
         emit BreakGlassUsed(_healthID, _clinician, _facilityID, _reason);
+        emit EmergencyAccessGranted(_healthID, _clinician, expiry);
         _logAudit(_healthID, _clinician, "DOCTOR", _facilityID, "BREAK_GLASS");
+    }
+
+    // Seconds of emergency access left for a clinician on a patient (0 = none).
+    // The public emergencyExpiry mapping getter exposes the raw expiry stamp.
+    function emergencyAccessRemaining(string memory _healthID, address _clinician)
+        public view returns (uint256)
+    {
+        uint256 expiry = emergencyExpiry[_healthID][_clinician];
+        return expiry > block.timestamp ? expiry - block.timestamp : 0;
     }
 
     function getRecords(string memory _healthID)

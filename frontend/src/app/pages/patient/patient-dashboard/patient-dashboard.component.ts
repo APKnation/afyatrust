@@ -421,7 +421,10 @@ import { AuthService } from '../../../services/auth.service';
   `,
 })
 export class PatientDashboardComponent implements OnInit, OnDestroy {
-  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'audit' = 'records';
+  // Valid tab ids, derived from the tabs dropdown so the template
+  // type-checker never narrows against a stale union.
+  type TabId = (typeof tabs)[number]['id'];
+  tab: TabId = tabs[0].id;
   tabs = [
     { id: 'records', label: 'Records' },
     { id: 'measurements', label: 'Measurements' },

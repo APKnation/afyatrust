@@ -5,7 +5,7 @@ export const environment = {
   chainId: 11155111,
   chainName: 'Sepolia',
   etherscanUrl: 'https://sepolia.etherscan.io',
-  contractAddress: '0x94a66c550a51980e4Ae35364046555e0Fc5Bd1A3',
+  contractAddress: '0x71B286D28Ff87BcE14c89720806a6cB045f877C4',
   contractABI: [
     'function registerPatient(string,address,string) public',
     'function addRecord(string,string,string,string) public',

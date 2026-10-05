@@ -26,6 +26,7 @@ urlpatterns = [
     path("staff/referrals/<int:referral_id>/respond/", views.respond_referral),
 
     # Doctor (JWT required; admin-created accounts)
+    path("list-doctors/", views.list_doctors),
     path("doctor/me/", views.doctor_me),
     path("doctor/status/", views.doctor_status),
     path("doctor/request-access/", views.request_access),

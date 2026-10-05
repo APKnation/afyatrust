@@ -207,6 +207,12 @@ export class ApiService {
     return this.request<AccessRequest[]>('GET', '/patient/requests/');
   }
 
+  /** Patient-facing doctor lookup: free-text search by name or license. */
+  listDoctors(query?: string): Promise<{ id: number; license_no: string; full_name: string; wallet_address: string; facility_id: string }[]> {
+    const q = query ? `?q=${encodeURIComponent(query)}` : '';
+    return this.request<{ id: number; license_no: string; full_name: string; wallet_address: string; facility_id: string }[]>('GET', '/list-doctors/' + q);
+  }
+
   grantAccess(payload: { doctor_license?: string; doctor_wallet?: string; doctor_name: string; days: number }) {
     return this.request('POST', '/patient/grant-access/', payload);
   }

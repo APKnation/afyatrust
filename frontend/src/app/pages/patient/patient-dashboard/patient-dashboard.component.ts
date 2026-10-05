@@ -410,6 +410,14 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   errorMsg = '';
   grant = { doctor_license: '', doctor_name: '', days: 7 };
 
+  // Doctor picker for the grant-access form (patient-friendly: pick by name).
+  doctors: { id: number; license_no: string; full_name: string; wallet_address: string; facility_id: string }[] = [];
+  doctorQuery = '';
+  selectedDoctor: { id: number; license_no: string; full_name: string; wallet_address: string; facility_id: string } | null = null;
+  doctorLoading = false;
+  private doctorsPollTimer: any = null;
+  private alreadyFetchedDoctorIds = new Set<number>();
+
   // patient-initiated referral send
   referralModal = false;
   sendHospitals: { code: string; name: string }[] = [];
@@ -449,6 +457,9 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.loadSendHospitals();
     await this.reload();
     this.startPolling();
+    // Pre-warm the doctor list so it's available when the patient opens
+    // the Grant Access page.
+    void this.fetchDoctors();
   }
 
   ngOnDestroy() {

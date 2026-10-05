@@ -20,6 +20,7 @@ from .models import (
     AccessGrant, AccessRequest, Doctor, Hospital, HospitalStaff,
     Measurement, MedicalRecord, Patient, Referral,
 )
+from django.db.models import Q
 from . import wallet_manager
 from .blockchain import (
     cached_has_access,
@@ -894,6 +895,33 @@ def doctor_referrals(request):
             _referral_json(r) for r in Referral.objects.filter(from_doctor=doctor)[:50]
         ])
     return _create_referral(doctor, request)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def list_doctors(request):
+    """Patient-facing doctor lookup: free-text search by name or license.
+    Returns doctors which match the query, so the patient can pick
+    the right doctor without knowing their license number in advance.
+    """
+    query = str(request.query_params.get("q", "")).strip()
+    doctors = Doctor.objects.all()
+    if query:
+        q = query.lower()
+        doctors = doctors.filter(
+            models.Q(license_no__icontains=query)
+            | models.Q(full_name__icontains=query)
+        )
+    return Response([
+        {
+            "id": d.id,
+            "license_no": d.license_no,
+            "full_name": d.full_name,
+            "wallet_address": d.wallet_address,
+            "facility_id": d.facility_id,
+        }
+        for d in doctors.order_by("full_name")[:20]
+    ])
 
 
 # ============ ACCOUNT: CHANGE PIN / PASSWORD (all roles) ============

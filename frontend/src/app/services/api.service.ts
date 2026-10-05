@@ -65,6 +65,15 @@ export interface HospitalOption {
   region: string;
 }
 
+/** Doctor entry returned by the patient-facing doctor lookup. */
+export interface DoctorOption {
+  id: number;
+  license_no: string;
+  full_name: string;
+  wallet_address: string;
+  facility_id: string;
+}
+
 export interface PatientData {
   health_id: string;
   full_name: string;
@@ -208,9 +217,9 @@ export class ApiService {
   }
 
   /** Patient-facing doctor lookup: free-text search by name or license. */
-  listDoctors(query?: string): Promise<{ id: number; license_no: string; full_name: string; wallet_address: string; facility_id: string }[]> {
+  listDoctors(query?: string): Promise<DoctorOption[]> {
     const q = query ? `?q=${encodeURIComponent(query)}` : '';
-    return this.request<{ id: number; license_no: string; full_name: string; wallet_address: string; facility_id: string }[]>('GET', '/list-doctors/' + q);
+    return this.request<DoctorOption[]>('GET', '/list-doctors/' + q);
   }
 
   grantAccess(payload: { doctor_license?: string; doctor_wallet?: string; doctor_name: string; days: number }) {

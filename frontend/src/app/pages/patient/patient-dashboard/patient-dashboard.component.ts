@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { NgIf, NgFor, SlicePipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { ApiService, PatientData, AccessRequest } from '../../../services/api.service';
+import { ApiService, PatientData, AccessRequest, DoctorOption } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 
 @Component({
@@ -240,19 +240,19 @@ import { AuthService } from '../../../services/auth.service';
               <input
                 [(ngModel)]="doctorQuery"
                 (ngModelChange)="onDoctorQueryChanged()"
-                (blur)="selectDoctor(selectedDoctor)"
-                (focus)="selectDoctor(null)"
-                placeholder="Type doctor's name or license…"
+                (focus)="showSuggestions = true"
+                (blur)="showSuggestions = false"
+                placeholder="Type a doctor's name or license, or pick from the list…"
                 class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
               />
-              <!-- Dropdown suggestions -->
+              <!-- Dropdown suggestions (mousedown fires before input blur) -->
               <ul
-                *ngIf="doctors.length && doctorQuery"
+                *ngIf="showSuggestions && doctors.length"
                 class="rounded-lg border border-gray-200 bg-white max-h-48 overflow-auto shadow-sm"
               >
                 <li
                   *ngFor="let d of doctors"
-                  (click)="selectDoctor(d)"
+                  (mousedown)="selectDoctor(d)"
                   class="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-primary-50 transition-colors"
                 >
                   <div>
@@ -262,6 +262,9 @@ import { AuthService } from '../../../services/auth.service';
                   <span class="text-accent-700">→</span>
                 </li>
               </ul>
+              <p *ngIf="showSuggestions && !doctorLoading && doctors.length === 0" class="mt-1 text-xs text-muted">
+                No doctors found. Ask your doctor for their license number.
+              </p>
               <p *ngIf="doctorLoading" class="mt-1 text-xs text-muted">Searching…</p>
             </label>
             <label class="flex flex-col gap-1.5">
@@ -443,12 +446,12 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   grant = { doctor_license: '', doctor_name: '', doctor_wallet: '', days: 7 };
 
   // Doctor picker for the grant-access form (patient-friendly: pick by name).
-  doctors: { id: number; license_no: string; full_name: string; wallet_address: string; facility_id: string }[] = [];
+  doctors: DoctorOption[] = [];
   doctorQuery = '';
-  selectedDoctor: { id: number; license_no: string; full_name: string; wallet_address: string; facility_id: string } | null = null;
+  selectedDoctor: DoctorOption | null = null;
   doctorLoading = false;
-  private doctorsPollTimer: any = null;
-  private alreadyFetchedDoctorIds = new Set<number>();
+  showSuggestions = false;
+  private doctorSearchTimer: any = null;
 
   // patient-initiated referral send
   referralModal = false;
@@ -496,7 +499,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     if (this.pollTimer) clearInterval(this.pollTimer);
-    if (this.doctorsPollTimer) clearInterval(this.doctorsPollTimer);
+    if (this.doctorSearchTimer) clearTimeout(this.doctorSearchTimer);
   }
 
   /** Load the list of hospitals so the patient can pick where to go. */
@@ -623,12 +626,17 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   }
 
   async grantAccess() {
-    if (!this.grant.doctor_license) return;
+    if (!this.grant.doctor_license) {
+      alert('Pick a doctor from the list first.');
+      return;
+    }
     this.busy = true;
     this.syncView();
     try {
       await this.api.grantAccess(this.grant);
       this.grant = { doctor_license: '', doctor_name: '', doctor_wallet: '', days: 7 };
+      this.selectedDoctor = null;
+      this.doctorQuery = '';
       await this.reload();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
@@ -695,22 +703,14 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Patient-facing doctor lookup: refresh the list so the picker stays current. */
+  /** Load doctors matching the current query so the picker can suggest them. */
   private async fetchDoctors() {
     this.doctorLoading = true;
     this.syncView();
     try {
-      const list = await this.api.listDoctors();
-      // Deduplicate by doctor id and keep only doctors that actually exist
-      // in the system (backend already limits to 20).
-      const seen = new Set<number>();
-      this.doctors = list.filter((d) => {
-        if (seen.has(d.id)) return false;
-        seen.add(d.id);
-        return true;
-      });
+      this.doctors = await this.api.listDoctors(this.doctorQuery.trim() || undefined);
     } catch {
-      // offline tick — the picker stays empty but the form still works
+      // offline — the picker stays empty but the form still works
       this.doctors = [];
     } finally {
       this.doctorLoading = false;
@@ -718,31 +718,31 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Re-run the search as the patient types a name or license fragment. */
-  private onDoctorQueryChanged() {
-    void this.fetchDoctors();
+  /** Re-search (debounced) as the patient types a name or license fragment;
+   * editing the text after picking a doctor drops the stale selection. */
+  onDoctorQueryChanged() {
+    if (this.selectedDoctor && this.doctorQuery !== this.selectedDoctor.full_name) {
+      this.selectedDoctor = null;
+      this.fillGrantFormFromDoctor();
+    }
+    if (this.doctorSearchTimer) clearTimeout(this.doctorSearchTimer);
+    this.doctorSearchTimer = setTimeout(() => void this.fetchDoctors(), 250);
   }
 
-  /** Pick a doctor from the dropdown (fired on blur / suggestion click). */
-  selectDoctor(doctor: { id: number; license_no: string; full_name: string; wallet_address: string; facility_id: string } | null) {
-    this.selectedDoctor = doctor;
-    this.doctorQuery = doctor?.full_name ?? '';
+  /** Pick a doctor from the dropdown; autofills the grant payload so the
+   * patient only confirms the days instead of retyping identifiers. */
+  selectDoctor(d: DoctorOption) {
+    this.selectedDoctor = d;
+    this.doctorQuery = d.full_name;
+    this.showSuggestions = false;
     this.fillGrantFormFromDoctor();
     this.syncView();
   }
 
-  /** When a doctor is selected, preload the grant form so the patient only
-   * confirms the days instead of retyping. */
   private fillGrantFormFromDoctor() {
-    if (this.selectedDoctor) {
-      this.grant.doctor_license = this.selectedDoctor.license_no;
-      this.grant.doctor_name = this.selectedDoctor.full_name;
-      this.grant.doctor_wallet = this.selectedDoctor.wallet_address;
-    } else {
-      this.grant.doctor_license = '';
-      this.grant.doctor_name = '';
-      this.grant.doctor_wallet = '';
-    }
+    this.grant.doctor_license = this.selectedDoctor?.license_no ?? '';
+    this.grant.doctor_name = this.selectedDoctor?.full_name ?? '';
+    this.grant.doctor_wallet = this.selectedDoctor?.wallet_address ?? '';
   }
 
   /** Log out and take the user back to the sign-in page. */

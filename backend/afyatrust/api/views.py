@@ -504,9 +504,22 @@ def doctor_view_record(request, health_id):
     wallet = doctor.wallet_address
     facility_id = doctor.facility_id or "UNKNOWN"
 
+    patient = Patient.objects.filter(health_id=health_id).first()
+    if not patient:
+        return Response({"error": "Health ID not found"}, status=404)
+
     # Cached read (60s TTL): permissions only change via grant/revoke/approve,
     # which invalidate the cache — so this is safe and skips a slow RPC round-trip.
     allowed, chain_ok = cached_has_access(health_id, wallet)
+
+    if not allowed:
+        # DB fallback: live AccessGrant rows authorize the view too. This covers
+        # the 1-hour emergency break-glass window (the contract never opens an
+        # on-chain permission for it) and keeps views working when the chain
+        # is unreachable for a patient with a valid, unexpired grant.
+        allowed = AccessGrant.objects.filter(
+            patient=patient, doctor=doctor, active=True, expires_at__gt=timezone.now()
+        ).exists()
 
     if not allowed:
         return Response({
@@ -514,10 +527,6 @@ def doctor_view_record(request, health_id):
             "action": "REQUEST_ACCESS",
             "chain_checked": chain_ok,
         }, status=403)
-
-    patient = Patient.objects.filter(health_id=health_id).first()
-    if not patient:
-        return Response({"error": "Health ID not found"}, status=404)
 
     # Step 6: log the view on-chain (viewer passed explicitly — the facility
     # wallet signs but the audit entry must name the real accessor).
@@ -745,25 +754,23 @@ def doctor_patients(request):
     if not doctor:
         return Response({"error": "Doctor not found"}, status=403)
 
-    onchain: dict = {}
-    try:
-        perms = contract.functions.getPermissions(doctor.wallet_address).call()
-        for p in perms:
-            onchain[str(p[0]).strip().lower()] = bool(p[4])  # (health_id, patient, doctor, expiry, active)
-    except Exception:
-        pass  # chain unreachable — bookkeeping only
-
     grants = AccessGrant.objects.filter(doctor=doctor).select_related("patient")
     items = []
     for g in grants:
-        active = onchain.get(g.patient.health_id.strip().lower(), g.active)
+        if g.source == "BREAK_GLASS":
+            # The contract never opens an on-chain permission for break-glass;
+            # the emergency window lives (and expires) in the DB.
+            active = g.active and g.expires_at > timezone.now()
+        else:
+            allowed, _ = cached_has_access(g.patient.health_id, doctor.wallet_address)
+            active = allowed or (g.active and g.expires_at > timezone.now())
         items.append({
             "health_id": g.patient.health_id,
             "full_name": g.patient.full_name,
             "granted_at": g.created_at,
             "expires_at": g.expires_at,
             "active": active,
-            "source": "grant" if g.active else "expired",
+            "source": g.source or ("grant" if g.active else "expired"),
         })
     return Response(items)
 
@@ -1077,13 +1084,20 @@ def doctor_incoming_referrals(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def break_glass(request):
-    """Emergency access. Always allowed, always logged on-chain (step 7)."""
+    """Emergency access. Always allowed, always logged on-chain (step 7).
+
+    The contract's breakGlass only emits an event + audit entry — it does not
+    open a permission — so the backend opens a short emergency window in the
+    DB (AccessGrant, 1 hour) and drops the cached hasAccess result so the
+    clinician's next record view goes through immediately.
+    """
     data = request.data
-    health_id = data.get("health_id", "")
+    health_id = str(data.get("health_id", "")).strip()
     facility_id = data.get("facility_id", "")
     reason = data.get("reason", "")
 
-    if not Patient.objects.filter(health_id=health_id).exists():
+    patient = Patient.objects.filter(health_id=health_id).first()
+    if not patient:
         return Response({"error": "Health ID not found"}, status=404)
 
     doctor = _doctor_from_request(request)
@@ -1095,9 +1109,25 @@ def break_glass(request):
     except Exception as e:
         tx_hash = f"PENDING: {e}"
 
+    if doctor:
+        # A live normal grant is never shortened — only add the emergency
+        # window when the doctor has no active access yet.
+        live = AccessGrant.objects.filter(
+            patient=patient, doctor=doctor, active=True, expires_at__gt=timezone.now()
+        ).exists()
+        if not live:
+            AccessGrant.objects.create(
+                patient=patient, doctor=doctor,
+                tx_hash=tx_hash[:66],
+                active=True,
+                expires_at=timezone.now() + timedelta(hours=1),
+                source="BREAK_GLASS",
+            )
+    cache_invalidate(f"hasAccess:{health_id.lower()}")
+
     return Response({
         "status": "success",
-        "message": "Break-glass used. This access has been logged for accountability.",
+        "message": "Break-glass used. Emergency access granted for 1 hour and logged for accountability.",
         "tx_hash": tx_hash,
         "clinician_wallet": wallet,
     })

@@ -166,6 +166,7 @@ class AccessGrant(models.Model):
     hospital = models.ForeignKey(Hospital, null=True, blank=True, on_delete=models.SET_NULL, related_name="grants")
     tx_hash = models.CharField(max_length=66, blank=True)
     active = models.BooleanField(default=True)
+    source = models.CharField(max_length=20, blank=True, default="")  # "grant" | "BREAK_GLASS"
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
 

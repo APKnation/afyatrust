@@ -97,9 +97,11 @@ import { AuthService } from '../../../services/auth.service';
           </div>
           <div class="text-right text-sm">
             <p class="m-0" [class]="p.active ? 'font-bold text-accent-700' : 'font-semibold text-red-600'">
-              {{ p.active ? 'Access active' : 'Access expired or revoked' }}
+              {{ p.active
+                ? (p.source === 'BREAK_GLASS' ? 'Emergency access' : 'Access active')
+                : 'Access expired or revoked' }}
             </p>
-            <p class="m-0 text-xs text-muted">until {{ p.expires_at | date:'mediumDate' }}</p>
+            <p class="m-0 text-xs text-muted">until {{ p.expires_at | date:'medium' }}</p>
           </div>
         </div>
         <div *ngIf="patients.length === 0 && !loadingPatients" class="card p-10 text-center">
@@ -668,6 +670,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
         facility_id: this.myHospitalCode || 'UNKNOWN',
         reason,
       });
+      alert('Emergency access granted for 1 hour and logged on-chain.');
       await this.viewRecord();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));

@@ -273,9 +273,9 @@ import { AuthService } from '../../../services/auth.service';
                      class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
             </label>
           </div>
-          <!-- Hidden fields carry the resolved doctor behind the scenes. -->
+          <!-- Confirmation hint showing which doctor will be granted access. -->
           <p class="mt-3 text-xs text-muted">
-            <span class="font-semibold">Resolved doctor:</span>
+            <span class="font-semibold">Granting access to:</span>
             <ng-container *ngIf="selectedDoctor">
               <span class="text-ink">{{ selectedDoctor.full_name }} ({{ selectedDoctor.license_no }})</span>
               <span class="mx-1">·</span>

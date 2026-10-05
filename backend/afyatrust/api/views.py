@@ -905,12 +905,13 @@ def list_doctors(request):
     the right doctor without knowing their license number in advance.
     """
     query = str(request.query_params.get("q", "")).strip()
-    doctors = Doctor.objects.all()
+    # Only APPROVED doctors can be granted access; pending/revoked accounts
+    # must not appear in the patient's picker.
+    doctors = Doctor.objects.filter(status="APPROVED")
     if query:
-        q = query.lower()
         doctors = doctors.filter(
-            models.Q(license_no__icontains=query)
-            | models.Q(full_name__icontains=query)
+            Q(license_no__icontains=query)
+            | Q(full_name__icontains=query)
         )
     return Response([
         {

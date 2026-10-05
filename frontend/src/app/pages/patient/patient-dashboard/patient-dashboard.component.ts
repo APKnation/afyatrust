@@ -229,20 +229,40 @@ import { AuthService } from '../../../services/auth.service';
       <div *ngIf="tab === 'permissions'" class="animate-fade-in">
         <h2 class="mb-1 text-xl font-bold">Grant Access to a Doctor</h2>
         <p class="mb-4 text-sm text-muted">
-          Enter the doctor's medical license number. Their wallet is found automatically
-          and access is granted on-chain for the days you choose.
+          Type the doctor's name or license number. A dropdown of matching
+          doctors appears below — pick one to autofill, then confirm the days.
         </p>
         <div class="card mb-4 p-6">
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <!-- Doctor lookup (free text + dropdown suggestion) -->
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label class="flex flex-col gap-1.5">
-              <span class="text-[13px] font-semibold text-ink">Doctor's license number</span>
-              <input [(ngModel)]="grant.doctor_license" placeholder="License number"
-                     class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
-            </label>
-            <label class="flex flex-col gap-1.5">
-              <span class="text-[13px] font-semibold text-ink">Doctor's name (optional)</span>
-              <input [(ngModel)]="grant.doctor_name" placeholder="Name"
-                     class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
+              <span class="text-[13px] font-semibold text-ink">Doctor</span>
+              <input
+                [(ngModel)]="doctorQuery"
+                (ngModelChange)="onDoctorQueryChanged()"
+                (blur)="selectDoctor(selectedDoctor)"
+                (focus)="selectDoctor(null)"
+                placeholder="Type doctor's name or license…"
+                class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
+              />
+              <!-- Dropdown suggestions -->
+              <ul
+                *ngIf="doctors.length && doctorQuery"
+                class="rounded-lg border border-gray-200 bg-white max-h-48 overflow-auto shadow-sm"
+              >
+                <li
+                  *ngFor="let d of doctors"
+                  (click)="selectDoctor(d)"
+                  class="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-primary-50 transition-colors"
+                >
+                  <div>
+                    <p class="m-0 font-semibold text-ink">{{ d.full_name }}</p>
+                    <p class="m-0 text-[12px] text-muted">{{ d.license_no }} · {{ d.facility_id }}</p>
+                  </div>
+                  <span class="text-accent-700">→</span>
+                </li>
+              </ul>
+              <p *ngIf="doctorLoading" class="mt-1 text-xs text-muted">Searching…</p>
             </label>
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Days of access</span>
@@ -250,15 +270,23 @@ import { AuthService } from '../../../services/auth.service';
                      class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
             </label>
           </div>
+          <!-- Hidden fields carry the resolved doctor behind the scenes. -->
+          <p class="mt-3 text-xs text-muted">
+            <span class="font-semibold">Resolved doctor:</span>
+            <ng-container *ngIf="selectedDoctor">
+              <span class="text-ink">{{ selectedDoctor.full_name }} ({{ selectedDoctor.license_no }})</span>
+              <span class="mx-1">·</span>
+              <span class="text-muted">{{ selectedDoctor.facility_id }}</span>
+            </ng-container>
+            <ng-container *ngIf="!selectedDoctor">
+              <span class="text-muted">select or type above</span>
+            </ng-container>
+          </p>
           <button (click)="grantAccess()" [disabled]="busy"
                   class="mt-4 rounded-lg bg-accent-500 px-6 py-3 font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">
             {{ busy ? 'Granting…' : 'Grant access' }}
           </button>
         </div>
-        <p class="text-sm text-muted">
-          Access expires automatically. Revoke any time — the revoke event is logged on-chain too.
-        </p>
-      </div>
 
       <!-- REQUESTS -->
       <div *ngIf="tab === 'requests'" class="animate-fade-in">
@@ -408,7 +436,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   loading = false;
   busy = false;
   errorMsg = '';
-  grant = { doctor_license: '', doctor_name: '', days: 7 };
+  grant = { doctor_license: '', doctor_name: '', doctor_wallet: '', days: 7 };
 
   // Doctor picker for the grant-access form (patient-friendly: pick by name).
   doctors: { id: number; license_no: string; full_name: string; wallet_address: string; facility_id: string }[] = [];
@@ -464,6 +492,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     if (this.pollTimer) clearInterval(this.pollTimer);
+    if (this.doctorsPollTimer) clearInterval(this.doctorsPollTimer);
   }
 
   /** Load the list of hospitals so the patient can pick where to go. */
@@ -595,7 +624,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.syncView();
     try {
       await this.api.grantAccess(this.grant);
-      this.grant = { doctor_license: '', doctor_name: '', days: 7 };
+      this.grant = { doctor_license: '', doctor_name: '', doctor_wallet: '', days: 7 };
       await this.reload();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
@@ -659,6 +688,56 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     } finally {
       this.sendBusy = false;
       this.syncView();
+    }
+  }
+
+  /** Patient-facing doctor lookup: refresh the list so the picker stays current. */
+  private async fetchDoctors() {
+    this.doctorLoading = true;
+    this.syncView();
+    try {
+      const list = await this.api.listDoctors();
+      // Deduplicate by doctor id and keep only doctors that actually exist
+      // in the system (backend already limits to 20).
+      const seen = new Set<number>();
+      this.doctors = list.filter((d) => {
+        if (seen.has(d.id)) return false;
+        seen.add(d.id);
+        return true;
+      });
+    } catch {
+      // offline tick — the picker stays empty but the form still works
+      this.doctors = [];
+    } finally {
+      this.doctorLoading = false;
+      this.syncView();
+    }
+  }
+
+  /** Re-run the search as the patient types a name or license fragment. */
+  private onDoctorQueryChanged() {
+    void this.fetchDoctors();
+  }
+
+  /** Pick a doctor from the dropdown (fired on blur / suggestion click). */
+  selectDoctor(doctor: { id: number; license_no: string; full_name: string; wallet_address: string; facility_id: string } | null) {
+    this.selectedDoctor = doctor;
+    this.doctorQuery = doctor?.full_name ?? '';
+    this.fillGrantFormFromDoctor();
+    this.syncView();
+  }
+
+  /** When a doctor is selected, preload the grant form so the patient only
+   * confirms the days instead of retyping. */
+  private fillGrantFormFromDoctor() {
+    if (this.selectedDoctor) {
+      this.grant.doctor_license = this.selectedDoctor.license_no;
+      this.grant.doctor_name = this.selectedDoctor.full_name;
+      this.grant.doctor_wallet = this.selectedDoctor.wallet_address;
+    } else {
+      this.grant.doctor_license = '';
+      this.grant.doctor_name = '';
+      this.grant.doctor_wallet = '';
     }
   }
 

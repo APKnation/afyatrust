@@ -11,6 +11,7 @@ export interface PatientRecord {
   tx_hash?: string;
   date: string;
   verified: boolean;
+  source_uri?: string;
 }
 
 export interface AuditEvent {

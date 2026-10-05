@@ -3,7 +3,11 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "types": []
+    "types": [],
+    "incremental": false
+  },
+  "angularCompilerOptions": {
+    "incremental": false
   },
   "include": [
     "src/**/*.ts"

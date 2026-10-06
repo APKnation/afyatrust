@@ -20,6 +20,7 @@ export interface AuditEvent {
   facility: string;
   action: string;
   timestamp: number;
+  transaction_hash?: string;
 }
 
 export interface BlockchainEvent {

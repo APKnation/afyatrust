@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { NgIf, NgFor, DatePipe } from '@angular/common';
+import { NgIf, NgFor, DatePipe, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
@@ -17,7 +17,7 @@ import { AuthService } from '../../../services/auth.service';
  */
 @Component({
   selector: 'app-doctor-dashboard',
-  imports: [NgIf, NgFor, DatePipe, FormsModule],
+  imports: [NgIf, NgFor, DatePipe, SlicePipe, FormsModule],
   template: `
     <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <!-- Hero header -->
@@ -540,6 +540,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
   // blockchain transactions
   transactions: BlockchainEvent[] = [];
+  filteredTransactions: BlockchainEvent[] = [];
+  txFilterEvent = '';
+  txFilterHealthId = '';
 
   // measurement trend chart
   trendKind = '';
@@ -849,9 +852,11 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     try {
       const res = await this.api.blockchainEvents();
       this.transactions = res.events;
+      this.filteredTransactions = [...this.transactions];
     } catch (e: any) {
       console.error('Failed to load transactions:', e);
       this.transactions = [];
+      this.filteredTransactions = [];
     }
     this.syncView();
   }
@@ -914,5 +919,53 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   entries(data: any): { key: string; value: any }[] {
     if (!data) return [];
     return Object.entries(data).map(([key, value]) => ({ key, value }));
+  }
+
+  // ---------- Transaction filter helpers ----------
+  applyTxFilter() {
+    this.filteredTransactions = this.transactions.filter((tx) => {
+      const eventMatch = !this.txFilterEvent || tx.event === this.txFilterEvent;
+      const healthIdMatch = !this.txFilterHealthId ||
+        (tx.args?.['healthID']?.toLowerCase().includes(this.txFilterHealthId.toLowerCase()) ||
+         tx.args?.['healthId']?.toLowerCase().includes(this.txFilterHealthId.toLowerCase()));
+      return eventMatch && healthIdMatch;
+    });
+  }
+
+  clearTxFilter() {
+    this.txFilterEvent = '';
+    this.txFilterHealthId = '';
+    this.filteredTransactions = [...this.transactions];
+  }
+
+  eventBadge(event?: string): string {
+    switch ((event || '').toLowerCase()) {
+      case 'patientregistered':     return 'bg-primary-100 text-primary-900';
+      case 'recordadded':           return 'bg-accent-100 text-accent-900';
+      case 'accessgranted':         return 'bg-accent-200 text-accent-900';
+      case 'accessrevoked':         return 'bg-red-100 text-red-900';
+      case 'recordviewed':          return 'bg-primary-200 text-primary-900';
+      case 'breakglassused':        return 'bg-red-200 text-red-900';
+      case 'emergencyaccessgranted': return 'bg-orange-100 text-orange-900';
+      default:                      return 'bg-gray-100 text-ink';
+    }
+  }
+
+  formatEventName(event: string): string {
+    const map: Record<string, string> = {
+      'PatientRegistered': 'Patient Registered',
+      'RecordAdded': 'Record Added',
+      'AccessGranted': 'Access Granted',
+      'AccessRevoked': 'Access Revoked',
+      'RecordViewed': 'Record Viewed',
+      'BreakGlassUsed': 'Break-Glass Used',
+      'EmergencyAccessGranted': 'Emergency Access',
+    };
+    return map[event] || event;
+  }
+
+  eventArgs(args: Record<string, any>): { key: string; value: any }[] {
+    if (!args) return [];
+    return Object.entries(args).map(([key, value]) => ({ key, value }));
   }
 }

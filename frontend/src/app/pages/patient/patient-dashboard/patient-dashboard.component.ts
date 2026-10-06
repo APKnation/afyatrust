@@ -333,6 +333,7 @@ import { AuthService } from '../../../services/auth.service';
                 <th class="px-4 py-3 text-sm font-semibold">Role</th>
                 <th class="px-4 py-3 text-sm font-semibold">Action</th>
                 <th class="px-4 py-3 text-sm font-semibold">Facility</th>
+                <th class="px-4 py-3 text-sm font-semibold">Verify</th>
               </tr>
             </thead>
             <tbody>
@@ -346,6 +347,15 @@ import { AuthService } from '../../../services/auth.service';
                   <span class="rounded-full px-2.5 py-0.5 text-xs font-bold" [class]="actionBadge(ev.action)">{{ ev.action }}</span>
                 </td>
                 <td class="px-4 py-3 text-sm">{{ ev.facility || '—' }}</td>
+                <td class="px-4 py-3">
+                  <a *ngIf="ev.transaction_hash"
+                     [href]="'https://sepolia.etherscan.io/tx/' + ev.transaction_hash"
+                     target="_blank" rel="noopener"
+                     class="rounded bg-white px-2 py-1 text-xs font-mono text-accent-700 underline shadow-sm hover:bg-primary-50">
+                    View on Etherscan
+                  </a>
+                  <span *ngIf="!ev.transaction_hash" class="text-xs text-muted">—</span>
+                </td>
               </tr>
             </tbody>
           </table>

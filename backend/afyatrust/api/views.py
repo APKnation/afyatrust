@@ -55,13 +55,50 @@ def _audit(patient, events):
     """Fetch and normalize the on-chain audit trail for a patient."""
     try:
         trail = contract.functions.getAuditTrail(patient.health_id).call()
-        events[:] = [{
+        audit_entries = [{
             "accessor": e[0],
             "role": e[1],
             "facility": e[2],
             "action": e[3],
             "timestamp": e[4],
+            "transaction_hash": None,
         } for e in trail]
+
+        # Try to enrich with transaction hashes from event logs
+        action_to_event = {
+            "PATIENT_REGISTERED": "PatientRegistered",
+            "RECORD_ADDED": "RecordAdded",
+            "GRANTED_TO_DOCTOR": "AccessGranted",
+            "REVOKED_DOCTOR": "AccessRevoked",
+            "VIEW": "RecordViewed",
+            "BREAK_GLASS": "BreakGlassUsed",
+            "EMERGENCY_ACCESS_REVOKED": "EmergencyAccessRevoked",
+        }
+
+        for entry in audit_entries:
+            event_name = action_to_event.get(entry["action"])
+            if not event_name:
+                continue
+            try:
+                c = _get_contract()
+                event = getattr(c.events, event_name)
+                logs = event.get_logs(
+                    argument_filters={"healthID": patient.health_id},
+                    from_block=0
+                )
+                for log in logs:
+                    args = dict(log.args)
+                    # Match by timestamp (within 2 minutes) and accessor
+                    log_ts = args.get("timestamp") or args.get("expiry") or 0
+                    if abs(log_ts - entry["timestamp"]) <= 120:
+                        log_accessor = args.get("clinician") or args.get("grantedTo") or args.get("revokedFrom") or args.get("viewer") or args.get("wallet") or ""
+                        if log_accessor.lower() == entry["accessor"].lower():
+                            entry["transaction_hash"] = log.transactionHash.hex()
+                            break
+            except Exception:
+                pass  # Best effort
+
+        events[:] = audit_entries
     except Exception:
         events[:] = []  # PoC: chain may be unreachable; show empty trail
     return events
@@ -281,11 +318,15 @@ def my_records(request):
         } for m in patient.measurements.all()],
         "referrals": [{
             "id": r.id,
+            "from_hospital": r.from_hospital.name if r.from_hospital else "",
+            "from_doctor": r.from_doctor.full_name if r.from_doctor else "",
             "to_hospital": r.to_hospital.name,
             "to_hospital_code": r.to_hospital.code,
             "reason": r.reason,
             "status": r.status,
+            "responded_by": r.responded_by,
             "date": r.created_at,
+            "responded_at": r.responded_at,
         } for r in patient.referrals.all()],
         "audit_trail": events,
     })
@@ -1228,7 +1269,15 @@ def _fetch_events(event_name, from_block=0, to_block="latest", argument_filters=
     try:
         c = _get_contract()
         event = getattr(c.events, event_name)
-        logs = event.get_logs(fromBlock=from_block, toBlock=to_block, argument_filters=argument_filters)
+        # web3.py uses snake_case for block parameters
+        kwargs = {}
+        if from_block:
+            kwargs['from_block'] = from_block
+        if to_block and to_block != "latest":
+            kwargs['to_block'] = to_block
+        if argument_filters:
+            kwargs['argument_filters'] = argument_filters
+        logs = event.get_logs(**kwargs)
         return [{
             "transaction_hash": log.transactionHash.hex(),
             "block_number": log.blockNumber,
@@ -1236,7 +1285,8 @@ def _fetch_events(event_name, from_block=0, to_block="latest", argument_filters=
             "args": dict(log.args),
         } for log in logs]
     except Exception as e:
-        return {"error": str(e)}
+        # Return empty list on error instead of dict to avoid breaking .extend()
+        return []
 
 
 def _get_hospital_code_from_request(request):

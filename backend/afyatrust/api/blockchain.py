@@ -167,10 +167,18 @@ def send_transaction(function_call, signer_private_key: str = "") -> str:
         raise RuntimeError("Signer private key is not configured in backend/.env")
 
     account = w3.eth.account.from_key(key)
+    
+    # Estimate gas with 20% buffer
+    try:
+        estimated = function_call.estimate_gas({"from": account.address})
+        gas_limit = int(estimated * 1.2)
+    except Exception:
+        gas_limit = 800_000  # fallback higher limit
+    
     tx = function_call.build_transaction({
         "from": account.address,
         "nonce": w3.eth.get_transaction_count(account.address),
-        "gas": 500_000,
+        "gas": gas_limit,
         **_eip1559_fees(),
     })
 

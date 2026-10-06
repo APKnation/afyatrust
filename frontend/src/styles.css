@@ -1,165 +1,206 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Open+Sans:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Overpass:wght@400;600;700&display=swap');
 @import 'tailwindcss';
 
 @theme {
-  /* ---------- Palette: primary #FFCC00 (yellow) ---------- */
-  --color-primary-50: #fffbec;
-  --color-primary-100: #fff3c6;
-  --color-primary-200: #ffe888;
-  --color-primary-300: #ffdd4d;
-  --color-primary-400: #ffd21f;
-  --color-primary-500: #ffcc00; /* brand primary */
-  --color-primary-600: #d9ad00;
-  --color-primary-700: #b08a00;
-  --color-primary-800: #876900;
-  --color-primary-900: #644e00;
-  --color-primary-950: #3d3000;
+  /* ---------- Palette: primary #1D2463 (Navy Blue) ---------- */
+  --color-primary-50: #e8e9ef;
+  --color-primary-100: #c5c8d7;
+  --color-primary-200: #9ea4bb;
+  --color-primary-300: #787f9f;
+  --color-primary-400: #525a83;
+  --color-primary-500: #1d2463; /* brand primary */
+  --color-primary-600: #171d4f;
+  --color-primary-700: #12163b;
+  --color-primary-800: #0c0e28;
+  --color-primary-900: #060714;
+  --color-primary-950: #03040a;
 
-  /* ---------- Palette: accent #82B440 (green) ---------- */
-  --color-accent-50: #f5faec;
-  --color-accent-100: #e7f4d6;
-  --color-accent-200: #cfe9ad;
-  --color-accent-300: #adda7b;
-  --color-accent-400: #93cb51;
+  /* ---------- Palette: accent #82B440 (Green) ---------- */
+  --color-accent-50: #f2f7ec;
+  --color-accent-100: #dfeecf;
+  --color-accent-200: #cce5b3;
+  --color-accent-300: #b9dc96;
+  --color-accent-400: #a5d37a;
   --color-accent-500: #82b440; /* brand accent */
-  --color-accent-600: #689231;
-  --color-accent-700: #527129;
-  --color-accent-800: #435a25;
-  --color-accent-900: #394c22;
-  --color-accent-950: #1d2a10;
+  --color-accent-600: #689033;
+  --color-accent-700: #4e6c26;
+  --color-accent-800: #34481a;
+  --color-accent-900: #1a240d;
+  --color-accent-950: #0d1206;
 
-  /* ---------- Palette: neutrals ---------- */
+  /* ---------- Palette: Neutrals ---------- */
   --color-surface: #ffffff;
   --color-ink: #000000;
-  --color-muted: #6b6b6b;
+  --color-muted: #444444;
 
   /* ---------- Typography ---------- */
-  --font-heading: 'Playfair Display', Georgia, 'Times New Roman', serif;
-  --font-body: 'Open Sans', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Overpass', sans-serif;
+  --font-body: 'Overpass', sans-serif;
 
   /* ---------- Radius ---------- */
-  --radius-lg: 8px;   /* buttons, inputs */
-  --radius-xl: 12px;  /* cards */
+  --radius-sm: 4px;
+  --radius-md: 8px;   /* buttons, inputs */
+  --radius-lg: 12px;  /* cards */
+  --radius-xl: 16px;
 
   /* ---------- Shadow ---------- */
-  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.08), 0 4px 16px rgb(0 0 0 / 0.06);
+  --shadow-card: 0px 10px 40px 0px rgba(0, 0, 0, 0.06);
 
   /* ---------- Spacing scale extension ---------- */
   --spacing-52: 13rem;
+  --spacing-60: 15rem;
 
   /* ---------- Motion ---------- */
   --animate-fade-in: fade-in 0.25s ease-out;
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* ---------- Shared page design (matches the landing page) ---------- */
+/* ---------- Shared page design ---------- */
 
-/* Soft warm page background on every workspace page */
+/* Clean page background on every workspace page */
 .page-bg {
-  background:
-    radial-gradient(60rem 30rem at 120% -10%, rgb(255 204 0 / 0.07), transparent 60%),
-    radial-gradient(50rem 26rem at -20% 0%, rgb(130 180 64 / 0.08), transparent 55%),
-    var(--color-surface);
+  background: var(--color-surface);
+  min-height: 100vh;
 }
 
-/* Small uppercase label used above page titles (like the hero badge) */
+/* Small uppercase label */
 .eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  border-radius: 0.5rem;
-  background: var(--color-primary-500);
-  color: var(--color-ink);
-  font-size: 0.6875rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-50);
+  color: var(--color-primary-500);
+  font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   padding: 0.3rem 0.65rem;
 }
 
-/* Card with a gentle top accent line — echoes the landing "How it works" cards */
+/* Card */
 .card {
   position: relative;
   overflow: hidden;
-  border-radius: 0.75rem;
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-card);
-}
-.card::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--color-primary-500), var(--color-accent-500));
-  opacity: 0.9;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-/* Thin divider between list sections */
 .rule {
   border: 0;
-  border-top: 1px solid rgb(0 0 0 / 0.07);
+  border-top: 1px solid rgba(0, 0, 0, 0.07);
 }
 
-/* Navbar links: underline accent on hover + active — no background fills */
+/* Navbar links */
 .nav-link {
   position: relative;
+  color: var(--color-muted);
+}
+.nav-link:hover {
+  color: var(--color-primary-500);
 }
 .nav-link::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -2px;
-  height: 2.5px;
-  border-radius: 2px;
+  bottom: -4px;
+  height: 2px;
   background: var(--color-primary-500);
   transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.18s ease;
+  transform-origin: center;
+  transition: transform 0.2s ease;
 }
 .nav-link:hover::after {
-  transform: scaleX(0.6);
-}
-.nav-link-active::after {
   transform: scaleX(1);
 }
 .nav-link-active {
   font-weight: 700;
+  color: var(--color-primary-500);
+}
+.nav-link-active::after {
+  transform: scaleX(1);
 }
 
-/* Mobile menu: left border accent instead of background highlight */
-.nav-link-active-mobile {
-  border-left: 3px solid var(--color-primary-500);
-  padding-left: 0.6rem !important;
+/* Buttons */
+.btn-primary {
+  background: var(--color-primary-500);
+  color: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  transition: background-color 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-600);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 2px solid var(--color-primary-500);
+  color: var(--color-primary-500);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--color-primary-50);
 }
 
 @layer base {
   html {
     font-family: var(--font-body);
-    line-height: 1.6;
+    font-size: 16px;
+    line-height: 1.5;
   }
   body {
     background: var(--color-surface);
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
   }
-  /* Neutral, modern placeholder tone everywhere */
   ::placeholder {
-    color: rgb(0 0 0 / 0.35);
+    color: var(--color-muted);
+    opacity: 0.6;
   }
   h1, h2, h3 {
     font-family: var(--font-heading);
     font-weight: 700;
   }
-  /* Inputs focus with brand color (spec: focus #FFCC00) */
+  
+  /* Heading sizes based on scale */
+  h1 { font-size: 68px; line-height: 1.1; }
+  h2 { font-size: 47px; line-height: 1.2; }
+  h3 { font-size: 32px; line-height: 1.3; }
+
+  /* Generic styles for inputs */
+  input, select, textarea {
+    background: var(--color-surface) !important;
+    border: 1px solid rgba(0, 0, 0, 0.15) !important;
+    color: var(--color-ink) !important;
+    border-radius: var(--radius-md) !important;
+    transition: all 0.2s ease;
+  }
+  
+  /* Focus states matching the design spec */
   input:focus-visible,
   select:focus-visible,
   textarea:focus-visible {
-    outline: 2px solid var(--color-primary-500);
-    outline-offset: 1px;
+    outline: none;
+    border-color: var(--color-primary-500) !important;
+    box-shadow: 0 0 0 1px var(--color-primary-500) !important;
   }
 }

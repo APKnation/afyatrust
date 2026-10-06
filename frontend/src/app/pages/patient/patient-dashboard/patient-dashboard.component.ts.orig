@@ -10,13 +10,13 @@ import { AuthService } from '../../../services/auth.service';
   imports: [NgIf, NgFor, SlicePipe, DatePipe, FormsModule],
   template: `
     <!-- LOADING (only when there really is nothing yet) -->
-    <div *ngIf="loading && !data" class="py-20 text-center text-muted">
+    <div *ngIf="loading && !data" class="py-20 text-center text-muted animate-pulse-slow">
       <span class="eyebrow mx-auto mb-3 w-fit">AfyaTrust</span>
       <h2 class="mb-1 text-xl font-bold text-ink">Loading your records…</h2>
     </div>
 
     <!-- NOT LOGGED IN (e.g. token expired or server unreachable) -->
-    <div *ngIf="!auth.isAuthenticated()" class="py-20 text-center text-muted">
+    <div *ngIf="!auth.isAuthenticated()" class="py-20 text-center text-muted animate-fade-in">
       <span class="eyebrow mx-auto mb-3 w-fit">Session</span>
       <h2 class="mb-2 text-2xl font-bold text-ink">Your session expired</h2>
       <p class="mb-5">Please sign in again to see your records.</p>
@@ -28,7 +28,7 @@ import { AuthService } from '../../../services/auth.service';
     </div>
 
     <!-- LOAD FAILED (visible error, never a silent stall) -->
-    <div *ngIf="errorMsg && !data" class="mx-auto max-w-2xl py-20 text-center">
+    <div *ngIf="errorMsg && !data" class="mx-auto max-w-2xl py-20 text-center animate-fade-in">
       <span class="eyebrow mx-auto mb-3 w-fit">Problem</span>
       <h2 class="mb-2 text-2xl font-bold text-ink">Could not load your records</h2>
       <p class="mb-5 text-muted">{{ errorMsg }}</p>
@@ -39,16 +39,16 @@ import { AuthService } from '../../../services/auth.service';
     </div>
 
     <!-- DASHBOARD -->
-    <div *ngIf="data" class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <div *ngIf="data" class="mx-auto max-w-6xl px-4 py-8 sm:px-6 animate-fade-in">
       <!-- Hero header, echoes the landing style -->
       <div class="card mb-6 p-6 sm:p-8">
         <div class="flex flex-wrap items-start justify-between gap-4">
           <div>
             <span class="eyebrow mb-2">My Health Workspace</span>
-            <h1 class="mb-1 text-2xl font-bold text-ink sm:text-3xl">{{ data.full_name }}</h1>
+            <h1 class="mb-1 text-3xl font-bold text-ink sm:text-4xl bg-clip-text text-transparent bg-gradient-to-r from-primary-400 to-accent-400">{{ data.full_name }}</h1>
             <p class="m-0 text-sm text-muted">
               Health ID <strong class="text-ink">{{ data.health_id }}</strong>
-              <span class="mx-2 text-gray-300">|</span>
+              <span class="mx-2 opacity-50">|</span>
               Wallet
               <code class="rounded bg-white/10 px-2 py-1 text-sm font-mono tracking-wider">{{ data.wallet_address | slice:0:10 }}…</code>
               <span class="ml-1 text-xs">(managed for you — no MetaMask needed)</span>
@@ -58,7 +58,7 @@ import { AuthService } from '../../../services/auth.service';
       </div>
 
       <!-- PENDING REQUESTS BANNER (visible on every tab) -->
-      <div *ngIf="requests.length > 0" class="card mb-6 border-l-4 border-accent-500 p-5">
+      <div *ngIf="requests.length > 0" class="card mb-6 border-l-4 border-l-accent-500 p-5">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 class="m-0 text-lg font-bold">Doctor waiting for your answer</h2>
@@ -69,7 +69,7 @@ import { AuthService } from '../../../services/auth.service';
             See all requests
           </button>
         </div>
-        <div *ngFor="let req of requests" class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gray-50 p-4 last:mb-0 border border-gray-100">
+        <div *ngFor="let req of requests" class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white/5 border border-white/10 p-4 last:mb-0 transition hover:bg-white/10">
           <div>
             <p class="m-0 font-bold text-ink">Dr. {{ req.doctor_name }}</p>
             <p class="m-0 text-sm text-muted">
@@ -83,7 +83,7 @@ import { AuthService } from '../../../services/auth.service';
               Accept
             </button>
             <button (click)="reject(req)" [disabled]="busyRequest === req.id"
-                    class="btn-secondary text-sm px-4 py-2 !border-red-500 !text-red-500 hover:!bg-red-50 disabled:opacity-50">
+                    class="btn-secondary text-sm px-4 py-2 !border-red-500/50 hover:!bg-red-500/20 disabled:opacity-50 text-red-400">
               Reject
             </button>
           </div>
@@ -91,25 +91,26 @@ import { AuthService } from '../../../services/auth.service';
       </div>
 
       <!-- Tabs -->
-      <div class="mb-6 flex flex-wrap gap-1 border-b-2 border-gray-200">
+      <div class="mb-6 flex flex-wrap gap-1 border-b border-white/10">
         <button
           *ngFor="let t of tabs"
-          class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
+          class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-all relative"
           [class]="tab === t.id
-            ? 'border-b-4 border-primary-500 font-bold text-primary-500 -mb-[2px]'
+            ? 'font-bold text-ink'
             : 'text-muted hover:text-ink'"
           (click)="setTab(t.id)"
         >
           {{ t.label }}
+          <div *ngIf="tab === t.id" class="absolute bottom-0 left-0 right-0 h-[3px] bg-accent-500 rounded-t-md shadow-[0_0_10px_rgba(16,185,129,0.8)]"></div>
           <span *ngIf="t.id === 'requests' && requests.length > 0"
-                class="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">
+                class="ml-1.5 rounded-full bg-red-500/80 px-2 py-0.5 text-xs text-white">
             {{ requests.length }}
           </span>
         </button>
       </div>
 
       <!-- RECORDS -->
-      <div *ngIf="tab === 'records'" class="animate-fade-in">
+      <div *ngIf="tab === 'records'" class="animate-slide-up">
         <h2 class="mb-1 text-xl font-bold">My Medical History</h2>
         <p class="mb-4 text-sm text-muted">
           Only the SHA-256 hash of each record lives on-chain; the data itself stays at
@@ -118,33 +119,33 @@ import { AuthService } from '../../../services/auth.service';
         </p>
         <div *ngFor="let rec of data.records" class="card mb-4 p-5">
           <div class="mb-3 flex flex-wrap items-center gap-3">
-            <span class="font-bold text-accent-700">{{ rec.facility }}</span>
+            <span class="font-bold text-accent-400">{{ rec.facility }}</span>
             <span class="text-sm text-muted">{{ rec.date | date:'medium' }}</span>
-            <span class="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-bold text-primary-900">{{ rec.type }}</span>
+            <span class="rounded-full bg-primary-500/20 px-2.5 py-0.5 text-xs font-bold text-primary-300">{{ rec.type }}</span>
             <span *ngIf="rec.verified"
-                  class="rounded-full bg-accent-500 px-2.5 py-0.5 text-xs font-semibold text-white">On-chain</span>
+                  class="rounded-full bg-accent-500/20 px-2.5 py-0.5 text-xs font-semibold text-accent-300">On-chain</span>
             <span *ngIf="!rec.verified"
-                  class="rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-semibold text-gray-800">Pending</span>
+                  class="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-white/70">Pending</span>
           </div>
           <div *ngIf="rec.source_uri" class="mb-3 text-xs text-muted flex items-center gap-1.5">
             <span class="font-semibold">Source:</span>
-            <a [href]="rec.source_uri" target="_blank" rel="noopener" class="text-accent-600 hover:underline break-all">{{ rec.source_uri }}</a>
+            <a [href]="rec.source_uri" target="_blank" rel="noopener" class="text-accent-400 hover:underline break-all">{{ rec.source_uri }}</a>
           </div>
-          <div class="mb-3 rounded-lg bg-gray-50 border border-gray-100 p-3">
+          <div class="mb-3 rounded-lg bg-white/5 border border-white/10 p-3">
             <div *ngFor="let item of entries(rec.data)"
-                 class="flex border-b border-gray-200 py-1.5 last:border-b-0">
-              <span class="w-48 shrink-0 font-semibold capitalize text-ink">{{ item.key }}:</span>
+                 class="flex border-b border-white/10 py-1.5 last:border-b-0">
+              <span class="w-48 shrink-0 font-semibold capitalize text-muted">{{ item.key }}:</span>
               <span class="text-ink">{{ item.value }}</span>
             </div>
           </div>
           <div class="flex flex-wrap items-center gap-2 text-xs text-muted">
             <span class="font-semibold">Record hash</span>
-            <code class="rounded bg-gray-100 px-2 py-1 font-mono text-gray-800">{{ rec.hash | slice:0:40 }}…</code>
+            <code class="rounded bg-white/10 px-2 py-1 font-mono text-white/80">{{ rec.hash | slice:0:40 }}…</code>
             <span *ngIf="rec.tx_hash && !rec.tx_hash.startsWith('PENDING')" class="font-semibold">Tx</span>
             <a *ngIf="rec.tx_hash && !rec.tx_hash.startsWith('PENDING')"
                [href]="'https://sepolia.etherscan.io/tx/' + rec.tx_hash"
                target="_blank" rel="noopener"
-               class="inline-block rounded-full bg-gray-100 border border-gray-200 px-3 py-1 font-mono text-accent-700 hover:bg-gray-200 transition-colors shadow-sm">
+               class="inline-block rounded-full bg-white/10 px-3 py-1 font-mono text-accent-400 hover:bg-white/20 transition-colors shadow-sm">
               {{ rec.tx_hash | slice:0:12 }}… view on Etherscan
             </a>
           </div>
@@ -156,7 +157,7 @@ import { AuthService } from '../../../services/auth.service';
       </div>
 
       <!-- MEASUREMENTS -->
-      <div *ngIf="tab === 'measurements'" class="animate-fade-in">
+      <div *ngIf="tab === 'measurements'" class="animate-slide-up">
         <h2 class="mb-1 text-xl font-bold">My Measurements</h2>
         <p class="mb-4 text-sm text-muted">
           Readings a doctor records against your Health ID. Values stay off-chain;
@@ -165,7 +166,7 @@ import { AuthService } from '../../../services/auth.service';
         <div class="card overflow-hidden">
           <table *ngIf="data?.measurements?.length" class="w-full">
             <thead>
-              <tr class="bg-primary-50 text-left text-ink border-b border-gray-200">
+              <tr class="bg-white/10 text-left text-ink border-b border-white/20">
                 <th class="px-4 py-3 text-sm font-semibold">Date</th>
                 <th class="px-4 py-3 text-sm font-semibold">Type</th>
                 <th class="px-4 py-3 text-sm font-semibold">Value</th>
@@ -174,7 +175,7 @@ import { AuthService } from '../../../services/auth.service';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let m of data.measurements" class="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors">
+              <tr *ngFor="let m of data.measurements" class="border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors">
                 <td class="px-4 py-3 text-sm">{{ m.date | date:'short' }}</td>
                 <td class="px-4 py-3 text-sm font-semibold">{{ m.kind }}</td>
                 <td class="px-4 py-3 text-sm">{{ m.value }} {{ m.unit }}</td>

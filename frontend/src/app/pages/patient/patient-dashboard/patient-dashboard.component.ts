@@ -48,9 +48,9 @@ import { AuthService } from '../../../services/auth.service';
             <h1 class="mb-1 text-2xl font-bold text-ink sm:text-3xl">{{ data.full_name }}</h1>
             <p class="m-0 text-sm text-muted">
               Health ID <strong class="text-ink">{{ data.health_id }}</strong>
-              <span class="mx-2 text-gray-300">|</span>
+              <span class="mx-2 text-primary-200">|</span>
               Wallet
-              <code class="rounded bg-white/10 px-2 py-1 text-sm font-mono tracking-wider">{{ data.wallet_address | slice:0:10 }}…</code>
+              <code class="rounded bg-primary-50 px-2 py-1 text-sm font-mono text-primary-900">{{ data.wallet_address | slice:0:10 }}…</code>
               <span class="ml-1 text-xs">(managed for you — no MetaMask needed)</span>
             </p>
           </div>
@@ -58,7 +58,7 @@ import { AuthService } from '../../../services/auth.service';
       </div>
 
       <!-- PENDING REQUESTS BANNER (visible on every tab) -->
-      <div *ngIf="requests.length > 0" class="card mb-6 border-l-4 border-accent-500 p-5">
+      <div *ngIf="requests.length > 0" class="card mb-6 border-l-4 border-l-accent-500 p-5">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 class="m-0 text-lg font-bold">Doctor waiting for your answer</h2>
@@ -69,7 +69,7 @@ import { AuthService } from '../../../services/auth.service';
             See all requests
           </button>
         </div>
-        <div *ngFor="let req of requests" class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gray-50 p-4 last:mb-0 border border-gray-100">
+        <div *ngFor="let req of requests" class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-gray-50 border border-gray-100 p-4 last:mb-0 transition hover:bg-gray-100">
           <div>
             <p class="m-0 font-bold text-ink">Dr. {{ req.doctor_name }}</p>
             <p class="m-0 text-sm text-muted">
@@ -91,12 +91,12 @@ import { AuthService } from '../../../services/auth.service';
       </div>
 
       <!-- Tabs -->
-      <div class="mb-6 flex flex-wrap gap-1 border-b-2 border-gray-200">
+      <div class="mb-6 flex flex-wrap gap-1 border-b border-gray-200">
         <button
           *ngFor="let t of tabs"
-          class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
+          class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors relative"
           [class]="tab === t.id
-            ? 'border-b-4 border-primary-500 font-bold text-primary-500 -mb-[2px]'
+            ? 'font-bold text-primary-500 border-b-4 border-primary-500 -mb-[2px]'
             : 'text-muted hover:text-ink'"
           (click)="setTab(t.id)"
         >
@@ -149,7 +149,7 @@ import { AuthService } from '../../../services/auth.service';
             </a>
           </div>
         </div>
-        <div *ngIf="data.records.length === 0" class="card p-10 text-center bg-white/5 border-dashed border-white/20">
+        <div *ngIf="data.records.length === 0" class="card p-10 text-center">
           <h3 class="mb-1 text-lg font-bold">No records yet</h3>
           <p class="m-0 text-muted">They appear here when a facility adds them — hashes first, on-chain.</p>
         </div>
@@ -163,9 +163,9 @@ import { AuthService } from '../../../services/auth.service';
           access is checked on-chain before any write.
         </p>
         <div class="card overflow-hidden">
-          <table *ngIf="data?.measurements?.length" class="w-full">
+          <table *ngIf="data?.measurements?.length" class="w-full text-left">
             <thead>
-              <tr class="bg-primary-50 text-left text-ink border-b border-gray-200">
+              <tr class="bg-primary-50 text-ink border-b border-gray-200">
                 <th class="px-4 py-3 text-sm font-semibold">Date</th>
                 <th class="px-4 py-3 text-sm font-semibold">Type</th>
                 <th class="px-4 py-3 text-sm font-semibold">Value</th>
@@ -191,7 +191,7 @@ import { AuthService } from '../../../services/auth.service';
       </div>
 
       <!-- REFERRALS -->
-      <div *ngIf="tab === 'referrals'" class="animate-slide-up">
+      <div *ngIf="tab === 'referrals'" class="animate-fade-in">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 class="mb-1 text-xl font-bold">My Referrals</h2>
@@ -203,7 +203,7 @@ import { AuthService } from '../../../services/auth.service';
             Request a referral
           </button>
         </div>
-        <div *ngFor="let r of data.referrals" class="card mb-4 flex flex-wrap items-center justify-between gap-3 p-5">
+        <div *ngFor="let r of data.referrals" class="card mb-4 flex flex-wrap items-center justify-between gap-3 p-5 border border-gray-100">
           <div>
             <p class="m-0 font-bold text-ink">{{ r.to_hospital }}</p>
             <p class="m-0 text-sm text-muted">
@@ -216,50 +216,50 @@ import { AuthService } from '../../../services/auth.service';
           <span class="rounded-full px-3 py-1 text-xs font-bold"
                 [class]="r.status === 'ACCEPTED' ? 'bg-accent-500 text-white'
                   : r.status === 'DECLINED' ? 'bg-red-500 text-white'
-                  : r.status === 'CANCELLED' ? 'bg-white/20 text-white'
-                  : 'bg-primary-500/50 text-white'">{{ r.status }}</span>
+                  : r.status === 'CANCELLED' ? 'bg-gray-200 text-ink'
+                  : 'bg-primary-100 text-primary-900'">{{ r.status }}</span>
         </div>
-        <div *ngIf="data.referrals.length === 0" class="card p-10 text-center">
+        <div *ngIf="data.referrals.length === 0" class="card p-10 text-center border border-gray-100">
           <h3 class="mb-1 text-lg font-bold">No referrals yet</h3>
           <p class="m-0 text-muted">When your doctor — or you — arrange one, it shows here.</p>
         </div>
       </div>
 
       <!-- PERMISSIONS -->
-      <div *ngIf="tab === 'permissions'" class="animate-slide-up">
+      <div *ngIf="tab === 'permissions'" class="animate-fade-in">
         <h2 class="mb-1 text-xl font-bold">Grant Access to a Doctor</h2>
         <p class="mb-4 text-sm text-muted">
           Type the doctor's name or license number. A dropdown of matching
           doctors appears below — pick one to autofill, then confirm the days.
         </p>
-        <div class="card mb-4 p-6">
+        <div class="card mb-4 p-6 border border-gray-100">
           <!-- Doctor lookup (free text + dropdown suggestion) -->
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label class="flex flex-col gap-1.5">
-              <span class="text-[13px] font-semibold text-muted">Doctor</span>
+            <label class="flex flex-col gap-1.5 relative">
+              <span class="text-[13px] font-semibold text-ink">Doctor</span>
               <input
                 [(ngModel)]="doctorQuery"
                 (ngModelChange)="onDoctorQueryChanged()"
                 (focus)="showSuggestions = true"
                 (blur)="showSuggestions = false"
                 placeholder="Type a doctor's name or license, or pick from the list…"
-                class="rounded-lg border border-white/10 px-3 py-2.5 text-sm"
+                class="px-3 py-2.5 text-sm"
               />
               <!-- Dropdown suggestions (mousedown fires before input blur) -->
               <ul
                 *ngIf="showSuggestions && doctors.length"
-                class="rounded-lg border border-white/20 bg-surface/90 backdrop-blur max-h-48 overflow-auto shadow-lg absolute z-50 w-full mt-[70px]"
+                class="rounded-lg border border-gray-200 bg-white max-h-48 overflow-auto shadow-sm absolute z-50 w-full top-[105%]"
               >
                 <li
                   *ngFor="let d of doctors"
                   (mousedown)="selectDoctor(d)"
-                  class="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-white/10 transition-colors border-b border-white/5 last:border-0"
+                  class="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
                 >
                   <div>
                      <p class="m-0 font-semibold text-ink">{{ d.full_name }}</p>
                      <p class="m-0 text-[12px] text-muted">{{ d.license_no }} · {{ d.facility_id }}</p>
                   </div>
-                  <span class="text-accent-400">→</span>
+                  <span class="text-accent-600">→</span>
                 </li>
               </ul>
               <p *ngIf="showSuggestions && !doctorLoading && doctors.length === 0" class="mt-1 text-xs text-muted">
@@ -268,9 +268,9 @@ import { AuthService } from '../../../services/auth.service';
               <p *ngIf="doctorLoading" class="mt-1 text-xs text-muted">Searching…</p>
             </label>
             <label class="flex flex-col gap-1.5">
-              <span class="text-[13px] font-semibold text-muted">Days of access</span>
+              <span class="text-[13px] font-semibold text-ink">Days of access</span>
               <input type="number" [(ngModel)]="grant.days" min="1" max="90"
-                     class="rounded-lg border border-white/10 px-3 py-2.5 text-sm" />
+                     class="px-3 py-2.5 text-sm" />
             </label>
           </div>
           <!-- Confirmation hint showing which doctor will be granted access. -->
@@ -296,38 +296,38 @@ import { AuthService } from '../../../services/auth.service';
       </div>
 
       <!-- REQUESTS -->
-      <div *ngIf="tab === 'requests'" class="animate-slide-up">
+      <div *ngIf="tab === 'requests'" class="animate-fade-in">
         <h2 class="mb-1 text-xl font-bold">Access Requests</h2>
         <p class="mb-4 text-sm text-muted">A verified doctor has asked to see your records. Approving grants 7 days of on-chain access.</p>
-        <div *ngFor="let req of requests" class="card mb-4 flex flex-wrap items-center justify-between gap-3 p-5">
+        <div *ngFor="let req of requests" class="card mb-4 flex flex-wrap items-center justify-between gap-3 p-5 border border-gray-100">
           <div>
             <p class="my-1 font-bold text-ink">{{ req.doctor_name }}</p>
             <p class="my-1 text-sm text-muted">from <strong>{{ req.facility_id }}</strong></p>
-            <p class="my-1 rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-[13px] italic text-muted">{{ req.reason }}</p>
+            <p class="my-1 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-[13px] italic text-muted">{{ req.reason }}</p>
             <p class="my-1 text-xs text-muted">{{ req.created_at | date:'medium' }}</p>
           </div>
           <div class="flex gap-2.5">
             <button (click)="approve(req)" class="btn-primary px-5 py-2.5">Approve</button>
-            <button (click)="reject(req)" class="btn-secondary px-5 py-2.5 !border-red-500/50 text-red-400 hover:!bg-red-500/20">Reject</button>
+            <button (click)="reject(req)" class="btn-secondary px-5 py-2.5 !border-red-500 !text-red-500 hover:!bg-red-50">Reject</button>
           </div>
         </div>
-        <div *ngIf="requests.length === 0" class="card p-10 text-center">
+        <div *ngIf="requests.length === 0" class="card p-10 text-center border border-gray-100">
           <h3 class="mb-1 text-lg font-bold">No pending requests</h3>
           <p class="m-0 text-muted">You're all caught up.</p>
         </div>
       </div>
 
       <!-- AUDIT -->
-      <div *ngIf="tab === 'audit'" class="animate-slide-up">
+      <div *ngIf="tab === 'audit'" class="animate-fade-in">
         <h2 class="mb-1 text-xl font-bold">Who Accessed My Data</h2>
         <p class="mb-4 text-sm text-muted">
           Every access event is written on-chain — who, what role, which facility, when.
           Emergency break-glass access is logged here too.
         </p>
         <div class="card overflow-hidden">
-          <table *ngIf="data.audit_trail.length" class="w-full">
+          <table *ngIf="data.audit_trail.length" class="w-full text-left">
             <thead>
-              <tr class="bg-white/10 text-left text-ink border-b border-white/20">
+              <tr class="bg-primary-50 text-ink border-b border-gray-200">
                 <th class="px-4 py-3 text-sm font-semibold">Date</th>
                 <th class="px-4 py-3 text-sm font-semibold">Who</th>
                 <th class="px-4 py-3 text-sm font-semibold">Role</th>
@@ -337,7 +337,7 @@ import { AuthService } from '../../../services/auth.service';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let ev of data.audit_trail" class="border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors">
+              <tr *ngFor="let ev of data.audit_trail" class="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors">
                 <td class="px-4 py-3 text-sm">{{ ev.timestamp * 1000 | date:'short' }}</td>
                 <td class="px-4 py-3"><code class="text-xs">{{ ev.accessor | slice:0:10 }}…</code></td>
                 <td class="px-4 py-3">
@@ -351,7 +351,7 @@ import { AuthService } from '../../../services/auth.service';
                   <a *ngIf="ev.transaction_hash"
                      [href]="'https://sepolia.etherscan.io/tx/' + ev.transaction_hash"
                      target="_blank" rel="noopener"
-                     class="inline-block rounded-full bg-white/10 px-3 py-1 text-xs font-mono text-white/80 hover:bg-white/20 transition-colors shadow-sm">
+                     class="inline-block rounded-full bg-gray-100 border border-gray-200 px-3 py-1 text-xs font-mono text-accent-700 hover:bg-gray-200 transition-colors shadow-sm">
                     View TX
                   </a>
                   <span *ngIf="!ev.transaction_hash" class="text-xs text-muted">—</span>
@@ -367,16 +367,16 @@ import { AuthService } from '../../../services/auth.service';
       </div>
 
       <!-- BLOCKCHAIN TRANSACTIONS -->
-      <div *ngIf="tab === 'transactions'" class="animate-slide-up">
+      <div *ngIf="tab === 'transactions'" class="animate-fade-in">
         <h2 class="mb-1 text-xl font-bold">Blockchain Transaction History</h2>
         <p class="mb-4 text-sm text-muted">
           Every on-chain transaction related to your health records. All transactions are verifiable on Etherscan.
           Events include: patient registration, record additions, access grants/revokes, record views, and emergency access.
         </p>
         <div class="card overflow-hidden">
-          <table *ngIf="transactions.length" class="w-full">
+          <table *ngIf="transactions.length" class="w-full text-left">
             <thead>
-              <tr class="bg-white/10 text-left text-ink border-b border-white/20">
+              <tr class="bg-primary-50 text-ink border-b border-gray-200">
                 <th class="px-4 py-3 text-sm font-semibold">Date</th>
                 <th class="px-4 py-3 text-sm font-semibold">Event Type</th>
                 <th class="px-4 py-3 text-sm font-semibold">Transaction Hash</th>
@@ -386,14 +386,14 @@ import { AuthService } from '../../../services/auth.service';
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let tx of transactions" class="border-b border-white/5 last:border-b-0 hover:bg-white/5 transition-colors">
+              <tr *ngFor="let tx of transactions" class="border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors">
                 <td class="px-4 py-3 text-sm">{{ tx.timestamp ? (tx.timestamp * 1000 | date:'short') : '—' }}</td>
                 <td class="px-4 py-3">
                   <span class="rounded-full px-2.5 py-0.5 text-xs font-bold"
                         [class]="eventBadge(tx.event)">{{ formatEventName(tx.event) }}</span>
                 </td>
                 <td class="px-4 py-3">
-                  <code class="text-xs font-mono bg-white/10 px-2 py-1 rounded">{{ tx.transaction_hash | slice:0:14 }}…</code>
+                  <code class="text-xs font-mono bg-gray-100 px-2 py-1 rounded">{{ tx.transaction_hash | slice:0:14 }}…</code>
                 </td>
                 <td class="px-4 py-3 text-sm font-mono">{{ tx.block_number }}</td>
                 <td class="px-4 py-3 text-xs text-muted">
@@ -401,7 +401,7 @@ import { AuthService } from '../../../services/auth.service';
                 </td>
                 <td class="px-4 py-3">
                   <a [href]="tx.etherscan_url" target="_blank" rel="noopener"
-                     class="inline-block rounded-full bg-white/10 px-3 py-1 text-xs font-mono text-white/80 hover:bg-white/20 transition-colors shadow-sm">
+                     class="inline-block rounded-full bg-gray-100 border border-gray-200 px-3 py-1 text-xs font-mono text-accent-700 hover:bg-gray-200 transition-colors shadow-sm">
                     View TX
                   </a>
                 </td>
@@ -428,12 +428,12 @@ import { AuthService } from '../../../services/auth.service';
           <strong>{{ n.doctor_name }}</strong> from <strong>{{ n.facility_id }}</strong>
           wants to view your records.
         </p>
-        <p *ngIf="n.reason" class="mb-0 mt-1 rounded-md bg-white/5 border border-white/10 px-2 py-1.5 text-[13px] italic text-muted">{{ n.reason }}</p>
+        <p *ngIf="n.reason" class="mb-0 mt-1 rounded-md bg-gray-50 border border-gray-200 px-2 py-1.5 text-[13px] italic text-muted">{{ n.reason }}</p>
         <div class="mt-3 flex gap-2">
           <button (click)="approveFromToast(n)"
                   class="flex-1 btn-primary py-2 text-sm">Approve</button>
           <button (click)="rejectFromToast(n)"
-                  class="flex-1 btn-secondary py-2 text-sm !border-red-500/50 text-red-400 hover:!bg-red-500/20">Reject</button>
+                  class="flex-1 btn-secondary py-2 text-sm !border-red-500 !text-red-500 hover:!bg-red-50">Reject</button>
         </div>
         <p class="mb-0 mt-2 text-center text-[11px] text-muted">Approval grants 7 days of access and is logged on-chain.</p>
       </div>
@@ -441,8 +441,8 @@ import { AuthService } from '../../../services/auth.service';
 
     <!-- REFERRAL REQUEST MODAL (patient) -->
     <div *ngIf="referralModal"
-         class="fixed inset-0 z-[70] flex items-center justify-center bg-surface/80 p-4 backdrop-blur-md animate-fade-in">
-      <div class="card w-full max-w-lg p-6 sm:p-8 shadow-2xl border border-white/20 animate-slide-up">
+         class="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
+      <div class="card w-full max-w-lg p-6 sm:p-8 shadow-2xl border border-gray-200 animate-slide-up bg-surface">
         <div class="mb-4 flex items-start justify-between">
           <div>
             <span class="eyebrow mb-2">Referral</span>
@@ -457,18 +457,18 @@ import { AuthService } from '../../../services/auth.service';
         </p>
         <div class="flex flex-col gap-3">
           <label class="flex flex-col gap-1.5">
-            <span class="text-[13px] font-semibold text-muted">Target hospital</span>
+            <span class="text-[13px] font-semibold text-ink">Target hospital</span>
             <select [(ngModel)]="referralForm.to_hospital"
-                    class="rounded-lg border border-white/10 bg-surface px-3 py-2.5 text-sm focus:border-primary-500 text-ink">
+                    class="px-3 py-2.5 text-sm">
                <option value="" disabled>Select hospital…</option>
                <option *ngFor="let h of sendHospitals" [value]="h.code">{{ h.name }} ({{ h.code }})</option>
             </select>
           </label>
           <label class="flex flex-col gap-1.5">
-            <span class="text-[13px] font-semibold text-muted">Reason</span>
+            <span class="text-[13px] font-semibold text-ink">Reason</span>
             <textarea [(ngModel)]="referralForm.reason" rows="2"
                       placeholder="e.g. specialist review, follow-up after discharge"
-                      class="rounded-lg border border-white/10 px-3 py-2.5 text-sm"></textarea>
+                      class="px-3 py-2.5 text-sm"></textarea>
           </label>
         </div>
         <div class="mt-5 flex gap-2">
@@ -481,10 +481,11 @@ import { AuthService } from '../../../services/auth.service';
             Cancel
           </button>
         </div>
-        <p *ngIf="sendMsg" class="mb-0 mt-3 text-sm" [class]="sendOk ? 'text-accent-400' : 'text-red-400'">{{ sendMsg }}</p>
+        <p *ngIf="sendMsg" class="mb-0 mt-3 text-sm" [class]="sendOk ? 'text-accent-600' : 'text-red-600'">{{ sendMsg }}</p>
       </div>
     </div>
   `,
+
 })
 export class PatientDashboardComponent implements OnInit, OnDestroy {
   tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'audit' | 'transactions' = 'records';

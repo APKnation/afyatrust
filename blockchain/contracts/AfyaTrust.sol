@@ -1,192 +1,771 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-// AfyaTrust — minimal PoC contract.
-// Stores ONLY: patient registry, record hashes/pointers, permissions, audit events.
-// Clinical data stays off-chain at the facility that holds it.
-
+/**
+ * AfyaTrust
+ *
+ * Blockchain Patient Record Access & Audit Layer
+ *
+ * ON-CHAIN:
+ * - Patient registry
+ * - Record hashes/pointers
+ * - Access permissions
+ * - Emergency/Break-Glass permissions
+ * - Audit events
+ *
+ * OFF-CHAIN:
+ * - Actual medical/clinical records
+ * - Personal/medical documents
+ * - Large files
+ *
+ * IMPORTANT:
+ * The backend operator may pay gas on behalf of custodial
+ * patient wallets, but authorization is enforced by the contract.
+ */
 contract AfyaTrust {
-    struct HealthRecord {
-        string recordHash;   // SHA-256 of the record (off-chain data)
-        string facilityID;   // facility holding the record
-        string metadataURI;  // pointer to the off-chain record
-        uint256 timestamp;
-    }
 
-    struct AccessPermission {
-        address grantedTo;      // doctor wallet
-        address grantedBy;      // who granted (patient wallet or doctor)
-        string grantedByRole;   // "PATIENT" or "DOCTOR"
-        uint256 expiry;         // unix time
-        bool isActive;
-    }
+    // ============================================================
+    // ROLES
+    // ============================================================
 
-    struct AuditEvent {
-        address accessor;
-        string accessorRole;    // "PATIENT" | "DOCTOR" | "FACILITY"
-        string facilityID;
-        string action;          // PATIENT_REGISTERED, RECORD_ADDED, VIEW, BREAK_GLASS, ...
-        uint256 timestamp;
-    }
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant FACILITY_ROLE = keccak256("FACILITY_ROLE");
+    bytes32 public constant CLINICIAN_ROLE = keccak256("CLINICIAN_ROLE");
+    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
-    mapping(string => address) public patientWallet;      // healthID => custodial wallet
-    mapping(string => string) public patientName;         // healthID => full name
-    mapping(string => HealthRecord[]) private records;    // healthID => records
-    mapping(string => AccessPermission[]) private permissions;
-    mapping(string => AuditEvent[]) private auditTrail;
+    mapping(address => mapping(bytes32 => bool)) private roles;
 
-    // Emergency (break-glass) windows: healthID => clinician => expiry time.
-    // Opened by breakGlass(); makes hasAccess() true until the expiry passes.
-    mapping(string => mapping(address => uint256)) public emergencyExpiry;
+    // ============================================================
+    // CONSTANTS
+    // ============================================================
 
     uint256 public constant EMERGENCY_PERIOD = 1 hours;
 
-    event PatientRegistered(string healthID, address wallet, string fullName);
-    event RecordAdded(string healthID, string facilityID, string recordHash);
-    event AccessGranted(string healthID, address grantedTo, uint256 expiry);
-    event AccessRevoked(string healthID, address revokedFrom);
-    event RecordViewed(string healthID, address viewer, string facilityID);
-    event BreakGlassUsed(string healthID, address clinician, string facilityID, string reason);
-    event EmergencyAccessGranted(string healthID, address clinician, uint256 expiry);
+    // ============================================================
+    // PATIENT
+    // ============================================================
 
-    // Step 1-2: facility registers a patient and links their Health ID.
+    struct Patient {
+        address wallet;
+        string fullName;
+        bool exists;
+    }
+
+    mapping(string => Patient) private patients;
+
+    // ============================================================
+    // HEALTH RECORD
+    // ============================================================
+
+    struct HealthRecord {
+        string recordHash;
+        string facilityID;
+        string metadataURI;
+        uint256 timestamp;
+    }
+
+    mapping(string => HealthRecord[]) private records;
+
+    // ============================================================
+    // NORMAL ACCESS PERMISSION
+    // ============================================================
+
+    struct AccessPermission {
+        address grantedTo;
+        address grantedBy;
+        string grantedByRole;
+        uint256 expiry;
+        bool isActive;
+    }
+
+    mapping(string => AccessPermission[]) private permissions;
+
+    // ============================================================
+    // BREAK-GLASS ACCESS
+    // ============================================================
+
+    struct EmergencyAccess {
+        uint256 expiry;
+        bool active;
+    }
+
+    /**
+     * healthID => clinician => emergency access
+     */
+    mapping(string => mapping(address => EmergencyAccess))
+        private emergencyAccess;
+
+    // ============================================================
+    // AUDIT
+    // ============================================================
+
+    struct AuditEvent {
+        address accessor;
+        string accessorRole;
+        string facilityID;
+        string action;
+        uint256 timestamp;
+    }
+
+    mapping(string => AuditEvent[]) private auditTrail;
+
+    // ============================================================
+    // EVENTS
+    // ============================================================
+
+    event PatientRegistered(
+        string indexed healthID,
+        address indexed wallet,
+        string fullName
+    );
+
+    event RecordAdded(
+        string indexed healthID,
+        string facilityID,
+        string recordHash
+    );
+
+    event AccessGranted(
+        string indexed healthID,
+        address indexed grantedTo,
+        uint256 expiry
+    );
+
+    event AccessRevoked(
+        string indexed healthID,
+        address indexed revokedFrom
+    );
+
+    event RecordViewed(
+        string indexed healthID,
+        address indexed viewer,
+        string facilityID
+    );
+
+    event BreakGlassUsed(
+        string indexed healthID,
+        address indexed clinician,
+        string facilityID,
+        string reason
+    );
+
+    event EmergencyAccessGranted(
+        string indexed healthID,
+        address indexed clinician,
+        uint256 expiry
+    );
+
+    event EmergencyAccessRevoked(
+        string indexed healthID,
+        address indexed clinician
+    );
+
+    event RoleGranted(
+        address indexed account,
+        bytes32 indexed role
+    );
+
+    event RoleRevoked(
+        address indexed account,
+        bytes32 indexed role
+    );
+
+    // ============================================================
+    // MODIFIERS
+    // ============================================================
+
+    modifier onlyAdmin() {
+        require(
+            roles[msg.sender][ADMIN_ROLE],
+            "Not authorized: admin only"
+        );
+        _;
+    }
+
+    modifier onlyFacility() {
+        require(
+            roles[msg.sender][FACILITY_ROLE],
+            "Not authorized: facility only"
+        );
+        _;
+    }
+
+    modifier onlyClinician() {
+        require(
+            roles[msg.sender][CLINICIAN_ROLE],
+            "Not authorized: clinician only"
+        );
+        _;
+    }
+
+    modifier onlyOperator() {
+        require(
+            roles[msg.sender][OPERATOR_ROLE],
+            "Not authorized: operator only"
+        );
+        _;
+    }
+
+    // ============================================================
+    // CONSTRUCTOR
+    // ============================================================
+
+    constructor() {
+        roles[msg.sender][ADMIN_ROLE] = true;
+
+        emit RoleGranted(
+            msg.sender,
+            ADMIN_ROLE
+        );
+    }
+
+    // ============================================================
+    // ROLE MANAGEMENT
+    // ============================================================
+
+    function grantRole(
+        address account,
+        bytes32 role
+    ) external onlyAdmin {
+
+        require(
+            account != address(0),
+            "Invalid account"
+        );
+
+        roles[account][role] = true;
+
+        emit RoleGranted(account, role);
+    }
+
+    function revokeRole(
+        address account,
+        bytes32 role
+    ) external onlyAdmin {
+
+        roles[account][role] = false;
+
+        emit RoleRevoked(account, role);
+    }
+
+    function hasRole(
+        address account,
+        bytes32 role
+    ) external view returns (bool) {
+
+        return roles[account][role];
+    }
+
+    // ============================================================
+    // PATIENT REGISTRATION
+    // ============================================================
+
+    /**
+     * Facility registers a patient.
+     *
+     * The actual medical data remains off-chain.
+     */
     function registerPatient(
         string memory _healthID,
         address _wallet,
         string memory _fullName
-    ) public {
-        require(patientWallet[_healthID] == address(0), "Patient already registered");
-        patientWallet[_healthID] = _wallet;
-        patientName[_healthID] = _fullName;
-        emit PatientRegistered(_healthID, _wallet, _fullName);
-        _logAudit(_healthID, msg.sender, "FACILITY", "", "PATIENT_REGISTERED");
+    ) external onlyFacility {
+
+        require(
+            _wallet != address(0),
+            "Invalid patient wallet"
+        );
+
+        require(
+            !patients[_healthID].exists,
+            "Patient already registered"
+        );
+
+        patients[_healthID] = Patient({
+            wallet: _wallet,
+            fullName: _fullName,
+            exists: true
+        });
+
+        emit PatientRegistered(
+            _healthID,
+            _wallet,
+            _fullName
+        );
+
+        _logAudit(
+            _healthID,
+            msg.sender,
+            "FACILITY",
+            "",
+            "PATIENT_REGISTERED"
+        );
     }
 
-    // Step 3: only hash + pointer go on-chain; data stays at the facility.
+    // ============================================================
+    // ADD HEALTH RECORD
+    // ============================================================
+
+    /**
+     * Stores only hash and pointer.
+     *
+     * Actual clinical record remains at the facility.
+     */
     function addRecord(
         string memory _healthID,
         string memory _recordHash,
         string memory _facilityID,
         string memory _metadataURI
-    ) public {
-        records[_healthID].push(HealthRecord({
-            recordHash: _recordHash,
-            facilityID: _facilityID,
-            metadataURI: _metadataURI,
-            timestamp: block.timestamp
-        }));
-        emit RecordAdded(_healthID, _facilityID, _recordHash);
-        _logAudit(_healthID, msg.sender, "FACILITY", _facilityID, "RECORD_ADDED");
+    ) external onlyFacility {
+
+        require(
+            patients[_healthID].exists,
+            "Patient does not exist"
+        );
+
+        records[_healthID].push(
+            HealthRecord({
+                recordHash: _recordHash,
+                facilityID: _facilityID,
+                metadataURI: _metadataURI,
+                timestamp: block.timestamp
+            })
+        );
+
+        emit RecordAdded(
+            _healthID,
+            _facilityID,
+            _recordHash
+        );
+
+        _logAudit(
+            _healthID,
+            msg.sender,
+            "FACILITY",
+            _facilityID,
+            "RECORD_ADDED"
+        );
     }
 
-    // Step 4: patient authorizes a doctor for N days.
-    // _patient is passed explicitly because the backend operator wallet signs
-    // on behalf of custodial patient wallets (patients have no MetaMask).
+    // ============================================================
+    // PATIENT GRANTS ACCESS
+    // ============================================================
+
+    /**
+     * The operator can submit the transaction on behalf of
+     * a custodial patient wallet.
+     *
+     * _patient must match the patient's registered wallet.
+     */
     function patientGrantAccess(
         string memory _healthID,
         address _patient,
         address _doctorWallet,
         uint256 _days
-    ) public {
-        require(_patient == patientWallet[_healthID], "Not the patient wallet");
-        permissions[_healthID].push(AccessPermission({
-            grantedTo: _doctorWallet,
-            grantedBy: _patient,
-            grantedByRole: "PATIENT",
-            expiry: block.timestamp + (_days * 1 days),
-            isActive: true
-        }));
-        emit AccessGranted(_healthID, _doctorWallet, block.timestamp + (_days * 1 days));
-        _logAudit(_healthID, _patient, "PATIENT", "", "GRANTED_TO_DOCTOR");
+    ) external onlyOperator {
+
+        require(
+            patients[_healthID].exists,
+            "Patient does not exist"
+        );
+
+        require(
+            _patient == patients[_healthID].wallet,
+            "Not the patient wallet"
+        );
+
+        require(
+            roles[_doctorWallet][CLINICIAN_ROLE],
+            "Recipient is not an authorized clinician"
+        );
+
+        require(
+            _days > 0,
+            "Invalid access period"
+        );
+
+        uint256 expiry =
+            block.timestamp + (_days * 1 days);
+
+        permissions[_healthID].push(
+            AccessPermission({
+                grantedTo: _doctorWallet,
+                grantedBy: _patient,
+                grantedByRole: "PATIENT",
+                expiry: expiry,
+                isActive: true
+            })
+        );
+
+        emit AccessGranted(
+            _healthID,
+            _doctorWallet,
+            expiry
+        );
+
+        _logAudit(
+            _healthID,
+            _patient,
+            "PATIENT",
+            "",
+            "GRANTED_TO_DOCTOR"
+        );
     }
+
+    // ============================================================
+    // PATIENT REVOKES ACCESS
+    // ============================================================
 
     function patientRevokeAccess(
         string memory _healthID,
         address _patient,
         address _doctorWallet
-    ) public {
-        require(_patient == patientWallet[_healthID], "Not the patient wallet");
-        for (uint i = 0; i < permissions[_healthID].length; i++) {
-            if (permissions[_healthID][i].grantedTo == _doctorWallet
-                && permissions[_healthID][i].isActive) {
+    ) external onlyOperator {
+
+        require(
+            patients[_healthID].exists,
+            "Patient does not exist"
+        );
+
+        require(
+            _patient == patients[_healthID].wallet,
+            "Not the patient wallet"
+        );
+
+        bool revoked = false;
+
+        for (
+            uint256 i = 0;
+            i < permissions[_healthID].length;
+            i++
+        ) {
+
+            if (
+                permissions[_healthID][i].grantedTo == _doctorWallet &&
+                permissions[_healthID][i].isActive
+            ) {
+
                 permissions[_healthID][i].isActive = false;
+
+                revoked = true;
+
                 break;
             }
         }
-        emit AccessRevoked(_healthID, _doctorWallet);
-        _logAudit(_healthID, _patient, "PATIENT", "", "REVOKED_DOCTOR");
+
+        require(
+            revoked,
+            "Active permission not found"
+        );
+
+        emit AccessRevoked(
+            _healthID,
+            _doctorWallet
+        );
+
+        _logAudit(
+            _healthID,
+            _patient,
+            "PATIENT",
+            "",
+            "REVOKED_DOCTOR"
+        );
     }
 
-    // Step 5: provider checks authorization (patient's own wallet always has access).
-    // An unexpired break-glass emergency window also grants access.
-    function hasAccess(string memory _healthID, address _doctor) public view returns (bool) {
-        if (patientWallet[_healthID] == _doctor && _doctor != address(0)) return true;
-        if (emergencyExpiry[_healthID][_doctor] > block.timestamp) return true;
-        for (uint i = 0; i < permissions[_healthID].length; i++) {
-            AccessPermission memory p = permissions[_healthID][i];
-            if (p.grantedTo == _doctor && p.isActive && p.expiry > block.timestamp) {
+    // ============================================================
+    // HAS ACCESS
+    // ============================================================
+
+    function hasAccess(
+        string memory _healthID,
+        address _viewer
+    ) public view returns (bool) {
+
+        require(
+            patients[_healthID].exists,
+            "Patient does not exist"
+        );
+
+        // Patient always has access.
+        if (
+            patients[_healthID].wallet == _viewer &&
+            _viewer != address(0)
+        ) {
+            return true;
+        }
+
+        // Emergency access.
+        EmergencyAccess memory emergency =
+            emergencyAccess[_healthID][_viewer];
+
+        if (
+            emergency.active &&
+            emergency.expiry > block.timestamp
+        ) {
+            return true;
+        }
+
+        // Normal permission.
+        for (
+            uint256 i = 0;
+            i < permissions[_healthID].length;
+            i++
+        ) {
+
+            AccessPermission memory permission =
+                permissions[_healthID][i];
+
+            if (
+                permission.grantedTo == _viewer &&
+                permission.isActive &&
+                permission.expiry > block.timestamp
+            ) {
                 return true;
             }
         }
+
         return false;
     }
 
-    // Step 6: every read is logged on-chain. The backend operator wallet
-    // signs, but the real viewer (_viewer) must have access on-chain.
+    // ============================================================
+    // RECORD VIEW
+    // ============================================================
+
+    /**
+     * Logs every record access.
+     *
+     * The actual record is NOT returned by the blockchain.
+     * The backend retrieves it from the facility after
+     * authorization succeeds.
+     */
     function recordView(
         string memory _healthID,
         address _viewer,
         string memory _facilityID
-    ) public {
-        require(hasAccess(_healthID, _viewer), "No access permission");
-        string memory role = patientWallet[_healthID] == _viewer ? "PATIENT" : "DOCTOR";
-        _logAudit(_healthID, _viewer, role, _facilityID, "VIEW");
-        emit RecordViewed(_healthID, _viewer, _facilityID);
+    ) external onlyOperator {
+
+        require(
+            hasAccess(_healthID, _viewer),
+            "No access permission"
+        );
+
+        string memory role =
+            patients[_healthID].wallet == _viewer
+                ? "PATIENT"
+                : "DOCTOR";
+
+        _logAudit(
+            _healthID,
+            _viewer,
+            role,
+            _facilityID,
+            "VIEW"
+        );
+
+        emit RecordViewed(
+            _healthID,
+            _viewer,
+            _facilityID
+        );
     }
 
-    // Step 7: emergency access — opens a real 1-hour on-chain permission for
-    // the clinician AND permanently logs the use. The clinician wallet is
-    // passed explicitly so the audit log names them, not the operator wallet
-    // that pays gas.
+    // ============================================================
+    // BREAK GLASS
+    // ============================================================
+
+    /**
+     * Emergency access.
+     *
+     * Only an authorized clinician can use Break Glass.
+     *
+     * The operator wallet submits the transaction,
+     * but _clinician identifies the real clinician.
+     */
     function breakGlass(
         string memory _healthID,
         address _clinician,
         string memory _facilityID,
         string memory _reason
-    ) public {
-        uint256 expiry = block.timestamp + EMERGENCY_PERIOD;
-        emergencyExpiry[_healthID][_clinician] = expiry;
-        emit BreakGlassUsed(_healthID, _clinician, _facilityID, _reason);
-        emit EmergencyAccessGranted(_healthID, _clinician, expiry);
-        _logAudit(_healthID, _clinician, "DOCTOR", _facilityID, "BREAK_GLASS");
+    ) external onlyOperator {
+
+        require(
+            patients[_healthID].exists,
+            "Patient does not exist"
+        );
+
+        require(
+            roles[_clinician][CLINICIAN_ROLE],
+            "Clinician is not authorized"
+        );
+
+        require(
+            _clinician != address(0),
+            "Invalid clinician"
+        );
+
+        require(
+            bytes(_reason).length > 0,
+            "Emergency reason required"
+        );
+
+        uint256 expiry =
+            block.timestamp + EMERGENCY_PERIOD;
+
+        emergencyAccess[_healthID][_clinician] =
+            EmergencyAccess({
+                expiry: expiry,
+                active: true
+            });
+
+        emit BreakGlassUsed(
+            _healthID,
+            _clinician,
+            _facilityID,
+            _reason
+        );
+
+        emit EmergencyAccessGranted(
+            _healthID,
+            _clinician,
+            expiry
+        );
+
+        _logAudit(
+            _healthID,
+            _clinician,
+            "DOCTOR",
+            _facilityID,
+            "BREAK_GLASS"
+        );
     }
 
-    // Seconds of emergency access left for a clinician on a patient (0 = none).
-    // The public emergencyExpiry mapping getter exposes the raw expiry stamp.
-    function emergencyAccessRemaining(string memory _healthID, address _clinician)
-        public view returns (uint256)
-    {
-        uint256 expiry = emergencyExpiry[_healthID][_clinician];
-        return expiry > block.timestamp ? expiry - block.timestamp : 0;
+    // ============================================================
+    // REVOKE EMERGENCY ACCESS
+    // ============================================================
+
+    /**
+     * Admin/operator can immediately revoke emergency access
+     * before the one-hour period expires.
+     */
+    function revokeEmergencyAccess(
+        string memory _healthID,
+        address _clinician
+    ) external onlyOperator {
+
+        require(
+            emergencyAccess[_healthID][_clinician].active,
+            "No active emergency access"
+        );
+
+        emergencyAccess[_healthID][_clinician].active = false;
+        emergencyAccess[_healthID][_clinician].expiry = 0;
+
+        emit EmergencyAccessRevoked(
+            _healthID,
+            _clinician
+        );
+
+        _logAudit(
+            _healthID,
+            _clinician,
+            "DOCTOR",
+            "",
+            "EMERGENCY_ACCESS_REVOKED"
+        );
     }
 
-    function getRecords(string memory _healthID)
-        public view returns (HealthRecord[] memory)
+    // ============================================================
+    // EMERGENCY ACCESS REMAINING
+    // ============================================================
+
+    function emergencyAccessRemaining(
+        string memory _healthID,
+        address _clinician
+    ) external view returns (uint256) {
+
+        EmergencyAccess memory emergency =
+            emergencyAccess[_healthID][_clinician];
+
+        if (
+            !emergency.active ||
+            emergency.expiry <= block.timestamp
+        ) {
+            return 0;
+        }
+
+        return emergency.expiry - block.timestamp;
+    }
+
+    // ============================================================
+    // GET RECORDS
+    // ============================================================
+
+    function getRecords(
+        string memory _healthID
+    )
+        external
+        view
+        returns (HealthRecord[] memory)
     {
         return records[_healthID];
     }
 
-    function getAuditTrail(string memory _healthID)
-        public view returns (AuditEvent[] memory)
+    // ============================================================
+    // GET PERMISSIONS
+    // ============================================================
+
+    function getPermissions(
+        string memory _healthID
+    )
+        external
+        view
+        returns (AccessPermission[] memory)
+    {
+        return permissions[_healthID];
+    }
+
+    // ============================================================
+    // GET AUDIT TRAIL
+    // ============================================================
+
+    function getAuditTrail(
+        string memory _healthID
+    )
+        external
+        view
+        returns (AuditEvent[] memory)
     {
         return auditTrail[_healthID];
     }
 
-    function getPermissions(string memory _healthID)
-        public view returns (AccessPermission[] memory)
+    // ============================================================
+    // GET PATIENT
+    // ============================================================
+
+    function getPatient(
+        string memory _healthID
+    )
+        external
+        view
+        returns (
+            address wallet,
+            string memory fullName,
+            bool exists
+        )
     {
-        return permissions[_healthID];
+        Patient memory patient =
+            patients[_healthID];
+
+        return (
+            patient.wallet,
+            patient.fullName,
+            patient.exists
+        );
     }
+
+    // ============================================================
+    // INTERNAL AUDIT FUNCTION
+    // ============================================================
 
     function _logAudit(
         string memory _healthID,
@@ -195,12 +774,15 @@ contract AfyaTrust {
         string memory _facilityID,
         string memory _action
     ) private {
-        auditTrail[_healthID].push(AuditEvent({
-            accessor: _accessor,
-            accessorRole: _role,
-            facilityID: _facilityID,
-            action: _action,
-            timestamp: block.timestamp
-        }));
+
+        auditTrail[_healthID].push(
+            AuditEvent({
+                accessor: _accessor,
+                accessorRole: _role,
+                facilityID: _facilityID,
+                action: _action,
+                timestamp: block.timestamp
+            })
+        );
     }
 }

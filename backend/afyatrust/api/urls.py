@@ -38,4 +38,9 @@ urlpatterns = [
     path("doctor/referrals/incoming/", views.doctor_incoming_referrals),
     path("doctor/patient/<str:health_id>/", views.doctor_view_record),
     path("doctor/break-glass/", views.break_glass),
+
+    # Blockchain event history (Etherscan-verified)
+    path("blockchain/events/", views.blockchain_events),
+    path("blockchain/patient/<str:health_id>/", views.patient_blockchain_history),
+    path("blockchain/hospital-summary/", views.hospital_blockchain_summary),
 ]

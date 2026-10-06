@@ -22,6 +22,34 @@ export interface AuditEvent {
   timestamp: number;
 }
 
+export interface BlockchainEvent {
+  transaction_hash: string;
+  block_number: number;
+  event: string;
+  args: Record<string, any>;
+  etherscan_url: string;
+  timestamp?: number;
+  datetime?: number;
+}
+
+export interface BlockchainEventsResponse {
+  hospital_code: string;
+  events: BlockchainEvent[];
+  count: number;
+}
+
+export interface PatientBlockchainHistoryResponse {
+  health_id: string;
+  events: BlockchainEvent[];
+  count: number;
+}
+
+export interface HospitalBlockchainSummaryResponse {
+  hospital_code: string;
+  summary: Record<string, number>;
+  total_transactions: number;
+}
+
 export interface MeasurementItem {
   id: number;
   kind: string;
@@ -322,5 +350,35 @@ export class ApiService {
   /** Recent records added by my hospital (staff view, on-chain status). */
   facilityRecords(): Promise<FacilityRecord[]> {
     return this.request<FacilityRecord[]>('GET', '/facility/records/');
+  }
+
+  // ---------- Blockchain Event History (Etherscan-verified) ----------
+
+  /** Fetch blockchain events for the authenticated user's hospital. */
+  blockchainEvents(params?: {
+    event_type?: string;
+    health_id?: string;
+    from_block?: string;
+    to_block?: string;
+    limit?: number;
+  }): Promise<BlockchainEventsResponse> {
+    const query = new URLSearchParams();
+    if (params?.event_type) query.set('event_type', params.event_type);
+    if (params?.health_id) query.set('health_id', params.health_id);
+    if (params?.from_block) query.set('from_block', params.from_block);
+    if (params?.to_block) query.set('to_block', params.to_block);
+    if (params?.limit) query.set('limit', params.limit.toString());
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return this.request<BlockchainEventsResponse>('GET', `/blockchain/events/${qs}`);
+  }
+
+  /** Fetch complete blockchain transaction history for a specific patient. */
+  patientBlockchainHistory(health_id: string): Promise<PatientBlockchainHistoryResponse> {
+    return this.request<PatientBlockchainHistoryResponse>('GET', `/blockchain/patient/${encodeURIComponent(health_id)}/`);
+  }
+
+  /** Get a summary of blockchain activity for the hospital. */
+  hospitalBlockchainSummary(): Promise<HospitalBlockchainSummaryResponse> {
+    return this.request<HospitalBlockchainSummaryResponse>('GET', '/blockchain/hospital-summary/');
   }
 }

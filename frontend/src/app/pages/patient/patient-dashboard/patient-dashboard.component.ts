@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { NgIf, NgFor, SlicePipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { ApiService, PatientData, AccessRequest, DoctorOption } from '../../../services/api.service';
+import { ApiService, PatientData, AccessRequest, DoctorOption, BlockchainEvent } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 
 @Component({
@@ -355,6 +355,55 @@ import { AuthService } from '../../../services/auth.service';
           </div>
         </div>
       </div>
+
+      <!-- BLOCKCHAIN TRANSACTIONS -->
+      <div *ngIf="tab === 'transactions'" class="animate-fade-in">
+        <h2 class="mb-1 text-xl font-bold">Blockchain Transaction History</h2>
+        <p class="mb-4 text-sm text-muted">
+          Every on-chain transaction related to your health records. All transactions are verifiable on Etherscan.
+          Events include: patient registration, record additions, access grants/revokes, record views, and emergency access.
+        </p>
+        <div class="card overflow-hidden">
+          <table *ngIf="transactions.length" class="w-full">
+            <thead>
+              <tr class="bg-ink text-left text-white">
+                <th class="px-4 py-3 text-sm font-semibold">Date</th>
+                <th class="px-4 py-3 text-sm font-semibold">Event Type</th>
+                <th class="px-4 py-3 text-sm font-semibold">Transaction Hash</th>
+                <th class="px-4 py-3 text-sm font-semibold">Block</th>
+                <th class="px-4 py-3 text-sm font-semibold">Details</th>
+                <th class="px-4 py-3 text-sm font-semibold">Verify</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let tx of transactions" class="border-b border-gray-100 last:border-b-0 hover:bg-primary-50/50">
+                <td class="px-4 py-3 text-sm">{{ tx.timestamp ? (tx.timestamp * 1000 | date:'short') : '—' }}</td>
+                <td class="px-4 py-3">
+                  <span class="rounded-full px-2.5 py-0.5 text-xs font-bold"
+                        [class]="eventBadge(tx.event)">{{ formatEventName(tx.event) }}</span>
+                </td>
+                <td class="px-4 py-3">
+                  <code class="text-xs font-mono">{{ tx.transaction_hash | slice:0:20 }}…</code>
+                </td>
+                <td class="px-4 py-3 text-sm font-mono">{{ tx.block_number }}</td>
+                <td class="px-4 py-3 text-xs text-muted">
+                  <div *ngFor="let arg of eventArgs(tx.args)">{{ arg.key }}: <span class="text-ink">{{ arg.value }}</span></div>
+                </td>
+                <td class="px-4 py-3">
+                  <a [href]="tx.etherscan_url" target="_blank" rel="noopener"
+                     class="rounded bg-white px-2 py-1 text-xs font-mono text-accent-700 underline shadow-sm hover:bg-primary-50">
+                    View on Etherscan
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div *ngIf="transactions.length === 0" class="p-10 text-center">
+            <h3 class="mb-1 text-lg font-bold">No blockchain transactions yet</h3>
+            <p class="m-0 text-muted">Transactions appear here when records are added, access is granted, or your data is viewed.</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ACCESS-REQUEST NOTIFICATIONS (popup, survives tab switches) -->
@@ -428,7 +477,7 @@ import { AuthService } from '../../../services/auth.service';
   `,
 })
 export class PatientDashboardComponent implements OnInit, OnDestroy {
-  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'audit' = 'records';
+  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'audit' | 'transactions' = 'records';
   tabs = [
     { id: 'records', label: 'Records' },
     { id: 'measurements', label: 'Measurements' },
@@ -436,10 +485,12 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     { id: 'permissions', label: 'Permissions' },
     { id: 'requests', label: 'Requests' },
     { id: 'audit', label: 'Audit Trail' },
+    { id: 'transactions', label: 'Blockchain Transactions' },
   ] as const;
 
   data: PatientData | null = null;
   requests: AccessRequest[] = [];
+  transactions: BlockchainEvent[] = [];
   loading = false;
   busy = false;
   errorMsg = '';
@@ -479,8 +530,11 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  setTab(id: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'audit') {
+  setTab(id: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'audit' | 'transactions') {
     this.tab = id;
+    if (id === 'transactions') {
+      void this.loadTransactions();
+    }
     this.syncView();
   }
 
@@ -508,6 +562,19 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       this.sendHospitals = await this.api.hospitals();
     } catch {
       this.sendHospitals = [];
+    }
+    this.syncView();
+  }
+
+  /** Load blockchain transaction history for this patient. */
+  private async loadTransactions() {
+    if (!this.data?.health_id) return;
+    try {
+      const res = await this.api.patientBlockchainHistory(this.data.health_id);
+      this.transactions = res.events;
+    } catch (e: any) {
+      console.error('Failed to load transactions:', e);
+      this.transactions = [];
     }
     this.syncView();
   }
@@ -623,6 +690,37 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       case 'revoked_doctor':     return 'bg-gray-200 text-ink';
       default:                   return 'bg-gray-100 text-ink';
     }
+  }
+
+  eventBadge(event?: string): string {
+    switch ((event || '').toLowerCase()) {
+      case 'patientregistered':     return 'bg-primary-100 text-primary-900';
+      case 'recordadded':           return 'bg-accent-100 text-accent-900';
+      case 'accessgranted':         return 'bg-accent-200 text-accent-900';
+      case 'accessrevoked':         return 'bg-red-100 text-red-900';
+      case 'recordviewed':          return 'bg-primary-200 text-primary-900';
+      case 'breakglassused':        return 'bg-red-200 text-red-900';
+      case 'emergencyaccessgranted': return 'bg-orange-100 text-orange-900';
+      default:                      return 'bg-gray-100 text-ink';
+    }
+  }
+
+  formatEventName(event: string): string {
+    const map: Record<string, string> = {
+      'PatientRegistered': 'Patient Registered',
+      'RecordAdded': 'Record Added',
+      'AccessGranted': 'Access Granted',
+      'AccessRevoked': 'Access Revoked',
+      'RecordViewed': 'Record Viewed',
+      'BreakGlassUsed': 'Break-Glass Used',
+      'EmergencyAccessGranted': 'Emergency Access',
+    };
+    return map[event] || event;
+  }
+
+  eventArgs(args: Record<string, any>): { key: string; value: any }[] {
+    if (!args) return [];
+    return Object.entries(args).map(([key, value]) => ({ key, value }));
   }
 
   async grantAccess() {

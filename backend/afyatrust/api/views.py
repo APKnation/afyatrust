@@ -32,6 +32,7 @@ from .blockchain import (
     send_transaction,
     send_transaction_async,
 )
+from .blockchain import w3
 
 
 def _doctor_from_request(request):
@@ -1210,3 +1211,237 @@ def facility_records(request):
         "verified": bool(r.tx_hash) and not r.tx_hash.startswith("PENDING"),
         "created_at": r.created_at,
     } for r in records])
+
+
+# ============ BLOCKCHAIN EVENT HISTORY (Etherscan-verified) ============
+
+def _get_contract():
+    """Get contract instance with proper error handling."""
+    try:
+        return contract
+    except Exception as e:
+        raise RuntimeError(f"Contract not available: {e}")
+
+
+def _fetch_events(event_name, from_block=0, to_block="latest", argument_filters=None):
+    """Fetch events from the contract with optional filters."""
+    try:
+        c = _get_contract()
+        event = getattr(c.events, event_name)
+        logs = event.get_logs(fromBlock=from_block, toBlock=to_block, argument_filters=argument_filters)
+        return [{
+            "transaction_hash": log.transactionHash.hex(),
+            "block_number": log.blockNumber,
+            "event": event_name,
+            "args": dict(log.args),
+        } for log in logs]
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def _get_hospital_code_from_request(request):
+    """Extract hospital code from JWT for any role."""
+    if not request.auth:
+        return None
+    role = request.auth.get("role", "")
+    if role == "DOCTOR":
+        doctor = Doctor.objects.filter(license_no__iexact=request.auth.get("license_no", "")).first()
+        return doctor.facility_id if doctor else None
+    elif role == "STAFF":
+        staff = HospitalStaff.objects.filter(username__iexact=request.auth.get("username", "")).first()
+        return staff.hospital.code if staff and staff.hospital else None
+    elif role == "PATIENT":
+        patient = Patient.objects.filter(health_id=request.auth.get("health_id", "")).first()
+        return patient.hospital.code if patient and patient.hospital else None
+    return None
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def blockchain_events(request):
+    """
+    Fetch blockchain events for the authenticated user's hospital.
+    Supports filtering by event type, date range, and patient Health ID.
+    All events include Etherscan transaction links for verification.
+    """
+    hospital_code = _get_hospital_code_from_request(request)
+    if not hospital_code:
+        return Response({"error": "Hospital not found for your account"}, status=403)
+
+    # Query parameters
+    event_type = request.query_params.get("event_type", "").strip()  # e.g., "RecordAdded", "AccessGranted"
+    health_id = request.query_params.get("health_id", "").strip()
+    from_block = request.query_params.get("from_block")
+    to_block = request.query_params.get("to_block", "latest")
+    limit = int(request.query_params.get("limit", 100))
+
+    # Map event types to contract events
+    event_map = {
+        "patient_registered": "PatientRegistered",
+        "record_added": "RecordAdded",
+        "access_granted": "AccessGranted",
+        "access_revoked": "AccessRevoked",
+        "record_viewed": "RecordViewed",
+        "break_glass_used": "BreakGlassUsed",
+        "emergency_access_granted": "EmergencyAccessGranted",
+    }
+
+    all_events = []
+
+    if event_type and event_type in event_map:
+        # Fetch specific event type
+        contract_event = event_map[event_type]
+        argument_filters = {}
+        if health_id:
+            argument_filters["healthID"] = health_id
+        # Note: facilityID filter works for RecordAdded and BreakGlassUsed
+        if contract_event in ["RecordAdded", "BreakGlassUsed"]:
+            argument_filters["facilityID"] = hospital_code
+        events = _fetch_events(contract_event, argument_filters=argument_filters)
+        all_events.extend(events)
+    else:
+        # Fetch all event types relevant to this hospital
+        # For events with facilityID, filter by hospital
+        facility_events = ["RecordAdded", "BreakGlassUsed"]
+        for evt in facility_events:
+            argument_filters = {"facilityID": hospital_code}
+            if health_id:
+                argument_filters["healthID"] = health_id
+            events = _fetch_events(evt, argument_filters=argument_filters)
+            all_events.extend(events)
+
+        # For patient-specific events, filter by health_id if provided
+        patient_events = ["PatientRegistered", "AccessGranted", "AccessRevoked", "RecordViewed", "EmergencyAccessGranted"]
+        if health_id:
+            for evt in patient_events:
+                argument_filters = {"healthID": health_id}
+                events = _fetch_events(evt, argument_filters=argument_filters)
+                all_events.extend(events)
+
+    # Sort by block number (newest first) and limit
+    all_events.sort(key=lambda x: x.get("block_number", 0), reverse=True)
+    all_events = all_events[:limit]
+
+    # Add Etherscan links
+    for evt in all_events:
+        if "transaction_hash" in evt:
+            evt["etherscan_url"] = f"https://sepolia.etherscan.io/tx/{evt['transaction_hash']}"
+            # Add human-readable timestamp
+            try:
+                block = w3.eth.get_block(evt["block_number"])
+                evt["timestamp"] = block.timestamp
+                evt["datetime"] = block.timestamp
+            except Exception:
+                evt["timestamp"] = None
+                evt["datetime"] = None
+
+    return Response({
+        "hospital_code": hospital_code,
+        "events": all_events,
+        "count": len(all_events),
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def patient_blockchain_history(request, health_id):
+    """
+    Fetch complete blockchain transaction history for a specific patient.
+    Returns all events related to this patient across all hospitals.
+    Includes Etherscan verification links.
+    """
+    # Verify access (patient can see own, doctor with permission, staff of patient's hospital)
+    requestor_role = request.auth.get("role", "") if request.auth else ""
+
+    if requestor_role == "PATIENT":
+        patient_health_id = request.auth.get("health_id", "")
+        if patient_health_id != health_id:
+            return Response({"error": "Not authorized"}, status=403)
+    elif requestor_role == "DOCTOR":
+        doctor = _doctor_from_request(request)
+        if not doctor:
+            return Response({"error": "Doctor not verified"}, status=403)
+        allowed, _ = cached_has_access(health_id, doctor.wallet_address)
+        if not allowed:
+            return Response({"error": "No access permission for this patient"}, status=403)
+    elif requestor_role == "STAFF":
+        staff = _staff_from_request(request)
+        if not staff:
+            return Response({"error": "Staff not found"}, status=403)
+        patient = Patient.objects.filter(health_id=health_id).first()
+        if not patient or patient.hospital != staff.hospital:
+            return Response({"error": "Patient not in your hospital"}, status=403)
+    else:
+        return Response({"error": "Not authorized"}, status=403)
+
+    # Fetch all event types for this patient
+    event_types = [
+        "PatientRegistered",
+        "RecordAdded",
+        "AccessGranted",
+        "AccessRevoked",
+        "RecordViewed",
+        "BreakGlassUsed",
+        "EmergencyAccessGranted",
+    ]
+
+    all_events = []
+    for evt_name in event_types:
+        argument_filters = {"healthID": health_id}
+        events = _fetch_events(evt_name, argument_filters=argument_filters)
+        all_events.extend(events)
+
+    # Sort by block number (newest first)
+    all_events.sort(key=lambda x: x.get("block_number", 0), reverse=True)
+
+    # Add Etherscan links and timestamps
+    for evt in all_events:
+        if "transaction_hash" in evt:
+            evt["etherscan_url"] = f"https://sepolia.etherscan.io/tx/{evt['transaction_hash']}"
+            try:
+                block = w3.eth.get_block(evt["block_number"])
+                evt["timestamp"] = block.timestamp
+            except Exception:
+                evt["timestamp"] = None
+
+    return Response({
+        "health_id": health_id,
+        "events": all_events,
+        "count": len(all_events),
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def hospital_blockchain_summary(request):
+    """
+    Get a summary of blockchain activity for the hospital.
+    Useful for admin dashboards showing transaction counts by type.
+    """
+    hospital_code = _get_hospital_code_from_request(request)
+    if not hospital_code:
+        return Response({"error": "Hospital not found for your account"}, status=403)
+
+    summary = {}
+    event_types = [
+        "PatientRegistered",
+        "RecordAdded",
+        "AccessGranted",
+        "AccessRevoked",
+        "RecordViewed",
+        "BreakGlassUsed",
+        "EmergencyAccessGranted",
+    ]
+
+    for evt_name in event_types:
+        argument_filters = {}
+        if evt_name in ["RecordAdded", "BreakGlassUsed"]:
+            argument_filters["facilityID"] = hospital_code
+        events = _fetch_events(evt_name, argument_filters=argument_filters)
+        summary[evt_name.lower()] = len(events)
+
+    return Response({
+        "hospital_code": hospital_code,
+        "summary": summary,
+        "total_transactions": sum(summary.values()),
+    })

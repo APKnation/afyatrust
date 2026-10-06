@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
   AccessRequest, ApiService, AssignedPatient, HospitalOption, MeasurementItem, PatientRecord, ReferralItem,
+  BlockchainEvent,
 } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 
@@ -395,17 +396,95 @@ import { AuthService } from '../../../services/auth.service';
           <p class="m-0 text-muted italic">No referrals sent yet.</p>
         </div>
       </div>
+
+      <!-- ================= BLOCKCHAIN TRANSACTIONS ================= -->
+      <div *ngIf="tab === 'transactions'" class="animate-fade-in">
+        <h2 class="mb-1 text-xl font-bold">Blockchain Transaction History</h2>
+        <p class="mb-4 text-sm text-muted">
+          All on-chain transactions for {{ hospitalName || 'your hospital' }}. Filter by event type or patient Health ID.
+          Every transaction is verifiable on Etherscan.
+        </p>
+
+        <!-- Filters -->
+        <div class="card mb-5 p-5">
+          <div class="flex flex-wrap gap-3">
+            <select [(ngModel)]="txFilterEvent" (ngModelChange)="applyTxFilter()"
+                    class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+              <option value="">All Event Types</option>
+              <option value="RecordAdded">Record Added</option>
+              <option value="AccessGranted">Access Granted</option>
+              <option value="AccessRevoked">Access Revoked</option>
+              <option value="RecordViewed">Record Viewed</option>
+              <option value="BreakGlassUsed">Break-Glass Used</option>
+              <option value="EmergencyAccessGranted">Emergency Access</option>
+            </select>
+            <input [(ngModel)]="txFilterHealthId" (ngModelChange)="applyTxFilter()"
+                   placeholder="Filter by Health ID (optional)"
+                   class="min-w-50 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+            <button (click)="clearTxFilter()"
+                    class="cursor-pointer rounded-lg border-2 border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-ink">
+              Clear Filters
+            </button>
+          </div>
+        </div>
+
+        <div class="card overflow-hidden">
+          <table *ngIf="filteredTransactions.length" class="w-full">
+            <thead>
+              <tr class="bg-ink text-left text-white">
+                <th class="px-4 py-3 text-sm font-semibold">Date</th>
+                <th class="px-4 py-3 text-sm font-semibold">Event Type</th>
+                <th class="px-4 py-3 text-sm font-semibold">Transaction Hash</th>
+                <th class="px-4 py-3 text-sm font-semibold">Block</th>
+                <th class="px-4 py-3 text-sm font-semibold">Details</th>
+                <th class="px-4 py-3 text-sm font-semibold">Verify</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let tx of filteredTransactions" class="border-b border-gray-100 last:border-b-0 hover:bg-primary-50/50">
+                <td class="px-4 py-3 text-sm">{{ tx.timestamp ? (tx.timestamp * 1000 | date:'short') : '—' }}</td>
+                <td class="px-4 py-3">
+                  <span class="rounded-full px-2.5 py-0.5 text-xs font-bold"
+                        [class]="eventBadge(tx.event)">{{ formatEventName(tx.event) }}</span>
+                </td>
+                <td class="px-4 py-3">
+                  <code class="text-xs font-mono">{{ tx.transaction_hash | slice:0:20 }}…</code>
+                </td>
+                <td class="px-4 py-3 text-sm font-mono">{{ tx.block_number }}</td>
+                <td class="px-4 py-3 text-xs text-muted">
+                  <div *ngFor="let arg of eventArgs(tx.args)">{{ arg.key }}: <span class="text-ink">{{ arg.value }}</span></div>
+                </td>
+                <td class="px-4 py-3">
+                  <a [href]="tx.etherscan_url" target="_blank" rel="noopener"
+                     class="rounded bg-white px-2 py-1 text-xs font-mono text-accent-700 underline shadow-sm hover:bg-primary-50">
+                    View on Etherscan
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div *ngIf="filteredTransactions.length === 0 && transactions.length > 0" class="p-10 text-center">
+            <h3 class="mb-1 text-lg font-bold">No transactions match your filters</h3>
+            <p class="m-0 text-muted">Try adjusting your filters or clearing them.</p>
+          </div>
+          <div *ngIf="transactions.length === 0" class="p-10 text-center">
+            <h3 class="mb-1 text-lg font-bold">No blockchain transactions yet</h3>
+            <p class="m-0 text-muted">Transactions appear here when records are added, access is granted, or data is viewed.</p>
+          </div>
+        </div>
+      </div>
     </div>
   `,
 })
 export class DoctorLandingComponent implements OnDestroy, OnInit {
-  tab: 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' = 'patients';
+  tab: 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' = 'patients';
   tabs = [
     { id: 'patients', label: 'My Patients' },
     { id: 'find', label: 'Find Patient' },
     { id: 'measurements', label: 'Measurements' },
     { id: 'referrals', label: 'Referrals' },
     { id: 'requests', label: 'My Requests' },
+    { id: 'transactions', label: 'Blockchain Transactions' },
   ] as const;
 
   license = '';
@@ -459,6 +538,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   private dismissedReferrals = new Set<number>();
   private referralTimer: any = null;
 
+  // blockchain transactions
+  transactions: BlockchainEvent[] = [];
+
   // measurement trend chart
   trendKind = '';
 
@@ -473,9 +555,10 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.cdr.detectChanges();
   }
 
-  setTab(id: 'patients' | 'find' | 'measurements' | 'referrals' | 'requests') {
+  setTab(id: 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions') {
     this.tab = id;
     if (id === 'requests') void this.loadMyRequests();
+    if (id === 'transactions') void this.loadTransactions();
     this.syncView();
   }
 
@@ -757,6 +840,18 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       this.referralsSent = await this.api.myReferralsSent();
     } catch {
       this.referralsSent = [];
+    }
+    this.syncView();
+  }
+
+  /** Load blockchain transaction history for this doctor's hospital. */
+  private async loadTransactions() {
+    try {
+      const res = await this.api.blockchainEvents();
+      this.transactions = res.events;
+    } catch (e: any) {
+      console.error('Failed to load transactions:', e);
+      this.transactions = [];
     }
     this.syncView();
   }

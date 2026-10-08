@@ -38,6 +38,31 @@ import { AuthService } from '../../../services/auth.service';
         </div>
       </div>
 
+      <!-- LAST ON-CHAIN ACTION (break-glass, etc.) — Etherscan-verifiable -->
+      <div *ngIf="lastTx" class="card mb-6 border-l-4 p-5"
+           [class]="lastTx.pending ? 'border-l-orange-500' : 'border-l-red-500'">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="m-0 text-sm font-bold text-ink">{{ lastTx.label }}</h2>
+            <p class="m-0 text-xs text-muted">
+              {{ lastTx.pending
+                ? 'Transaction submitted — the BreakGlassUsed event will appear in your Blockchain Transactions tab shortly.'
+                : 'Permanently logged on-chain — verify it on Etherscan.' }}
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <code class="rounded bg-gray-100 px-2 py-1 font-mono text-xs">{{ lastTx.tx_hash | slice:0:20 }}…</code>
+            <a *ngIf="!isPendingTx(lastTx.tx_hash)"
+               [href]="etherscanUrl(lastTx.tx_hash)" target="_blank" rel="noopener"
+               class="btn-secondary text-sm">
+              View on Etherscan
+            </a>
+            <button (click)="lastTx = null" aria-label="Dismiss"
+                    class="cursor-pointer border-none bg-transparent text-lg leading-none text-muted hover:text-ink">×</button>
+          </div>
+        </div>
+      </div>
+
       <!-- INCOMING REFERRAL TOASTS (poll-fed) -->
       <div class="fixed top-20 right-4 z-[60] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3">
         <div *ngFor="let n of incomingToasts" class="card animate-fade-in border-l-4 border-accent-500 p-4">
@@ -54,7 +79,7 @@ import { AuthService } from '../../../services/auth.service';
           <p *ngIf="n.reason" class="mb-0 mt-1 rounded-md bg-primary-50 px-2 py-1.5 text-[13px] italic text-muted">{{ n.reason }}</p>
           <div class="mt-3 flex gap-2">
             <button (click)="respondIncoming(n, 'ACCEPTED')" [disabled]="busyIncoming === n.id"
-                    class="flex-1 cursor-pointer rounded-lg bg-accent-500 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">Accept</button>
+                    class="btn-primary">Accept</button>
             <button (click)="respondIncoming(n, 'DECLINED')" [disabled]="busyIncoming === n.id"
                     class="flex-1 cursor-pointer rounded-lg border-2 border-red-500 px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-500 hover:text-white disabled:opacity-50">Decline</button>
           </div>
@@ -62,10 +87,10 @@ import { AuthService } from '../../../services/auth.service';
       </div>
 
       <!-- Tabs -->
-      <div class="mb-6 flex flex-wrap gap-1 border-b-2 border-gray-200">
+      <div class="mb-6 flex flex-wrap gap-1 border-b border-gray-200">
         <button *ngFor="let t of tabs" (click)="setTab(t.id)"
                 class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
-                [class]="tab === t.id ? 'border-b-3 border-primary-500 font-bold text-ink' : 'text-muted hover:text-ink'">
+                [class]="tab === t.id ? 'font-bold text-primary-500 border-b-4 border-primary-500 -mb-[2px]' : 'text-muted hover:text-ink'">
           {{ t.label }}
           <span *ngIf="t.id === 'referrals' && pendingIncoming > 0"
                 class="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingIncoming }}</span>
@@ -85,7 +110,7 @@ import { AuthService } from '../../../services/auth.service';
             </p>
           </div>
           <button (click)="loadPatients()" [disabled]="loadingPatients"
-                  class="cursor-pointer rounded-lg border-2 border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-ink">
+                  class="btn-secondary">
             Refresh
           </button>
         </div>
@@ -133,9 +158,9 @@ import { AuthService } from '../../../services/auth.service';
             </p>
             <div class="mt-3 flex flex-wrap items-center gap-2">
               <input [(ngModel)]="requestReason" placeholder="Reason for access"
-                     class="flex-1 rounded-lg border border-primary-300 bg-white px-3 py-2 text-sm" />
+                     class="flex-1 rounded-lg border border-primary-300 px-3 py-2 text-sm" />
               <button (click)="requestAccess()" [disabled]="requestStatusFor(healthId) === 'PENDING'"
-                      class="cursor-pointer rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">
+                      class="btn-primary">
                 {{ requestStatusFor(healthId) === 'PENDING' ? 'Request awaiting patient' : 'Request access' }}
               </button>
               <button (click)="breakGlass()"
@@ -173,13 +198,13 @@ import { AuthService } from '../../../services/auth.service';
                 <span class="font-bold text-accent-700">{{ rec.facility }}</span>
                 <span class="text-sm text-muted">{{ rec.date | date:'medium' }}</span>
                 <span class="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-bold text-primary-900">{{ rec.type }}</span>
-                <span *ngIf="rec.verified" class="rounded-full bg-accent-500 px-2.5 py-0.5 text-xs font-semibold text-white">On-chain</span>
+                <span *ngIf="rec.verified" class="btn-primary">On-chain</span>
               </div>
               <div *ngIf="rec.source_uri" class="mb-3 text-xs text-muted flex items-center gap-1.5">
                 <span class="font-semibold">Source:</span>
                 <a [href]="rec.source_uri" target="_blank" rel="noopener" class="text-accent-600 hover:underline break-all">{{ rec.source_uri }}</a>
               </div>
-              <div class="rounded-lg bg-white p-3 shadow-sm">
+              <div class="rounded-lg p-3 ">
                 <div *ngFor="let item of entries(rec.data)"
                      class="flex border-b border-gray-100 py-1.5 last:border-b-0">
                   <span class="w-44 shrink-0 font-semibold capitalize text-ink">{{ item.key }}:</span>
@@ -205,28 +230,28 @@ import { AuthService } from '../../../services/auth.service';
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Patient Health ID</span>
               <input [(ngModel)]="meas.health_id" placeholder="e.g. HTD-2024-001"
-                     class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
+                     class="px-3 py-2.5 text-sm" />
             </label>
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Measurement type</span>
               <select [(ngModel)]="meas.kind" (ngModelChange)="setUnit()"
-                      class="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm">
+                      class="px-3 py-2.5 text-sm">
                 <option *ngFor="let k of measurementKinds" [value]="k">{{ k }}</option>
               </select>
             </label>
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Value {{ meas.unit ? '(' + meas.unit + ')' : '' }}</span>
               <input type="number" step="any" [(ngModel)]="meas.value"
-                     class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
+                     class="px-3 py-2.5 text-sm" />
             </label>
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Notes (optional)</span>
               <input [(ngModel)]="meas.notes" placeholder="e.g. measured after treatment"
-                     class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
+                     class="px-3 py-2.5 text-sm" />
             </label>
           </div>
           <button (click)="addMeasurement()" [disabled]="busyMeas"
-                  class="mt-4 cursor-pointer rounded-lg bg-accent-500 px-6 py-3 font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">
+                  class="btn-primary">
             {{ busyMeas ? 'Saving…' : 'Record measurement' }}
           </button>
           <p *ngIf="measMsg" class="mb-0 mt-2 text-sm" [class]="measOk ? 'text-accent-700' : 'text-red-600'">{{ measMsg }}</p>
@@ -273,7 +298,7 @@ import { AuthService } from '../../../services/auth.service';
             <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h4 class="m-0 font-bold text-ink">Trend over time</h4>
               <select [(ngModel)]="trendKind"
-                      class="rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-sm">
+                      class="px-3 py-2.5 text-sm">
                 <option *ngFor="let k of trendKinds" [value]="k">{{ k }}</option>
               </select>
             </div>
@@ -340,12 +365,12 @@ import { AuthService } from '../../../services/auth.service';
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Patient Health ID</span>
               <input [(ngModel)]="referral.health_id" placeholder="e.g. HTD-2024-001"
-                     class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
+                     class="px-3 py-2.5 text-sm" />
             </label>
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Send to hospital</span>
               <select [(ngModel)]="referral.to_hospital"
-                      class="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm">
+                      class="px-3 py-2.5 text-sm">
                 <option value="" disabled>Select hospital…</option>
                 <option *ngFor="let h of hospitals" [value]="h.code">
                   {{ h.name }}<span *ngIf="h.region"> — {{ h.region }}</span>
@@ -357,11 +382,11 @@ import { AuthService } from '../../../services/auth.service';
               <span class="text-[13px] font-semibold text-ink">Reason / diagnosis summary</span>
               <textarea [(ngModel)]="referral.reason" rows="2"
                         placeholder="e.g. needs specialist oncology review not available here"
-                        class="rounded-lg border border-gray-300 px-3 py-2.5 text-sm"></textarea>
+                        class="px-3 py-2.5 text-sm"></textarea>
             </label>
           </div>
           <button (click)="sendReferral()" [disabled]="busyRef || !referral.to_hospital"
-                  class="mt-4 cursor-pointer rounded-lg bg-accent-500 px-6 py-3 font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">
+                  class="btn-primary">
             {{ busyRef ? 'Sending…' : 'Send referral' }}
           </button>
           <p *ngIf="refMsg" class="mb-0 mt-2 text-sm" [class]="refOk ? 'text-accent-700' : 'text-red-600'">{{ refMsg }}</p>
@@ -377,7 +402,7 @@ import { AuthService } from '../../../services/auth.service';
             </div>
             <div class="flex gap-2">
               <button (click)="respondIncoming(r, 'ACCEPTED')" [disabled]="busyIncoming === r.id"
-                      class="cursor-pointer rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-600 disabled:opacity-50">Accept</button>
+                      class="btn-primary">Accept</button>
               <button (click)="respondIncoming(r, 'DECLINED')" [disabled]="busyIncoming === r.id"
                       class="cursor-pointer rounded-lg border-2 border-red-500 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-500 hover:text-white disabled:opacity-50">Decline</button>
             </div>
@@ -409,7 +434,7 @@ import { AuthService } from '../../../services/auth.service';
         <div class="card mb-5 p-5">
           <div class="flex flex-wrap gap-3">
             <select [(ngModel)]="txFilterEvent" (ngModelChange)="applyTxFilter()"
-                    class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                    class="px-3 py-2.5 text-sm">
               <option value="">All Event Types</option>
               <option value="RecordAdded">Record Added</option>
               <option value="AccessGranted">Access Granted</option>
@@ -422,7 +447,7 @@ import { AuthService } from '../../../services/auth.service';
                    placeholder="Filter by Health ID (optional)"
                    class="min-w-50 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             <button (click)="clearTxFilter()"
-                    class="cursor-pointer rounded-lg border-2 border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-ink">
+                    class="btn-secondary">
               Clear Filters
             </button>
           </div>
@@ -456,7 +481,7 @@ import { AuthService } from '../../../services/auth.service';
                 </td>
                 <td class="px-4 py-3">
                   <a [href]="tx.etherscan_url" target="_blank" rel="noopener"
-                     class="rounded bg-white px-2 py-1 text-xs font-mono text-accent-700 underline shadow-sm hover:bg-primary-50">
+                     class="rounded px-2 py-1 text-xs font-mono text-accent-700 underline  hover:bg-primary-50">
                     View on Etherscan
                   </a>
                 </td>
@@ -544,6 +569,10 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   txFilterEvent = '';
   txFilterHealthId = '';
 
+  /** Most recent on-chain action by this doctor (break-glass), surfaced
+   * as a banner with a direct Etherscan link. */
+  lastTx: { label: string; tx_hash: string; pending: boolean } | null = null;
+
   // measurement trend chart
   trendKind = '';
 
@@ -612,6 +641,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.referralTimer = setInterval(() => {
       void this.refreshIncoming();
       void this.pollMyRequests();
+      // Keep the Etherscan log live while the doctor watches it, and resolve
+      // a pending break-glass tx once it is mined.
+      if (this.tab === 'transactions') void this.loadTransactions();
     }, 15000);
   }
 
@@ -751,17 +783,34 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     }
     if (!confirm('Use break-glass? This emergency access will be permanently logged on-chain.')) return;
     try {
-      await this.api.breakGlass({
+      const res: any = await this.api.breakGlass({
         health_id: this.healthId.trim(),
         facility_id: this.myHospitalCode || 'UNKNOWN',
         reason,
       });
+      const h: string = res?.tx_hash || '';
+      if (h && !h.startsWith('PENDING')) {
+        this.lastTx = { label: `Break-glass used for ${this.healthId.trim()}`, tx_hash: h, pending: false };
+      } else {
+        this.lastTx = { label: `Break-glass submitted for ${this.healthId.trim()}`, tx_hash: h || '', pending: true };
+      }
+      this.requestReason = '';
+      // Immediately reflect the BreakGlassUsed event in the on-chain log.
+      void this.loadTransactions();
       alert('Emergency access granted for 1 hour and logged on-chain.');
       await this.viewRecord();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
     }
     this.syncView();
+  }
+
+  isPendingTx(h: string): boolean {
+    return h.startsWith('PENDING');
+  }
+
+  etherscanUrl(h: string): string {
+    return `https://sepolia.etherscan.io/tx/${h}`;
   }
 
   async addMeasurement() {
@@ -853,6 +902,10 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       const res = await this.api.blockchainEvents();
       this.transactions = res.events;
       this.filteredTransactions = [...this.transactions];
+      // A pending break-glass just mined? Flip the banner to the live link.
+      if (this.lastTx?.pending && this.transactions.some((t) => t.transaction_hash === this.lastTx!.tx_hash)) {
+        this.lastTx.pending = false;
+      }
     } catch (e: any) {
       console.error('Failed to load transactions:', e);
       this.transactions = [];

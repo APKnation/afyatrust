@@ -6,6 +6,7 @@ urlpatterns = [
     path("register/", views.register_patient),
     path("login/", views.login),
     path("add-record/", views.add_record),
+    path("exchange/<str:record_hash>/", views.exchange_record),
     path("facility/records/", views.facility_records),
     path("hospitals/", views.list_hospitals),
     path("account/change-secret/", views.change_secret),
@@ -42,5 +43,6 @@ urlpatterns = [
     # Blockchain event history (Etherscan-verified)
     path("blockchain/events/", views.blockchain_events),
     path("blockchain/patient/<str:health_id>/", views.patient_blockchain_history),
+    path("blockchain/patient/<str:health_id>/story/", views.patient_activity_story),
     path("blockchain/hospital-summary/", views.hospital_blockchain_summary),
 ]

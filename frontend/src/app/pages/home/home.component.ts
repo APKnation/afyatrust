@@ -139,19 +139,19 @@ import { AuthService } from '../../services/auth.service';
             </p>
             <ul class="mt-6 flex flex-col gap-3">
               <li class="flex items-start gap-3">
-                <span class="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-accent-500 text-xs font-bold text-white">&#10003;</span>
+                <span class="btn-primary">&#10003;</span>
                 <span><strong>Self-sovereign consent</strong> — grant or revoke any doctor, any time</span>
               </li>
               <li class="flex items-start gap-3">
-                <span class="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-accent-500 text-xs font-bold text-white">&#10003;</span>
+                <span class="btn-primary">&#10003;</span>
                 <span><strong>Verified doctors only</strong> — license-checked accounts, admin approved</span>
               </li>
               <li class="flex items-start gap-3">
-                <span class="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-accent-500 text-xs font-bold text-white">&#10003;</span>
+                <span class="btn-primary">&#10003;</span>
                 <span><strong>Full audit trail</strong> — your dashboard shows every access event</span>
               </li>
               <li class="flex items-start gap-3">
-                <span class="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-accent-500 text-xs font-bold text-white">&#10003;</span>
+                <span class="btn-primary">&#10003;</span>
                 <span><strong>No wallet needed</strong> — patients sign in with Health ID + PIN</span>
               </li>
             </ul>

@@ -27,6 +27,7 @@ from .blockchain import (
     cache_invalidate,
     checksum_address,
     contract,
+    CONTRACT_ADDRESS,
     ensure_gas,
     facility_address,
     send_transaction,
@@ -98,6 +99,9 @@ def _audit(patient, events):
             except Exception:
                 pass  # Best effort
 
+        # Newest first — dashboards must show the latest action at the top,
+        # but the contract returns the trail oldest-first.
+        audit_entries.sort(key=lambda e: e["timestamp"], reverse=True)
         events[:] = audit_entries
     except Exception:
         events[:] = []  # PoC: chain may be unreachable; show empty trail
@@ -1225,6 +1229,50 @@ def add_record(request):
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
+def exchange_record(request, record_hash):
+    """Decentralized exchange endpoint (the metadata_uri stored on-chain).
+
+    Hospital A writes `https://api.<facility>.afyatrust.network/exchange/<hash>`
+    on-chain when adding a record. Anyone (typically Hospital B's backend or a
+    verifying party) can later GET this URL to confirm the record exists and
+    matches the hash anchored on Sepolia — the record data itself stays with
+    the facility that created it.
+
+    Only the hash is sensitive-free: we deliberately return the metadata and
+    on-chain anchors, NOT the clinical payload, without authentication.
+    """
+    h = (record_hash or "").strip()
+    # Some PoC-era rows store hashes without the 0x prefix — try the exact
+    # value first, then the prefixed form, so both lookup styles resolve.
+    record = MedicalRecord.objects.filter(record_hash__iexact=h).select_related("patient", "patient__hospital").first()
+    if not record and not h.startswith("0x"):
+        record = MedicalRecord.objects.filter(record_hash__iexact="0x" + h).select_related("patient", "patient__hospital").first()
+    if not record:
+        return Response({"error": "Record not found for this hash"}, status=404)
+
+    # Re-verify the hash of the stored payload — proves the off-chain data
+    # has not been tampered with since it was anchored on-chain.
+    recomputed = "0x" + hashlib.sha256(json.dumps(record.record_data, sort_keys=True).encode()).hexdigest()
+
+    tx_ok = bool(record.tx_hash) and not record.tx_hash.startswith("PENDING")
+
+    return Response({
+        "record_hash": record.record_hash,
+        "hash_matches_payload": recomputed == record.record_hash,
+        "record_type": record.record_type,
+        "facility_id": record.facility_id,
+        "facility_name": record.facility_name,
+        "health_id": record.patient.health_id,
+        "created_at": record.created_at,
+        "anchored_on_chain": tx_ok,
+        "tx_hash": record.tx_hash if tx_ok else None,
+        "etherscan_url": f"https://sepolia.etherscan.io/tx/{record.tx_hash}" if tx_ok else None,
+        "metadata_uri": f"https://api.{record.facility_id.lower()}.afyatrust.network/exchange/{record.record_hash}",
+    })
+
+
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def facility_records(request):
     """Recent records added by the signed-in staff member's hospital,
@@ -1264,26 +1312,117 @@ def _get_contract():
         raise RuntimeError(f"Contract not available: {e}")
 
 
+# Public RPCs cap eth_getLogs block ranges (Sepolia: 10,000 here) and
+# reject anything wider — so every log query must walk in chunks.
+_LOG_BLOCK_CHUNK = 9_000
+_deploy_block_cache: dict = {}
+
+
+def _deploy_block() -> int:
+    """First block where the contract has code (binary search, cached).
+
+    Querying from 0 wastes chunks of empty blocks; querying from deploy
+    block keeps the number of RPC round-trips minimal.
+    """
+    if "block" in _deploy_block_cache:
+        return _deploy_block_cache["block"]
+    try:
+        addr = w3.to_checksum_address(CONTRACT_ADDRESS)
+    except Exception:
+        return 0
+    lo, hi = 0, w3.eth.block_number
+    first_code = lo
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        try:
+            if w3.eth.get_code(addr, mid):
+                first_code = mid
+                hi = mid - 1
+            else:
+                lo = mid + 1
+        except Exception:
+            return 0
+    _deploy_block_cache["block"] = first_code
+    return first_code
+
+
+def _health_id_topic(health_id: str) -> str:
+    """Indexed string event params are stored on-chain as their keccak256
+    hash (a topic), NOT as plaintext. Filtering eth_getLogs by the plaintext
+    value therefore matches nothing — hash it first.
+    """
+    from eth_utils import keccak
+    from eth_abi import encode
+    try:
+        encoded = encode(["string"], [health_id])
+        return "0x" + keccak(encoded).hex()
+    except Exception:
+        return ""
+
+
 def _fetch_events(event_name, from_block=0, to_block="latest", argument_filters=None):
-    """Fetch events from the contract with optional filters."""
+    """Fetch events from the contract across chunked block ranges.
+
+    - Handles the RPC 10,000-block range cap by walking the chain in
+      _LOG_BLOCK_CHUNK windows from the deploy block.
+    - argument_filters accepts plaintext values for indexed string params
+      (e.g. healthID) and converts them to the on-chain hash topic.
+    - Returns [] on unrecoverable RPC errors instead of raising, so callers
+      never break — but chunked fetches mean real events now come through.
+    """
     try:
         c = _get_contract()
         event = getattr(c.events, event_name)
-        # web3.py uses snake_case for block parameters
-        kwargs = {}
-        if from_block:
-            kwargs['from_block'] = from_block
-        if to_block and to_block != "latest":
-            kwargs['to_block'] = to_block
-        if argument_filters:
-            kwargs['argument_filters'] = argument_filters
-        logs = event.get_logs(**kwargs)
-        return [{
-            "transaction_hash": log.transactionHash.hex(),
-            "block_number": log.blockNumber,
-            "event": event_name,
-            "args": dict(log.args),
-        } for log in logs]
+
+        start = max(from_block, _deploy_block()) if from_block == 0 else from_block
+        latest = w3.eth.block_number if to_block in ("latest", "") else int(to_block)
+        if start > latest:
+            return []
+
+        # Convert plaintext filters for indexed string params to topics.
+        abi_event = event.abi
+        indexed_inputs = [i for i in abi_event.get("inputs", []) if i.get("indexed")]
+        topics_filters = {}
+        plain_filters = {}
+        for k, v in (argument_filters or {}).items():
+            inp = next((i for i in indexed_inputs if i["name"] == k), None)
+            if inp and inp.get("type") == "string":
+                h = _health_id_topic(v)
+                if h:
+                    topics_filters[k] = h
+            elif inp:
+                topics_filters[k] = v  # address/uint indexed: usable as-is
+            else:
+                plain_filters[k] = v  # non-indexed: match client-side
+
+        results = []
+        chunk_start = start
+        while chunk_start <= latest:
+            chunk_end = min(chunk_start + _LOG_BLOCK_CHUNK - 1, latest)
+            try:
+                logs = event.get_logs(
+                    argument_filters={**topics_filters},
+                    from_block=chunk_start,
+                    to_block=chunk_end,
+                )
+            except Exception:
+                # This window failed (transient RPC error) — skip it rather
+                # than dropping the whole fetch.
+                chunk_start = chunk_end + 1
+                continue
+            for log in logs:
+                args = dict(log.args)
+                # Non-indexed params arrive as plaintext — apply client-side filters.
+                if any(args.get(k) != v for k, v in plain_filters.items()):
+                    continue
+                results.append({
+                    "transaction_hash": log.transactionHash.hex(),
+                    "block_number": log.blockNumber,
+                    "event": event_name,
+                    "args": args,
+                })
+            chunk_start = chunk_end + 1
+        return results
     except Exception as e:
         # Return empty list on error instead of dict to avoid breaking .extend()
         return []
@@ -1389,6 +1528,163 @@ def blockchain_events(request):
         "hospital_code": hospital_code,
         "events": all_events,
         "count": len(all_events),
+    })
+
+
+# ============ UNIFIED ACTIVITY STORY (human-readable on-chain history) ==========
+
+_ACTION_STORY = {
+    "PatientRegistered": ("registered on AfyaTrust", "🟢"),
+    "RecordAdded": ("added a medical record (hash anchored on-chain)", "📄"),
+    "AccessGranted": ("was GRANTED access to the records", "🔑"),
+    "AccessRevoked": ("had access REVOKED", "🚫"),
+    "RecordViewed": ("VIEWED the records", "👁"),
+    "BreakGlassUsed": ("used BREAK-GLASS emergency access", "🚨"),
+    "EmergencyAccessGranted": ("received a 1-hour EMERGENCY window", "⏱"),
+}
+
+
+def _who(args: dict) -> str:
+    """Best-effort human identity for the acting wallet in an event."""
+    wallet = (args.get("grantedTo") or args.get("revokedFrom") or args.get("viewer")
+              or args.get("clinician") or args.get("wallet") or "")
+    if not wallet:
+        return ""
+    w = wallet.lower()
+    doc = Doctor.objects.filter(wallet_address__iexact=wallet).first()
+    if doc:
+        return f"Dr. {doc.full_name} ({doc.facility_id})"
+    pat = Patient.objects.filter(wallet_address__iexact=wallet).first()
+    if pat:
+        return pat.full_name
+    if facility_address() and w == facility_address().lower():
+        return "Hospital staff (facility wallet)"
+    return f"{wallet[:10]}…"
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def patient_activity_story(request, health_id):
+    """One unified, human-readable timeline of everything that happened to
+    this patient's data on-chain — who did what, when, verified by tx.
+
+    Merges the on-chain audit trail (has every action) with the raw event
+    logs (has tx hashes) into a single story, e.g.:
+      "Dr. Alice (1212) VIEWED the records — verified on Etherscan"
+    """
+    requestor_role = request.auth.get("role", "") if request.auth else ""
+    if requestor_role == "PATIENT":
+        if request.auth.get("health_id", "") != health_id:
+            return Response({"error": "Not authorized"}, status=403)
+    elif requestor_role == "DOCTOR":
+        doctor = _doctor_from_request(request)
+        if not doctor:
+            return Response({"error": "Doctor not verified"}, status=403)
+        allowed, _ = cached_has_access(health_id, doctor.wallet_address)
+        live_grant = AccessGrant.objects.filter(
+            patient__health_id__iexact=health_id, doctor=doctor,
+            active=True, expires_at__gt=timezone.now(),
+        ).exists()
+        if not (allowed or live_grant):
+            return Response({"error": "No access permission for this patient"}, status=403)
+    elif requestor_role == "STAFF":
+        staff = _staff_from_request(request)
+        if not staff:
+            return Response({"error": "Staff not found"}, status=403)
+        patient = Patient.objects.filter(health_id=health_id).first()
+        if not patient or patient.hospital != staff.hospital:
+            return Response({"error": "Patient not in your hospital"}, status=403)
+    else:
+        return Response({"error": "Not authorized"}, status=403)
+
+    # 1) The on-chain audit trail — complete, authoritative, every action.
+    try:
+        trail = contract.functions.getAuditTrail(health_id).call()
+    except Exception:
+        trail = []
+
+    # 2) Raw event logs — supply tx hashes per (action, actor, timestamp).
+    events_by_key: dict = {}
+    for evt_name in ["PatientRegistered", "RecordAdded", "AccessGranted",
+                     "AccessRevoked", "RecordViewed", "BreakGlassUsed",
+                     "EmergencyAccessGranted"]:
+        for ev in _fetch_events(evt_name, argument_filters={"healthID": health_id}):
+            a = ev["args"]
+            actor = (a.get("grantedTo") or a.get("revokedFrom") or a.get("viewer")
+                     or a.get("clinician") or "")
+            ts = a.get("timestamp")
+            if ts is None:
+                try:
+                    blk = w3.eth.get_block(ev["block_number"])
+                    ts = blk.timestamp
+                except Exception:
+                    ts = 0
+            key = (actor.lower(), round(ts / 120))  # 2-min bucket match
+            events_by_key.setdefault(key, ev)
+
+    def _match_tx(action: str, accessor: str, ts: int) -> str:
+        """Find the tx hash of the event matching this audit entry."""
+        action_to_event = {
+            "PATIENT_REGISTERED": "PatientRegistered",
+            "RECORD_ADDED": "RecordAdded",
+            "GRANTED_TO_DOCTOR": "AccessGranted",
+            "REVOKED_DOCTOR": "AccessRevoked",
+            "VIEW": "RecordViewed",
+            "BREAK_GLASS": "BreakGlassUsed",
+            "EMERGENCY_ACCESS_REVOKED": "EmergencyAccessRevoked",
+        }
+        ev_name = action_to_event.get(action)
+        if not ev_name:
+            return ""
+        for (actor_key, bucket), ev in events_by_key.items():
+            if ev["event"] == ev_name and actor_key == (accessor or "").lower() \
+                    and abs(ev.get("args", {}).get("timestamp", ts) - ts) <= 120:
+                return ev["transaction_hash"]
+        # Fallback: match on event name + time bucket only (actor field
+        # names differ between the audit trail and raw events).
+        for (actor_key, bucket), ev in events_by_key.items():
+            if ev["event"] == ev_name and abs(ev.get("args", {}).get("timestamp", ts) - ts) <= 120:
+                return ev["transaction_hash"]
+        return ""
+
+    story = []
+    for e in trail:
+        accessor, role, facility, action, ts = e[0], e[1], e[2], e[3], e[4]
+        tx = _match_tx(action, accessor, ts)
+        # Map audit action → story fragment
+        action_map = {
+            "PATIENT_REGISTERED": "PatientRegistered",
+            "RECORD_ADDED": "RecordAdded",
+            "GRANTED_TO_DOCTOR": "AccessGranted",
+            "REVOKED_DOCTOR": "AccessRevoked",
+            "VIEW": "RecordViewed",
+            "BREAK_GLASS": "BreakGlassUsed",
+            "EMERGENCY_ACCESS_REVOKED": "EmergencyAccessRevoked",
+        }
+        ev_name = action_map.get(action, "")
+        # The "who": resolve wallet → doctor/patient/staff name.
+        who = _who({"viewer": accessor, "clinician": accessor, "wallet": accessor,
+                    "grantedTo": accessor, "revokedFrom": accessor})
+        verb = _ACTION_STORY.get(ev_name, (action.lower().replace("_", " "), "•"))
+        story.append({
+            "action": action,
+            "event": ev_name,
+            "who": who,
+            "wallet": accessor,
+            "role": role,
+            "facility": facility,
+            "verb": verb[0],
+            "icon": verb[1],
+            "timestamp": ts,
+            "transaction_hash": tx or None,
+            "etherscan_url": f"https://sepolia.etherscan.io/tx/{tx}" if tx else None,
+        })
+
+    story.sort(key=lambda x: x["timestamp"], reverse=True)
+    return Response({
+        "health_id": health_id,
+        "story": story,
+        "count": len(story),
     })
 
 

@@ -57,6 +57,31 @@ import { AuthService } from '../../../services/auth.service';
         </div>
       </div>
 
+      <!-- LAST ON-CHAIN ACTION (Etherscan-verifiable) -->
+      <div *ngIf="lastTx" class="card mb-6 border-l-4 p-5"
+           [class]="lastTx.pending ? 'border-l-orange-500' : 'border-l-accent-500'">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="m-0 text-sm font-bold text-ink">{{ lastTx.label }}</h2>
+            <p class="m-0 text-xs text-muted">
+              {{ lastTx.pending
+                ? 'Transaction submitted — the confirmation will appear in your Blockchain Transactions tab shortly.'
+                : 'Written to Sepolia — verify it on Etherscan.' }}
+            </p>
+          </div>
+          <div class="flex items-center gap-2">
+            <code class="rounded bg-gray-100 px-2 py-1 font-mono text-xs">{{ lastTx.tx_hash | slice:0:20 }}…</code>
+            <a *ngIf="!isPendingTx(lastTx.tx_hash)"
+               [href]="etherscanUrl(lastTx.tx_hash)" target="_blank" rel="noopener"
+               class="btn-secondary text-sm">
+              View on Etherscan
+            </a>
+            <button (click)="lastTx = null" aria-label="Dismiss"
+                    class="cursor-pointer border-none bg-transparent text-lg leading-none text-muted hover:text-ink">×</button>
+          </div>
+        </div>
+      </div>
+
       <!-- PENDING REQUESTS BANNER (visible on every tab) -->
       <div *ngIf="requests.length > 0" class="card mb-6 border-l-4 border-l-accent-500 p-5">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -289,6 +314,10 @@ import { AuthService } from '../../../services/auth.service';
                   class="mt-4 btn-primary disabled:opacity-50">
             {{ busy ? 'Granting…' : 'Grant access' }}
           </button>
+          <p *ngIf="busy" class="mb-0 mt-2 text-xs text-muted">
+            Signing an on-chain transaction with your custodial wallet — the
+            AccessGranted event will be verifiable on Etherscan.
+          </p>
         </div>
         <p class="text-sm text-muted">
           Access expires automatically. Revoke any time — the revoke event is logged on-chain too.
@@ -505,6 +534,10 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   loading = false;
   busy = false;
   errorMsg = '';
+
+  /** Most recent on-chain action performed by this patient (grant/approve),
+   * surfaced as a banner with a direct Etherscan link. */
+  lastTx: { label: string; tx_hash: string; pending: boolean } | null = null;
   grant = { doctor_license: '', doctor_name: '', doctor_wallet: '', days: 7 };
 
   // Doctor picker for the grant-access form (patient-friendly: pick by name).
@@ -549,6 +582,23 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.syncView();
   }
 
+  /** Record the tx of an on-chain action and surface it in the banner. */
+  private showLastTx(label: string, tx_hash?: string) {
+    const h = (tx_hash || '').trim();
+    if (!h) return;
+    this.lastTx = { label, tx_hash: h, pending: this.isPendingTx(h) };
+    // Keep the on-chain log fresh right after a real transaction.
+    void this.loadTransactions();
+  }
+
+  isPendingTx(h: string): boolean {
+    return h.startsWith('PENDING');
+  }
+
+  etherscanUrl(h: string): string {
+    return `https://sepolia.etherscan.io/tx/${h}`;
+  }
+
   async ngOnInit() {
     if (!this.auth.isPatient) {
       this.router.navigate(['/login']);
@@ -578,11 +628,15 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   }
 
   /** Load blockchain transaction history for this patient. */
-  private async loadTransactions() {
+  private  async loadTransactions() {
     if (!this.data?.health_id) return;
     try {
       const res = await this.api.patientBlockchainHistory(this.data.health_id);
       this.transactions = res.events;
+      // A PENDING grant just mined? Update the banner to show the live link.
+      if (this.lastTx?.pending && this.transactions.some((t) => t.transaction_hash === this.lastTx!.tx_hash)) {
+        this.lastTx.pending = false;
+      }
     } catch (e: any) {
       console.error('Failed to load transactions:', e);
       this.transactions = [];
@@ -598,6 +652,8 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   private startPolling() {
     this.pollTimer = setInterval(async () => {
       let changed = false;
+      // Keep the Etherscan log live while the patient watches it.
+      if (this.tab === 'transactions') void this.loadTransactions();
       try {
         this.requests = await this.api.myRequests();
         this.syncNotifications();
@@ -742,7 +798,9 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.busy = true;
     this.syncView();
     try {
-      await this.api.grantAccess(this.grant);
+      const doctorLabel = this.selectedDoctor?.full_name || this.grant.doctor_name || this.grant.doctor_license;
+      const res: any = await this.api.grantAccess(this.grant);
+      this.showLastTx(`Access granted to Dr. ${doctorLabel}`, res?.tx_hash);
       this.grant = { doctor_license: '', doctor_name: '', doctor_wallet: '', days: 7 };
       this.selectedDoctor = null;
       this.doctorQuery = '';
@@ -759,7 +817,8 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.busyRequest = req.id;
     this.syncView();
     try {
-      await this.api.approveRequest(req.id);
+      const res: any = await this.api.approveRequest(req.id);
+      this.showLastTx(`Access granted to Dr. ${req.doctor_name} for 7 days`, res?.tx_hash);
       await this.reload();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));

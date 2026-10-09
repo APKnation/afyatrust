@@ -700,19 +700,19 @@ export class HospitalDashboardComponent implements OnInit {
       this.busyId = null;
       this.syncView();
     }
+  }
 
-    async verifyReferralRecords(referral: ReferralItem) {
-      this.verifyingReferralId = referral.id;
+  async verifyReferralRecords(referral: ReferralItem) {
+    this.verifyingReferralId = referral.id;
+    this.syncView();
+    try {
+      this.integrityReports[referral.id] =
+        await this.api.verifyReferralRecords(referral.id);
+    } catch (e: any) {
+      alert(e?.error?.error || e?.message || 'Could not verify referral records');
+    } finally {
+      this.verifyingReferralId = null;
       this.syncView();
-      try {
-        this.integrityReports[referral.id] =
-          await this.api.verifyReferralRecords(referral.id);
-      } catch (e: any) {
-        alert(e?.error?.error || e?.message || 'Could not verify referral records');
-      } finally {
-        this.verifyingReferralId = null;
-        this.syncView();
-      }
     }
   }
 

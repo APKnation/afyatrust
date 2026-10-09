@@ -319,10 +319,17 @@ import { AuthService } from '../../../services/auth.service';
               <strong>{{ issue.record_type }}</strong> · {{ issue.facility_id || 'Unknown facility' }} · {{ issue.reason }}
               <code *ngIf="issue.record_hash" class="mt-1 block font-mono">{{ issue.record_hash }}</code>
             </div>
-            <div *ngIf="emergencyAccess && emergencyReason" class="card border border-red-200 bg-red-50 p-4">
-              <p class="m-0 text-sm font-semibold text-red-900">Emergency access reason</p>
-              <p class="mb-0 mt-1 text-sm text-red-800">{{ emergencyReason }}</p>
-            </div>
+          </div>
+          <div *ngIf="emergencyAccess && emergencyReason" class="card border border-red-200 bg-red-50 p-4">
+            <p class="m-0 text-sm font-semibold text-red-900">Emergency access reason</p>
+            <p class="mb-0 mt-1 text-sm text-red-800">{{ emergencyReason }}</p>
+          </div>
+          <div *ngIf="chainVerificationUnavailable" class="card border-2 border-red-400 bg-red-50 p-4">
+            <p class="m-0 font-bold text-red-900">Blockchain unavailable — emergency history is unverified</p>
+            <p class="mb-0 mt-1 text-sm text-red-800">
+              Off-chain records are shown for emergency care only when their local payload still matches its saved hash.
+              Their blockchain anchors could not be checked.
+            </p>
           </div>
 
           <!-- Patient health summary (most-used meds, frequent measurements, diagnoses) -->
@@ -401,6 +408,7 @@ import { AuthService } from '../../../services/auth.service';
                   <span class="text-sm text-muted">{{ rec.date | date:'medium' }}</span>
                   <span class="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-bold text-primary-900">{{ rec.type }}</span>
                   <span *ngIf="rec.verified" class="btn-primary">On-chain</span>
+                  <span *ngIf="!rec.verified" class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">Not blockchain verified</span>
                 </div>
                 <div *ngIf="rec.source_uri" class="mb-3 text-xs text-muted flex items-center gap-1.5">
                   <span class="font-semibold">Source:</span>
@@ -559,6 +567,9 @@ import { AuthService } from '../../../services/auth.service';
 
           <!-- TREND CHART -->
           <div *ngIf="measurementHistory.length" class="mt-6 border-t border-gray-100 pt-5">
+            <p *ngIf="historyChainUnavailable" class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              Emergency fallback: the blockchain could not be reached. Readings are shown as unverified; hash mismatches remain withheld.
+            </p>
             <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h4 class="m-0 font-bold text-ink">Trend over time</h4>
               <select [(ngModel)]="trendKind"
@@ -796,6 +807,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   integrityIssues: { record_hash: string | null; facility_id: string; record_type: string; reason: string }[] = [];
   emergencyAccess = false;
   emergencyReason = '';
+  chainVerificationUnavailable = false;
   denied = false;
   requestSent = false;
   loading = false;
@@ -817,6 +829,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   historyHealthId = '';
   measurementHistory: MeasurementItem[] = [];
   historyLoaded = false;
+  historyChainUnavailable = false;
 
   // referrals
   hospitals: HospitalOption[] = [];
@@ -1015,6 +1028,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.integrityIssues = [];
     this.emergencyAccess = false;
     this.emergencyReason = '';
+    this.chainVerificationUnavailable = false;
     this.viewedName = '';
     this.viewedHealthId = '';
     this.syncView();
@@ -1029,6 +1043,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       this.integrityIssues = res.integrity_issues || [];
       this.emergencyAccess = !!res.emergency_access;
       this.emergencyReason = res.emergency_reason || '';
+      this.chainVerificationUnavailable = !!res.chain_verification_unavailable;
       this.resChainChecked = res.chain_checked ?? true;
     } catch (e: any) {
       if (e?.status === 403) {
@@ -1145,6 +1160,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     if (!this.historyHealthId.trim()) return;
     try {
       this.measurementHistory = await this.api.patientMeasurements(this.historyHealthId.trim());
+      this.historyChainUnavailable = this.measurementHistory.some(
+        (measurement) => measurement.blockchain_unavailable
+      );
       this.historyLoaded = true;
       const kinds = this.trendKinds;
       if (!kinds.includes(this.trendKind)) this.trendKind = kinds[0] || '';

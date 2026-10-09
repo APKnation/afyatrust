@@ -710,21 +710,39 @@ def doctor_view_record(request, health_id):
     except Exception:
         logger.exception("Could not submit record-view audit for %s", health_id)
 
-    # Fetch the list of record pointers directly from the blockchain
-    # to demonstrate true decentralized data exchange.
+    emergency_grant = AccessGrant.objects.filter(
+        patient=patient,
+        doctor=doctor,
+        source="BREAK_GLASS",
+        active=True,
+        expires_at__gt=timezone.now(),
+    ).first()
+
+    # Fetch the record pointers so payloads can be checked against immutable
+    # anchors before they are released.
     chain_records = []
+    chain_verification_unavailable = False
     try:
         chain_records = contract.functions.getRecords(health_id).call()
     except Exception:
         logger.exception("Could not load on-chain records for patient %s", health_id)
-        return Response(
-            {"error": "Blockchain records are unavailable; medical history was not released"},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
+        if not emergency_grant:
+            return Response(
+                {"error": "Blockchain records are unavailable; medical history was not released"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        chain_verification_unavailable = True
 
     final_records = []
     integrity_issues = []
     verified_record_objects = []
+    if chain_verification_unavailable:
+        integrity_issues.append({
+            "record_hash": None,
+            "facility_id": doctor.facility_id,
+            "record_type": "All history",
+            "reason": "BLOCKCHAIN_UNAVAILABLE_EMERGENCY_ACCESS_UNVERIFIED",
+        })
     for r_hash, fac_id, meta_uri, _timestamp in chain_records:
         record = patient.records.filter(
             record_hash__iexact=r_hash,
@@ -770,12 +788,34 @@ def doctor_view_record(request, health_id):
         for chain_record in chain_records
     }
     for record in patient.records.all():
-        if (record.record_hash.lower(), record.facility_id.lower()) not in chain_record_keys:
+        record_key = (record.record_hash.lower(), record.facility_id.lower())
+        if record_key not in chain_record_keys:
+            payload_matches = (
+                _record_payload_hash(record.record_data).lower()
+                == record.record_hash.lower()
+            )
+            if emergency_grant and payload_matches:
+                final_records.append({
+                    "facility": record.facility_name or record.facility_id,
+                    "type": record.record_type,
+                    "data": record.record_data,
+                    "hash": record.record_hash,
+                    "date": record.created_at,
+                    "verified": False,
+                    "source_uri": None,
+                })
             integrity_issues.append({
                 "record_hash": record.record_hash,
                 "facility_id": record.facility_id,
                 "record_type": record.record_type,
-                "reason": "RECORD_NOT_ANCHORED_ON_CHAIN",
+                "reason": (
+                    "PAYLOAD_HASH_MISMATCH" if not payload_matches
+                    else (
+                        "BLOCKCHAIN_UNAVAILABLE_EMERGENCY_ACCESS_UNVERIFIED"
+                        if chain_verification_unavailable
+                        else "RECORD_NOT_ANCHORED_ON_CHAIN"
+                    )
+                ),
             })
 
     # Measurements (all, for the viewing doctor)
@@ -814,12 +854,22 @@ def doctor_view_record(request, health_id):
             "kind": measurement.kind,
             "value": (
                 measurement.value
-                if verified or not measurement.record_hash else None
+                if (
+                    verified
+                    or not measurement.record_hash
+                    or (chain_verification_unavailable and payload_matches)
+                )
+                else None
             ),
             "unit": measurement.unit,
             "notes": (
                 measurement.notes
-                if verified or not measurement.record_hash else ""
+                if (
+                    verified
+                    or not measurement.record_hash
+                    or (chain_verification_unavailable and payload_matches)
+                )
+                else ""
             ),
             "doctor": measurement.doctor.full_name if measurement.doctor else "",
             "hospital": measurement.hospital.name if measurement.hospital else "",
@@ -827,7 +877,13 @@ def doctor_view_record(request, health_id):
             "record_hash": measurement.record_hash,
             "tx_hash": measurement.tx_hash,
             "verified": verified,
-            "withheld": bool(measurement.record_hash and not verified),
+            "withheld": bool(
+                measurement.record_hash
+                and (
+                    not payload_matches
+                    or (not verified and not chain_verification_unavailable)
+                )
+            ),
         })
 
     # Referrals (all, for the viewing doctor)
@@ -851,20 +907,13 @@ def doctor_view_record(request, health_id):
         records=verified_record_objects,
         measurements=verified_measurement_objects,
     )
-    emergency_grant = AccessGrant.objects.filter(
-        patient=patient,
-        doctor=doctor,
-        source="BREAK_GLASS",
-        active=True,
-        expires_at__gt=timezone.now(),
-    ).first()
-
     return Response({
         "health_id": health_id,
         "full_name": patient.full_name,
         "chain_checked": chain_ok,
         "emergency_access": bool(emergency_grant),
         "emergency_reason": emergency_grant.reason if emergency_grant else "",
+        "chain_verification_unavailable": chain_verification_unavailable,
         "records": final_records,
         "measurements": measurements,
         "referrals": referrals,
@@ -1141,14 +1190,25 @@ def patient_measurements(request, health_id):
     if not allowed:
         return Response({"error": "No access permission for this patient"}, status=403)
 
+    emergency_grant = AccessGrant.objects.filter(
+        patient=patient,
+        doctor=doctor,
+        source="BREAK_GLASS",
+        active=True,
+        expires_at__gt=timezone.now(),
+    ).exists()
+    blockchain_unavailable = False
     try:
         chain_records = contract.functions.getRecords(patient.health_id).call()
     except Exception:
         logger.exception("Could not verify measurements for patient %s", health_id)
-        return Response(
-            {"error": "Blockchain is unavailable; measurements were not released"},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
+        if not emergency_grant:
+            return Response(
+                {"error": "Blockchain is unavailable; measurements were not released"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        chain_records = []
+        blockchain_unavailable = True
 
     result = []
     for measurement in patient.measurements.select_related("doctor", "hospital").all():
@@ -1173,9 +1233,19 @@ def patient_measurements(request, health_id):
         result.append({
             "id": measurement.id,
             "kind": measurement.kind,
-            "value": measurement.value if verified or not measurement.record_hash else None,
+            "value": (
+                measurement.value
+                if verified or not measurement.record_hash
+                or (blockchain_unavailable and payload_matches)
+                else None
+            ),
             "unit": measurement.unit,
-            "notes": measurement.notes if verified or not measurement.record_hash else "",
+            "notes": (
+                measurement.notes
+                if verified or not measurement.record_hash
+                or (blockchain_unavailable and payload_matches)
+                else ""
+            ),
             "doctor": measurement.doctor.full_name if measurement.doctor else "",
             "hospital": measurement.hospital.name if measurement.hospital else _hospital_label(doctor),
             "created_at": measurement.created_at,
@@ -1185,7 +1255,14 @@ def patient_measurements(request, health_id):
             "payload_matches_hash": payload_matches,
             "anchored_on_chain": anchored,
             "verified": verified,
-            "withheld": bool(measurement.record_hash and not verified),
+            "withheld": bool(
+                measurement.record_hash
+                and (
+                    not payload_matches
+                    or (not verified and not blockchain_unavailable)
+                )
+            ),
+            "blockchain_unavailable": blockchain_unavailable,
         })
     return Response(result)
 
@@ -1842,6 +1919,19 @@ def break_glass(request):
 
     wallet = doctor.wallet_address
     facility_id = doctor.facility_id or "UNKNOWN"
+    has_normal_access, _chain_ok = cached_has_access(health_id, wallet)
+    if has_normal_access:
+        return Response({"error": "Doctor already has patient access"}, status=409)
+    active_emergency = AccessGrant.objects.filter(
+        patient=patient,
+        doctor=doctor,
+        source="BREAK_GLASS",
+        active=True,
+        expires_at__gt=timezone.now(),
+    ).exists()
+    if active_emergency:
+        return Response({"error": "An emergency access window is already active"}, status=409)
+
     try:
         tx = contract.functions.breakGlass(health_id, checksum_address(wallet), facility_id, reason)
         tx_hash = send_transaction(tx)
@@ -1849,24 +1939,17 @@ def break_glass(request):
         logger.exception("Break-glass transaction failed for %s", health_id)
         tx_hash = f"PENDING: {e}"
 
-    # A live normal grant is never shortened; otherwise record the emergency
-    # window even if the chain RPC is down, while reporting that limitation.
-    live = AccessGrant.objects.filter(
-        patient=patient, doctor=doctor, active=True, expires_at__gt=timezone.now(),
-        source__in=["", "grant"],
-    ).exists()
-    if not live:
-        AccessGrant.objects.update_or_create(
-            patient=patient,
-            doctor=doctor,
-            source="BREAK_GLASS",
-            defaults={
-                "tx_hash": tx_hash[:66],
-                "active": True,
-                "expires_at": timezone.now() + timedelta(hours=1),
-                "reason": reason,
-            },
-        )
+    # Keep the reason and local emergency expiry even when the chain write is
+    # pending, and report that the immutable audit step still needs retry.
+    AccessGrant.objects.create(
+        patient=patient,
+        doctor=doctor,
+        source="BREAK_GLASS",
+        tx_hash=tx_hash[:66],
+        active=True,
+        expires_at=timezone.now() + timedelta(hours=1),
+        reason=reason,
+    )
     cache_invalidate(f"hasAccess:{health_id.lower()}")
 
     return Response({

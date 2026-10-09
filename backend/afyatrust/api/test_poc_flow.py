@@ -162,7 +162,9 @@ def run():
 
     # --- 6. Doctor verifies, requests access, patient approves, views -------
     # An unverified doctor must be rejected.
-    r = c.post('/api/doctor/request-access/', content_type='application/json', data={
+    r = c.post('/api/doctor/request-access/',
+               HTTP_AUTHORIZATION=f'Bearer {jwt}',
+               content_type='application/json', data={
         'health_id': health_id, 'doctor_wallet': doctor.address, 'reason': 'x'})
     assert r.status_code == 403, f"unverified doctor not blocked: {r.status_code}"
     print('   unverified doctor -> 403 blocked OK')
@@ -172,15 +174,21 @@ def run():
     from api.models import Doctor
     Doctor.objects.create(
         full_name='Dr. Test', license_no=f'LIC-{int(time.time())}',
+        pin_hash=make_password('4321'),
         wallet_address=doctor.address, facility_id='FAC-2',
         status='APPROVED', approved_at=timezone.now(),
     )
+    license_no = Doctor.objects.get(wallet_address=doctor.address).license_no
+    r = c.post('/api/login/', content_type='application/json', data={
+        'identity': license_no, 'secret': '4321',
+    })
+    assert r.status_code == 200, f"doctor login: {r.status_code} {r.content}"
+    doctor_jwt = r.json()['access']
 
-    r = c.post('/api/doctor/request-access/', content_type='application/json', data={
+    r = c.post('/api/doctor/request-access/',
+               HTTP_AUTHORIZATION=f'Bearer {doctor_jwt}',
+               content_type='application/json', data={
         'health_id': health_id,
-        'doctor_wallet': doctor.address,
-        'doctor_name': 'Dr. Test',
-        'facility_id': 'FAC-2',
         'reason': 'Referral follow-up',
     })
     assert r.status_code == 201
@@ -199,7 +207,7 @@ def run():
     # Doctor can now view records; hasAccess is checked on-chain and the
     # view is logged on-chain (step 6 of the PoC document).
     r = c.get(f'/api/doctor/patient/{health_id}/',
-              HTTP_X_WALLET_ADDRESS=doctor.address, HTTP_X_FACILITY_ID='FAC-2')
+              HTTP_AUTHORIZATION=f'Bearer {doctor_jwt}')
     assert r.status_code == 200, f"doctor view: {r.status_code} {r.content}"
     assert r.json()['chain_checked'] is True
     print('   doctor view      -> hasAccess OK on-chain,',
@@ -212,16 +220,26 @@ def run():
     print('   audit trail      ->', actions)
 
     # --- 7. Break-glass (emergency access, permanently logged) --------------
-    r = c.post('/api/doctor/break-glass/', content_type='application/json',
-               data={'health_id': health_id, 'facility_id': 'FAC-2',
-                     'reason': 'unconscious emergency'},
-               HTTP_X_WALLET_ADDRESS=doctor.address)
+    r = c.post('/api/patient/revoke-access/',
+               HTTP_AUTHORIZATION=f'Bearer {jwt}',
+               content_type='application/json',
+               data={'doctor_license': license_no})
+    assert r.status_code == 200, f"revoke access: {r.status_code} {r.content}"
+    r = c.post('/api/doctor/break-glass/',
+               HTTP_AUTHORIZATION=f'Bearer {doctor_jwt}',
+               content_type='application/json',
+               data={'health_id': health_id, 'reason': 'unconscious emergency'})
     assert r.status_code == 200, f"break-glass: {r.status_code} {r.content}"
-    assert r.json()['tx_hash'].startswith('0x'), r.json()
-    print('7. break-glass      ->', r.json()['message'],
-          '| tx', r.json()['tx_hash'][:18] + '...')
+    break_glass_result = r.json()
+    assert 'chain_logged' in break_glass_result, break_glass_result
+    r = c.get(f'/api/doctor/patient/{health_id}/',
+              HTTP_AUTHORIZATION=f'Bearer {doctor_jwt}')
+    assert r.status_code == 200, f"emergency history: {r.status_code} {r.content}"
+    print('7. break-glass      ->', break_glass_result['message'],
+          '| one-hour history access verified')
 
     # --- cleanup -------------------------------------------------------------
     Patient.objects.filter(health_id=health_id).delete()
     Doctor.objects.filter(wallet_address__iexact=doctor.address).delete()
+    HospitalStaff.objects.filter(id__in=[staff_a.id, staff_b.id]).delete()
     print('\nALL POC FLOW TESTS PASSED (real Sepolia transactions)')

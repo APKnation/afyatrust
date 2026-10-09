@@ -131,6 +131,17 @@ verification metadata only, not clinical data. The authenticated referral
 verification endpoint is `POST /api/staff/referrals/<id>/verify-records/`;
 it is scoped to the receiving hospital and accepted referrals.
 
+For the longitudinal summary to group clinical concepts consistently, enter
+diagnosis values under fields named `diagnosis`, `disease`, or `condition`, and
+medicine names under `medicine`, `medication`, `drug`, or `prescription`.
+Doctors record vitals from their **Measurements** tab; each new reading is
+anchored with a hash and appears in the measurement timeline with its hospital,
+clinician, date, and verification status. The doctor’s **Find Patient** view
+then shows all verified history, frequent recorded diagnoses/medicines,
+measurement counts/latest values, referral reasons, and facility activity.
+Patients’ consent requests are approved from their **Requests** tab; emergency
+break-glass is limited to approved doctors and requires a reason.
+
 > **PoC boundary:** Hospital A and Hospital B are separate facility identities
 > and staff accounts in this demo, but they currently use one AfyaTrust
 > backend/database deployment. The on-chain hash check demonstrates detection

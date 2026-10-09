@@ -88,6 +88,7 @@ export interface MeasurementItem {
   payload_matches_hash?: boolean;
   anchored_on_chain?: boolean;
   withheld?: boolean;
+  blockchain_unavailable?: boolean;
 }
 
 export interface ReferralItem {

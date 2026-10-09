@@ -179,6 +179,17 @@ class ReferralAdmin(admin.ModelAdmin):
         self.message_user(request, f"{count} referral(s) declined.")
 
 
+@admin.register(AccessGrant)
+class AccessGrantAdmin(admin.ModelAdmin):
+    list_display = (
+        "patient", "doctor", "source", "active", "expires_at",
+        "tx_hash", "created_at",
+    )
+    list_filter = ("source", "active", "hospital")
+    search_fields = ("patient__health_id", "doctor__license_no", "reason")
+    readonly_fields = ("created_at", "tx_hash")
+
+
 @admin.register(Measurement)
 class MeasurementAdmin(admin.ModelAdmin):
     list_display = ("kind", "value", "unit", "patient", "doctor", "hospital", "created_at")

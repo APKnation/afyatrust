@@ -82,6 +82,26 @@ import { AuthService } from '../../../services/auth.service';
             Verified clinician
           </span>
         </div>
+
+        <!-- DOCTOR WALLET PANEL -->
+        <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Custodial Wallet Address</p>
+            <div class="flex items-center gap-2">
+              <code class="flex-1 text-xs font-mono break-all text-slate-800">{{ walletAddress }}</code>
+              <button (click)="doctorCopyWallet()"
+                      class="flex-shrink-0 px-3 py-1.5 bg-primary-500 text-white text-xs font-semibold rounded-lg hover:bg-primary-600 transition-colors shadow-sm">
+                Copy
+              </button>
+            </div>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">On-Chain Identity</p>
+            <p class="text-xs text-slate-600">
+              This address was auto-generated when your account was created. It is used to sign access grants and record views on Sepolia — no MetaMask required.
+            </p>
+          </div>
+        </div>
       </div>
 
       <!-- LAST ON-CHAIN ACTION (break-glass, etc.) — Etherscan-verifiable -->
@@ -547,6 +567,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   license = '';
   hospitalName = '';
   myHospitalCode = '';
+  walletAddress = '';
 
   // patients
   patients: AssignedPatient[] = [];
@@ -642,6 +663,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     try {
       const me = await this.api.doctorMe();
       this.hospitalName = me.hospital_name || me.hospital_code;
+      this.walletAddress = me.wallet_address || '';
     } catch { /* keep code label */ }
 
     this.hospitals = await this.api.hospitals().catch(() => [] as HospitalOption[]);

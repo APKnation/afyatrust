@@ -264,46 +264,23 @@ def my_records(request):
     if not patient:
         return Response({"error": "Patient not found"}, status=404)
 
-    events: list = []
-    _audit(patient, events)
+    # Lean dashboard path: return DB records immediately so the patient
+    # dashboard is never blocked by slow on-chain RPC calls.
+    # On-chain verification (getRecords / getAuditTrail) is intentionally
+    # NOT called here — the Activity tab fetches its own story, and the
+    # per-record "verified" badge already reflects the DB tx_hash.
+    final_records = [{
+        "id": r.id,
+        "facility": r.facility_name,
+        "type": r.record_type,
+        "data": r.record_data,
+        "hash": r.record_hash,
+        "tx_hash": r.tx_hash,
+        "date": r.created_at,
+        "verified": bool(r.tx_hash) and not r.tx_hash.startswith("PENDING"),
+    } for r in patient.records.all()]
 
-    # Fetch from blockchain for true decentralized exchange
-    chain_records = []
-    try:
-        chain_records = contract.functions.getRecords(patient.health_id).call()
-    except Exception:
-        pass
-
-    if chain_records:
-        hashes = [r[0] for r in chain_records]
-        local_records = {r.record_hash: r for r in patient.records.filter(record_hash__in=hashes)}
-        final_records = []
-        for cr in chain_records:
-            r_hash, fac_id, meta_uri, ts = cr
-            if r_hash in local_records:
-                r = local_records[r_hash]
-                final_records.append({
-                    "id": r.id,
-                    "facility": r.facility_name,
-                    "type": r.record_type,
-                    "data": r.record_data,
-                    "hash": r.record_hash,
-                    "tx_hash": r.tx_hash,
-                    "date": r.created_at,
-                    "verified": True,
-                    "source_uri": meta_uri,
-                })
-    else:
-        final_records = [{
-            "id": r.id,
-            "facility": r.facility_name,
-            "type": r.record_type,
-            "data": r.record_data,
-            "hash": r.record_hash,
-            "tx_hash": r.tx_hash,
-            "date": r.created_at,
-            "verified": bool(r.tx_hash) and not r.tx_hash.startswith("PENDING"),
-        } for r in patient.records.all()]
+    events: list = []  # audit_trail is fetched by the Activity tab on demand
 
     return Response({
         "health_id": patient.health_id,
@@ -1069,6 +1046,61 @@ def hospital_referrals(request):
     if status_filter in {"PENDING", "ACCEPTED", "DECLINED", "CANCELLED"}:
         qs = qs.filter(status=status_filter)
     return Response([_referral_json(r) for r in qs[:100]])
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def hospital_outgoing_referrals(request):
+    """Referrals sent FROM this hospital to another hospital (newest first).
+    The sending hospital's staff uses this to track where their patients have
+    been referred and whether the receiving hospital accepted or declined."""
+    staff = _staff_from_request(request)
+    if not staff:
+        return Response({"error": "Staff account not found"}, status=403)
+
+    status_filter = request.query_params.get("status", "").strip().upper()
+    qs = Referral.objects.filter(from_hospital=staff.hospital)
+    if status_filter in {"PENDING", "ACCEPTED", "DECLINED", "CANCELLED"}:
+        qs = qs.filter(status=status_filter)
+    return Response([_referral_json(r) for r in qs[:100]])
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def hospital_records_exchange(request):
+    """Records this hospital has anchored on-chain — the metadata_uri
+    exchange pointers that another hospital can fetch to verify the data.
+
+    This is the inter-hospital data flow surface: every record added by this
+    hospital writes a pointer like
+        https://api.<facility>.afyatrust.network/exchange/<hash>
+    which any other hospital can GET to confirm the record exists and matches
+    the on-chain hash — the clinical payload stays with this hospital."""
+    staff = _staff_from_request(request)
+    if not staff:
+        return Response({"error": "Staff account not found"}, status=403)
+
+    records = (
+        MedicalRecord.objects.filter(
+            patient__hospital=staff.hospital
+        )
+        .select_related("patient")
+        .order_by("-created_at")[:100]
+    )
+    return Response([
+        {
+            "id": r.id,
+            "health_id": r.patient.health_id,
+            "patient_name": r.patient.full_name,
+            "record_type": r.record_type,
+            "record_hash": r.record_hash,
+            "metadata_uri": f"https://api.{r.facility_id.lower()}.afyatrust.network/exchange/{r.record_hash}",
+            "tx_hash": r.tx_hash,
+            "verified": bool(r.tx_hash) and not r.tx_hash.startswith("PENDING"),
+            "created_at": r.created_at,
+        }
+        for r in records
+    ])
 
 
 @api_view(["POST"])

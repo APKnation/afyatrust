@@ -9,10 +9,10 @@ import { AuthService } from '../../../services/auth.service';
   selector: 'app-patient-dashboard',
   imports: [NgIf, NgFor, SlicePipe, DatePipe, FormsModule],
   template: `
-    <!-- LOADING -->
+    <!-- LOADING (instant — skeleton, disappears as soon as first bytes arrive) -->
     <div *ngIf="loading && !data" class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40">
-      <div class="w-16 h-16 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-6"></div>
-      <p class="text-slate-600 font-medium">Loading your health records...</p>
+      <div class="w-14 h-14 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-4"></div>
+      <p class="text-slate-600 text-sm font-medium">Loading your health records…</p>
     </div>
 
     <!-- NOT LOGGED IN -->
@@ -425,6 +425,68 @@ import { AuthService } from '../../../services/auth.service';
               <p class="text-slate-600">You're all caught up!</p>
             </div>
           </div>
+          <!-- WALLET & PROFILE -->
+          <div *ngIf="tab === 'wallet' && walletProfile" class="space-y-6 animate-fade-in">
+            <div>
+              <h1 class="text-2xl font-bold text-slate-900 mb-2">Wallet & Profile</h1>
+              <p class="text-slate-600">
+                Your custodial wallet was auto-generated when your account was created.
+                It is your on-chain identity on the Sepolia network — no MetaMask required.
+              </p>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+              <h2 class="text-lg font-bold text-slate-900 mb-4">Profile</h2>
+              <dl class="space-y-4">
+                <div class="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  <div>
+                    <p class="text-xs text-slate-500 uppercase tracking-wide">Full Name</p>
+                    <p class="text-sm font-semibold text-slate-900">{{ walletProfile.full_name }}</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-xs text-slate-500 uppercase tracking-wide">Health ID</p>
+                    <p class="text-sm font-mono font-semibold text-slate-900">{{ walletProfile.health_id }}</p>
+                  </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
+                  <div class="flex items-center gap-2">
+                    <div class="w-9 h-9 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p class="text-xs text-slate-500">Custodial Wallet Address</p>
+                      <p class="text-sm font-mono font-semibold text-slate-900 break-all">{{ walletProfile.wallet_address }}</p>
+                    </div>
+                  </div>
+                  <button (click)="copyWalletAddress()"
+                          class="flex-shrink-0 self-start px-4 py-2 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">
+                    Copy address
+                  </button>
+                </div>
+
+                <div class="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                  <p class="text-sm text-amber-800">
+                    <span class="font-semibold">Note:</span> This is a custodial wallet managed by the platform. The private key is encrypted and held by the backend so you can sign in with just your Health ID and PIN. You do not need MetaMask for any platform action.
+                  </p>
+                </div>
+              </dl>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+              <h2 class="text-lg font-bold text-slate-900 mb-4">On-Chain Identity</h2>
+              <p class="text-sm text-slate-600 mb-4">
+                Your wallet address is the anchor for every permission grant, record hash, and access log on the Sepolia blockchain. You can verify any activity involving your identity on Etherscan using this address.
+              </p>
+              <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 font-mono text-sm">
+                <p class="text-xs text-slate-500 mb-1">Address (checksummed)</p>
+                <p class="break-all font-semibold text-slate-900">{{ walletProfile.wallet_address }}</p>
+              </div>
+            </div>
+          </div>
+
           <!-- ACTIVITY -->
           <div *ngIf="tab === 'activity'" class="space-y-6 animate-fade-in">
             <div>
@@ -554,7 +616,7 @@ import { AuthService } from '../../../services/auth.service';
 
 })
 export class PatientDashboardComponent implements OnInit, OnDestroy {
-  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' = 'records';
+  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' = 'records';
   tabs = [
     { id: 'records', label: 'Records' },
     { id: 'measurements', label: 'Measurements' },
@@ -562,6 +624,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     { id: 'permissions', label: 'Permissions' },
     { id: 'requests', label: 'Requests' },
     { id: 'activity', label: 'Activity' },
+    { id: 'wallet', label: 'Wallet & Profile' },
   ] as const;
 
   data: PatientData | null = null;
@@ -610,12 +673,36 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  setTab(id: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity') {
+  setTab(id: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet') {
     this.tab = id;
     if (id === 'activity') {
       void this.loadStory();
     }
+    if (id === 'wallet') {
+      void this.loadWalletProfile();
+    }
     this.syncView();
+  }
+
+  // Wallet & profile display (full address, copied from live API response).
+  walletProfile: { full_name: string; health_id: string; wallet_address: string } | null = null;
+
+  private async loadWalletProfile() {
+    if (!this.data) {
+      this.walletProfile = null;
+      return;
+    }
+    this.walletProfile = {
+      full_name: this.data.full_name,
+      health_id: this.data.health_id,
+      wallet_address: this.data.wallet_address,
+    };
+    this.syncView();
+  }
+
+  copyWalletAddress() {
+    if (!this.walletProfile) return;
+    navigator.clipboard.writeText(this.walletProfile.wallet_address).catch(() => {});
   }
 
   /** Record the tx of an on-chain action and surface it in the banner. */
@@ -641,7 +728,11 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       return;
     }
     this.loadSendHospitals();
-    await this.reload();
+    // Show the skeleton immediately; the heavy records + blockchain call
+    // runs once in the background and swaps the real UI in via reload().
+    this.loading = true;
+    this.syncView();
+    void this.reload();
     this.startPolling();
     // Pre-warm the doctor list so it's available when the patient opens
     // the Grant Access page.

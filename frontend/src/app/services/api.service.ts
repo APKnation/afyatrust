@@ -346,6 +346,27 @@ export class ApiService {
     return this.request<ReferralItem[]>('GET', `/staff/referrals/${q}`);
   }
 
+  /** Referrals sent FROM this hospital to another hospital. */
+  hospitalOutgoingReferrals(status?: string): Promise<ReferralItem[]> {
+    const q = status ? `?status=${encodeURIComponent(status)}` : '';
+    return this.request<ReferralItem[]>('GET', `/staff/referrals/outgoing/${q}`);
+  }
+
+  /** Records this hospital has anchored on-chain — the exchange pointers. */
+  hospitalRecordsExchange(): Promise<{
+    id: number;
+    health_id: string;
+    patient_name: string;
+    record_type: string;
+    record_hash: string;
+    metadata_uri: string;
+    tx_hash: string;
+    verified: boolean;
+    created_at: string;
+  }[]> {
+    return this.request('GET', '/staff/records-exchange/');
+  }
+
   respondReferral(referral_id: number, action: 'ACCEPTED' | 'DECLINED') {
     return this.request('POST', `/staff/referrals/${referral_id}/respond/`, { action });
   }

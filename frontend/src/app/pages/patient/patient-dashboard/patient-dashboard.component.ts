@@ -1264,6 +1264,16 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     navigator.clipboard.writeText(addr).catch(() => {});
   }
 
+  // --- Health summary (computed from records + measurements + referrals) ---
+  healthSummary: {
+    diagnoses: { type: string; count: number }[];
+    medicines: { detail: string; count: number }[];
+    measurements: { kind: string; count: number; latest_value: number; latest_unit: string; latest_date: string; latest_doctor: string; latest_hospital: string }[];
+    hospital_visits: { facility: string; count: number }[];
+    total_records: number;
+    total_measurements: number;
+  } | null = null;
+
   /** Load the referral security tab: blockchain-secured referral story. */
   private async loadReferralSecurity() {
     try {
@@ -1271,6 +1281,94 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     } catch {
       this.referralSecurity = null;
     }
+    this.syncView();
+  }
+
+  /** Compute a health summary from the already-loaded patient data. */
+  private computeHealthSummary() {
+    if (!this.data) {
+      this.healthSummary = null;
+      return;
+    }
+    const records = this.data.records || [];
+    const measurements = this.data.measurements || [];
+
+    // Diagnoses / record types frequency
+    const typeCounter: Record<string, number> = {};
+    for (const r of records) {
+      typeCounter[r.type] = (typeCounter[r.type] || 0) + 1;
+    }
+    const diagnoses = Object.entries(typeCounter)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([type, count]) => ({ type, count }));
+
+    // Medicines: scan record data for keys containing medicine/medication/drug/prescription/treatment
+    const medCounter: Record<string, number> = {};
+    for (const r of records) {
+      if (!r.data) continue;
+      for (const [key, value] of Object.entries(r.data)) {
+        const lk = key.toLowerCase();
+        if (['medicine', 'medication', 'drug', 'prescription', 'rx', 'treatment'].some(t => lk.includes(t))) {
+          const detail = `${key}: ${value}`;
+          medCounter[detail] = (medCounter[detail] || 0) + 1;
+        }
+      }
+    }
+    const medicines = Object.entries(medCounter)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([detail, count]) => ({ detail, count }));
+
+    // Measurements frequency + latest value per kind
+    const measCounter: Record<string, number> = {};
+    const measLatest: Record<string, { value: number; unit: string; date: string; doctor: string; hospital: string }> = {};
+    for (const m of measurements) {
+      measCounter[m.kind] = (measCounter[m.kind] || 0) + 1;
+      if (!measLatest[m.kind] || m.date > measLatest[m.kind].date) {
+        measLatest[m.kind] = {
+          value: m.value,
+          unit: m.unit,
+          date: m.date,
+          doctor: m.doctor || '',
+          hospital: m.hospital || '',
+        };
+      }
+    }
+    const measurementsSummary = Object.entries(measCounter)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([kind, count]) => {
+        const lv = measLatest[kind];
+        return {
+          kind,
+          count,
+          latest_value: lv?.value ?? 0,
+          latest_unit: lv?.unit ?? '',
+          latest_date: lv?.date ?? '',
+          latest_doctor: lv?.doctor ?? '',
+          latest_hospital: lv?.hospital ?? '',
+        };
+      });
+
+    // Hospital visit frequency (from records)
+    const hospitalCounter: Record<string, number> = {};
+    for (const r of records) {
+      hospitalCounter[r.facility] = (hospitalCounter[r.facility] || 0) + 1;
+    }
+    const hospitalVisits = Object.entries(hospitalCounter)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([facility, count]) => ({ facility, count }));
+
+    this.healthSummary = {
+      diagnoses,
+      medicines,
+      measurements: measurementsSummary,
+      hospital_visits: hospitalVisits,
+      total_records: records.length,
+      total_measurements: measurements.length,
+    };
     this.syncView();
   }
 

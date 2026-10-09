@@ -1900,10 +1900,10 @@ def doctor_incoming_referrals(request):
 def break_glass(request):
     """Approved doctor emergency access with a short-lived audited grant.
 
-    The contract's breakGlass only emits an event + audit entry — it does not
-    open a permission — so the backend opens a short emergency window in the
-    DB (AccessGrant, 1 hour) and drops the cached hasAccess result so the
-    clinician's next record view goes through immediately.
+    The contract grants and audits emergency access on-chain. The database
+    mirrors a one-hour grant so the authenticated doctor can proceed if that
+    transaction is pending, while the response makes the missing chain audit
+    explicit.
     """
     doctor = _doctor_from_request(request)
     if not doctor:

@@ -1088,7 +1088,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       alert('A reason is required for break-glass access.');
       return;
     }
-    if (!confirm('Use break-glass? This emergency access will be permanently logged on-chain.')) return;
+    if (!confirm('Use emergency break-glass access? The reason will be recorded and the blockchain audit may remain pending if the network is unavailable.')) return;
     try {
       const res: any = await this.api.breakGlass({
         health_id: this.healthId.trim(),

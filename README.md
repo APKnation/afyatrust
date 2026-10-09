@@ -121,23 +121,96 @@ cd backend/afyatrust
 python manage.py shell -c "from api.test_poc_flow import run; run()"
 ```
 
+## Current implemented end-to-end flow
+
+This is the complete flow that is in the codebase today, not just the original 7-step demo script.
+
+1. **Hospital/health system and identities**
+   - A hospital/facility is created in Django by an admin (`Hospital` model).
+   - A patient registers with a unique Health ID, full name, and 4-digit PIN.
+   - The backend creates a custodial patient wallet, encrypts the private key with AES-256-GCM, and saves the encrypted key on the server.
+   - A doctor is created by admin approval flow, with a medical license number, PIN, facility ID, and a custodial wallet for on-chain actions.
+   - Hospital staff accounts can also be created by admin and sign in with username/password for desk-side workflows.
+
+2. **Single sign-in and role routing**
+   - There is one login endpoint for all user types: patient, doctor, and staff.
+   - The same page routes users by role after JWT authentication.
+   - Patients access `/patient`, doctors access `/doctor`, and staff access `/hospital`.
+
+3. **Patient registration and on-chain identity**
+   - `POST /api/register/` creates the patient record and calls `registerPatient` on the smart contract if the contract is reachable.
+   - The blockchain stores the patient’s Health ID, wallet address, and name; the private key stays off-chain and encrypted in the backend.
+   - If the contract is not yet deployed or RPC is unavailable, the API still works and marks the transaction as `PENDING: ...` in the response.
+
+4. **Facility record ingestion**
+   - A facility/hospital adds patient records through the API or admin layer.
+   - The actual record payload remains off-chain in Django (`MedicalRecord.record_data`), while a SHA-256 hash and facility metadata are written to-chain.
+   - This preserves privacy while keeping an auditable pointer and hash on the blockchain.
+   - The added record is linked to the patient and the facility that created it.
+
+5. **Doctor onboarding and verification flow**
+   - A doctor is not self-registered in the PoC. The admin creates the doctor profile and sets the initial PIN.
+   - The doctor can then log in and check status via the backend; only `APPROVED` doctors can request access or view patient records.
+   - The frontend shows the doctor status and gating states based on admin approval.
+
+6. **Access requests and patient consent**
+   - A verified doctor submits a request for access to a patient by Health ID.
+   - The request is stored as an `AccessRequest` with the doctor’s wallet, facility, reason, and status (`PENDING`/`APPROVED`/`REJECTED`).
+   - The patient sees pending requests in the patient dashboard and can approve or reject them.
+   - On approval, the backend calls `patientGrantAccess(...)` with the patient’s custodial key, and the permission is logged on-chain for a configurable number of days.
+   - The patient can also revoke access later.
+
+7. **Doctor record access checks**
+   - When the doctor requests patient records, the API checks `hasAccess` on-chain with a cached read layer to avoid repeated expensive RPC calls.
+   - If the patient has granted access, the doctor can view the record bundle.
+   - If access is missing, the denial flow is shown in the UI and the doctor can request access or trigger break-glass if the case is urgent.
+
+8. **Audit trail and accountability**
+   - Every successful record view is logged on-chain as a `VIEW` event with accessor, role, facility, and timestamp.
+   - The patient dashboard exposes the chain-backed audit trail and the latest tx hash when available.
+   - This gives a permanent evidence trail of who accessed what and when.
+
+9. **Emergency break-glass flow**
+   - From the denial panel, a doctor can enter a reason and use the break-glass mechanism.
+   - The backend calls `breakGlass(...)` on-chain and creates an emergency access DB record.
+   - The emergency permission is temporary and clearly marked as `BREAK_GLASS`, so there is a complete accountability trail for exceptional access.
+
+10. **Secondary clinical workflows already implemented**
+   - Doctors can record measurements (`Measurement`) for granted patients.
+   - Patients can see their measurements and referrals.
+   - Patients can initiate referral requests to other hospitals.
+   - Receiving hospital staff can review and accept/decline referrals through the staff workflow.
+   - The system already supports referral handoff and hospital-to-hospital coordination, not just patient access control.
+
+11. **Frontend + backend integration**
+   - Angular handles the patient, doctor, and hospital portals and routes users by role.
+   - Django REST Framework exposes the API and handles auth, wallet management, contract interaction, and audit aggregation.
+   - Hardhat + Solidity secures the permission logic, event logging, and access checks while the backend keeps private patient records off-chain.
+
+In short, the project today implements: identity creation, custodial wallets, patient and doctor registration, hospital record storage, approval-based patient consent, permission grants, doctor access gates, audit logging, break-glass emergency access, measurements, and hospital referrals — all connected across the backend, frontend, and blockchain layers.
+
 ## API overview
 
 | Method | Endpoint | Auth | Purpose |
 |---|---|---|---|
-| POST | `/api/register/` | — | Register patient (creates wallet, calls contract) |
-| POST | `/api/login/` | — | Health ID + PIN → JWT |
-| POST | `/api/add-record/` | — | Facility adds record (hash on-chain) |
-| GET | `/api/patient/my-records/` | JWT | Own records + audit trail |
-| GET | `/api/patient/requests/` | JWT | Pending doctor requests |
-| POST | `/api/patient/grant-access/` | JWT | Grant a doctor access (N days) |
-| POST | `/api/patient/approve-request/<id>/` | JWT | Approve request |
-| POST | `/api/patient/reject-request/<id>/` | JWT | Reject request |
-| POST | `/api/doctor/register/` | — | Doctor self-registration (license + wallet, PENDING until admin approves) |
-| GET | `/api/doctor/status/?wallet=0x…` | — | Doctor checks verification status |
-| POST | `/api/doctor/request-access/` | — | **Verified** doctor asks for access |
-| GET | `/api/doctor/patient/<health_id>/` | wallet header | View records if `hasAccess` |
-| POST | `/api/doctor/break-glass/` | — | Emergency access (logged) |
+| POST | `/api/register/` | — | Register patient (creates custodial wallet and on-chain identity) |
+| POST | `/api/login/` | — | Single login for patient, doctor, or staff (`identity` + `secret`) |
+| POST | `/api/add-record/` | JWT/facility context | Facility adds an off-chain record; hash + metadata written on-chain |
+| GET | `/api/patient/my-records/` | JWT | Patient’s own records + audit trail |
+| GET | `/api/patient/requests/` | JWT | Patient’s pending access requests |
+| POST | `/api/patient/grant-access/` | JWT | Grant doctor access for N days |
+| POST | `/api/patient/revoke-access/` | JWT | Revoke doctor access |
+| POST | `/api/patient/approve-request/<id>/` | JWT | Approve a doctor’s access request |
+| POST | `/api/patient/reject-request/<id>/` | JWT | Reject a doctor’s access request |
+| GET | `/api/doctor/me/` | JWT | Current approved doctor profile |
+| GET | `/api/doctor/status/` | JWT | Doctor checks approval status |
+| POST | `/api/doctor/request-access/` | JWT | Verified doctor requests patient access |
+| GET | `/api/doctor/patient/<health_id>/` | JWT | View patient records if `hasAccess` is true |
+| POST | `/api/doctor/measurements/` | JWT | Add a clinical measurement for a patient |
+| GET | `/api/patient/measurements/` | JWT | Patient view of their own measurements |
+| POST | `/api/patient/referrals/send/` | JWT | Patient requests a referral to another hospital |
+| GET | `/api/staff/referrals/` | JWT | Staff receives and processes referral requests |
+| POST | `/api/doctor/break-glass/` | JWT | Emergency access with permanent audit logging |
 
 ## Future work
 

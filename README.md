@@ -61,15 +61,20 @@ FACILITY_PRIVATE_KEY=0x<facility wallet key, pays gas>
 MASTER_KEY=<64 hex chars = 32 bytes, encrypts patient keys>
 ```
 
-Use the real project key and facility wallet values, not the angle-bracket
-placeholders in this example. `SEPOLIA_RPC_URL` must be an active Sepolia RPC
-endpoint; `FACILITY_PRIVATE_KEY` must be a valid 32-byte hex private key for a
-funded Sepolia wallet. Restart Django after changing `backend/.env`.
+Use actual credentials in `backend/.env`; the angle-bracket values above are
+examples only. An RPC URL containing a placeholder such as `<YOUR_KEY>` will
+fail with an unauthorized response. `SEPOLIA_RPC_URL` must be an active Sepolia
+RPC endpoint. The facility key must be a real 32-byte
+hexadecimal private key (`0x` followed by 64 hex characters) for a funded
+Sepolia wallet. Never commit or share either credential. Restart Django after
+changing the environment file.
 
-If a doctor records a measurement while the chain write fails, the measurement
-is saved locally but returned as `saved_pending_chain` (HTTP 202), explicitly
-marked unverified, and must not be treated as blockchain-secured. Fix the RPC
-endpoint and signer configuration before relying on on-chain integrity checks.
+If a doctor records a measurement while a chain write fails, the measurement is
+saved locally, but the API returns `saved_pending_chain` (HTTP 202) and marks it
+unverified. The doctor dashboard displays a warning; the reading must not be
+represented as blockchain-secured. This does not automatically anchor
+previously saved pending measurements. Restore a working RPC endpoint and
+signer before relying on on-chain integrity checks.
 
 Generate a master key:
 
@@ -77,8 +82,11 @@ Generate a master key:
 python -c "import secrets; print(secrets.token_bytes(32).hex())"
 ```
 
-> PoC note: until `CONTRACT_ADDRESS` is set, the API still works — on-chain
-> steps are skipped and marked `PENDING: ...` in responses.
+> PoC note: some workflows can save local data when the chain is unavailable,
+> but a local save is not an on-chain verification. In particular, pending
+> measurement writes are returned as HTTP 202 and marked unverified. Check
+> response status and verification state rather than assuming a successful
+> database write means a successful blockchain transaction.
 
 ## 3. Run backend + frontend
 
@@ -134,7 +142,18 @@ demo:
 ```bash
 cd backend/afyatrust
 python manage.py migrate
+python manage.py check
 ```
+
+This includes migration `0009_referral_transaction_fields`, which adds the
+referral transaction/audit fields required by the current model. If an API
+error reports a missing database column, first confirm that migrations have
+been applied to the same database configured for the running Django server.
+
+The Angular 22 CLI requires Node.js 22.22.3 or newer in the 22.x line, or
+24.15.0 or newer in the 24.x line. If `npm run build` stops before compilation
+with a Node version message, use a supported Node.js release and rerun the
+build from `frontend/`.
 
 The exchange metadata endpoint is `/exchange/<record-hash>/`. It exposes
 verification metadata only, not clinical data. The authenticated referral
@@ -151,6 +170,19 @@ then shows all verified history, frequent recorded diagnoses/medicines,
 measurement counts/latest values, referral reasons, and facility activity.
 Patients’ consent requests are approved from their **Requests** tab; emergency
 break-glass is limited to approved doctors and requires a reason.
+
+### Dashboard charts
+
+Patient and doctor history dashboards include responsive horizontal bar charts
+for recorded conditions/record types, measurement frequency, medicine mentions,
+and activity by hospital. Patient charts summarize the records available in
+the patient's own history; a doctor's charts use the verified history returned
+for the patient they are authorized to view. Medicine mentions count recorded
+entries and do not indicate how many doses a patient took.
+
+The hospital dashboard charts that hospital's loaded records by record type
+and summarizes its on-chain event activity. Empty charts display an explicit
+no-data message; the charts do not invent or infer clinical values.
 
 > **PoC boundary:** Hospital A and Hospital B are separate facility identities
 > and staff accounts in this demo, but they currently use one AfyaTrust

@@ -765,13 +765,23 @@ def doctor_view_record(request, health_id):
             "source_uri": meta_uri,
         })
 
-    # Measurements (all, for the viewing doctor)
-    measurements = []
-    verified_measurement_objects = []
-    chain_anchors = {
+    chain_record_keys = {
         (str(chain_record[0]).lower(), str(chain_record[1]).lower())
         for chain_record in chain_records
     }
+    for record in patient.records.all():
+        if (record.record_hash.lower(), record.facility_id.lower()) not in chain_record_keys:
+            integrity_issues.append({
+                "record_hash": record.record_hash,
+                "facility_id": record.facility_id,
+                "record_type": record.record_type,
+                "reason": "RECORD_NOT_ANCHORED_ON_CHAIN",
+            })
+
+    # Measurements (all, for the viewing doctor)
+    measurements = []
+    verified_measurement_objects = []
+    chain_anchors = chain_record_keys
     for measurement in patient.measurements.select_related("doctor", "hospital").all():
         computed_hash = _record_payload_hash(_measurement_payload(measurement))
         payload_matches = bool(

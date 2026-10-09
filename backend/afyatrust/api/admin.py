@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.contrib.auth.hashers import make_password
 
 from .models import (
-    AccessRequest, Doctor, Hospital, HospitalStaff, Measurement,
+    AccessGrant, AccessRequest, Doctor, Hospital, HospitalStaff, Measurement,
     MedicalRecord, Patient, Referral,
 )
 from . import wallet_manager

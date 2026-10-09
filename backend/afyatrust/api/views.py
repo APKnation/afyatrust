@@ -351,6 +351,21 @@ def my_records(request):
     })
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def my_patient_summary(request):
+    """Return a summary of the authenticated patient's recorded history."""
+    patient = _patient_from_request(request)
+    if not patient:
+        return Response({"error": "Patient not found"}, status=404)
+
+    records = list(patient.records.all())
+    measurements = list(
+        patient.measurements.select_related("doctor", "hospital").all()
+    )
+    return Response(_patient_health_summary(patient, records, measurements))
+
+
 # ============ 3b. PATIENT PROFILE (view + edit own profile) ============
 
 @api_view(["GET"])

@@ -1,8 +1,8 @@
-import { Component } from '@angular/core';
-import { NgIf } from '@angular/common';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { ApiService } from '../../services/api.service';
+import { ApiService, HospitalOption } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
 /**
@@ -13,7 +13,7 @@ import { AuthService } from '../../services/auth.service';
  */
 @Component({
   selector: 'app-register',
-  imports: [NgIf, FormsModule, RouterLink],
+  imports: [NgFor, NgIf, FormsModule, RouterLink],
   template: `
     <div class="page-bg flex min-h-[calc(100svh-4.5rem)] items-center justify-center px-4 py-8 sm:px-6">
       <div class="card w-full max-w-[440px] p-8 sm:p-10">
@@ -41,6 +41,17 @@ import { AuthService } from '../../services/auth.service';
           </label>
 
           <label class="flex flex-col gap-1.5">
+            <span class="text-[13px] font-semibold text-ink">Registering hospital</span>
+            <select name="facility_id" [(ngModel)]="model.facility_id" required
+                    class="rounded-lg border border-gray-300 px-3 py-3 text-[15px]">
+              <option value="" disabled>Select your hospital</option>
+              <option *ngFor="let hospital of hospitals" [value]="hospital.code">
+                {{ hospital.name }} ({{ hospital.code }})
+              </option>
+            </select>
+          </label>
+
+          <label class="flex flex-col gap-1.5">
             <span class="text-[13px] font-semibold text-ink">Phone (optional)</span>
             <input type="text" name="phone" [(ngModel)]="model.phone"
                    class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] outline-none focus:border-transparent focus:ring-2 focus:ring-primary-500" />
@@ -62,7 +73,7 @@ import { AuthService } from '../../services/auth.service';
           </div>
 
           <button type="submit"
-                  [disabled]="loading || !model.full_name || !model.health_id || model.pin.length !== 4"
+                  [disabled]="loading || !model.full_name || !model.health_id || !model.facility_id || model.pin.length !== 4"
                   class="mt-2 w-full rounded-lg bg-primary-500 px-3.5 py-3.5 text-base font-semibold text-ink transition-colors hover:bg-primary-400 disabled:opacity-50">
             {{ loading ? 'Registering…' : 'Register' }}
           </button>
@@ -76,14 +87,16 @@ import { AuthService } from '../../services/auth.service';
     </div>
   `,
 })
-export class RegisterComponent {
+export class RegisterComponent implements OnInit {
   loading = false;
   error = '';
+  hospitals: HospitalOption[] = [];
 
   model = {
     full_name: '',
     health_id: '',
     phone: '',
+    facility_id: '',
     pin: '',
     pin2: '',
   };
@@ -91,8 +104,19 @@ export class RegisterComponent {
   constructor(
     private api: ApiService,
     private auth: AuthService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
+
+  async ngOnInit() {
+    try {
+      this.hospitals = await this.api.hospitals();
+    } catch (e: any) {
+      this.error = e?.error?.error || e?.message || 'Could not load hospitals.';
+    } finally {
+      this.cdr.detectChanges();
+    }
+  }
 
   async register() {
     this.error = '';
@@ -105,6 +129,10 @@ export class RegisterComponent {
       this.error = 'PIN must be exactly 4 digits.';
       return;
     }
+    if (!this.model.facility_id) {
+      this.error = 'Select the hospital where you are registering.';
+      return;
+    }
 
     this.loading = true;
     try {
@@ -113,6 +141,7 @@ export class RegisterComponent {
         full_name: this.model.full_name.trim(),
         pin: this.model.pin,
         phone: this.model.phone.trim() || undefined,
+        facility_id: this.model.facility_id,
       });
 
       // Log straight in after registering.

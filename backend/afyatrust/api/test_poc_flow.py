@@ -8,10 +8,11 @@ testnet gas).
 """
 import time
 
+from django.contrib.auth.hashers import make_password
 from django.test import Client
 from eth_account import Account
 
-from api.models import Patient
+from api.models import Hospital, HospitalStaff, MedicalRecord, Patient
 from api import wallet_manager
 
 
@@ -23,6 +24,25 @@ def run():
     # --- clean slate for this test -----------------------------------------
     # (on-chain registrations can't be undone, but stale local rows can)
     Patient.objects.filter(health_id__startswith="POC-TEST-").delete()
+    hospital_a, _ = Hospital.objects.get_or_create(
+        code="FAC-1", defaults={"name": "PoC Hospital A"}
+    )
+    hospital_b, _ = Hospital.objects.get_or_create(
+        code="FAC-2", defaults={"name": "PoC Hospital B"}
+    )
+    suffix = str(int(time.time() * 1000))
+    staff_a = HospitalStaff.objects.create(
+        hospital=hospital_a,
+        username=f"poc-a-{suffix}",
+        full_name="PoC Hospital A Staff",
+        password_hash=make_password("PoC-password-123"),
+    )
+    staff_b = HospitalStaff.objects.create(
+        hospital=hospital_b,
+        username=f"poc-b-{suffix}",
+        full_name="PoC Hospital B Staff",
+        password_hash=make_password("PoC-password-123"),
+    )
 
     # --- 1. Register (custodial wallet + real registerPatient tx) ----------
     r = c.post('/api/register/', content_type='application/json', data={
@@ -60,8 +80,21 @@ def run():
     assert r.status_code == 401
     print('   wrong PIN       -> 401 OK')
 
+    # Hospital A and B use separate staff credentials in the same demo API.
+    staff_login = c.post('/api/login/', content_type='application/json', data={
+        'identity': staff_a.username, 'secret': 'PoC-password-123',
+    })
+    assert staff_login.status_code == 200, staff_login.content
+    hospital_a_jwt = staff_login.json()['access']
+    staff_login = c.post('/api/login/', content_type='application/json', data={
+        'identity': staff_b.username, 'secret': 'PoC-password-123',
+    })
+    assert staff_login.status_code == 200, staff_login.content
+    hospital_b_jwt = staff_login.json()['access']
+
     # --- 3. Add a record (SHA-256 hash + addRecord tx) ----------------------
-    r = c.post('/api/add-record/', content_type='application/json', data={
+    r = c.post('/api/add-record/', HTTP_AUTHORIZATION=f'Bearer {hospital_a_jwt}',
+               content_type='application/json', data={
         'health_id': health_id,
         'facility_id': 'FAC-1',
         'facility_name': 'Test Clinic',
@@ -73,6 +106,41 @@ def run():
     print('3. add-record       -> hash', r.json()['hash'][:16],
           '| tx', r.json()['tx_hash'][:18] + '...')
 
+    # Hospital A refers the patient to B; B accepts and verifies the payload
+    # against both the database hash and the immutable on-chain record anchor.
+    r = c.post('/api/patient/referrals/send/',
+               HTTP_AUTHORIZATION=f'Bearer {jwt}',
+               content_type='application/json', data={
+                   'to_hospital': 'FAC-2',
+                   'reason': 'PoC cross-hospital integrity demonstration',
+               })
+    assert r.status_code == 201, f"patient referral: {r.status_code} {r.content}"
+    referral_id = r.json()['referral_id']
+    r = c.post(f'/api/staff/referrals/{referral_id}/respond/',
+               HTTP_AUTHORIZATION=f'Bearer {hospital_b_jwt}',
+               content_type='application/json', data={'action': 'ACCEPTED'})
+    assert r.status_code == 200, f"accept referral: {r.status_code} {r.content}"
+    r = c.post(f'/api/staff/referrals/{referral_id}/verify-records/',
+               HTTP_AUTHORIZATION=f'Bearer {hospital_b_jwt}')
+    assert r.status_code == 200, f"verify referral: {r.status_code} {r.content}"
+    check = r.json()['records'][0]
+    assert check['verified'] is True and check['record_data'] is not None, check
+    print('   Hospital B      -> verified Hospital A record against Sepolia')
+
+    # Simulate an in-between alteration; the changed payload must be withheld.
+    record = MedicalRecord.objects.get(id=r.json()['records'][0]['id'])
+    original_data = record.record_data
+    record.record_data = {**original_data, 'result': 'tampered'}
+    record.save(update_fields=['record_data'])
+    r = c.post(f'/api/staff/referrals/{referral_id}/verify-records/',
+               HTTP_AUTHORIZATION=f'Bearer {hospital_b_jwt}')
+    assert r.status_code == 200, f"tamper check: {r.status_code} {r.content}"
+    tamper_check = r.json()['records'][0]
+    assert not tamper_check['verified'] and tamper_check['record_data'] is None
+    record.record_data = original_data
+    record.save(update_fields=['record_data'])
+    print('   tamper test      -> modified payload detected and withheld')
+
     # --- 4. My records (JWT) ------------------------------------------------
     r = c.get('/api/patient/my-records/', HTTP_AUTHORIZATION=f'Bearer {jwt}')
     assert r.status_code == 200, f"my-records: {r.status_code} {r.content}"
@@ -83,7 +151,7 @@ def run():
           'record(s), verified on-chain')
 
     # --- 5. Grant access to a doctor wallet (patient-signed tx) -------------
-    doctor = Account.from_key('0x' + '11' * 32)
+    doctor = Account.create()
     r = c.post('/api/patient/grant-access/', HTTP_AUTHORIZATION=f'Bearer {jwt}',
                content_type='application/json', data={
                    'doctor_wallet': doctor.address, 'doctor_name': 'Dr. Test', 'days': 7})

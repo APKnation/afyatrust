@@ -3,7 +3,7 @@ import { NgIf, NgFor, DatePipe, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
-  ApiService, FacilityRecord, ReferralItem, BlockchainEvent,
+  ApiService, FacilityRecord, ReferralItem, ReferralIntegrityReport, BlockchainEvent,
 } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 
@@ -147,7 +147,63 @@ import { AuthService } from '../../../services/auth.service';
                   Decline
                 </button>
               </div>
+              <button *ngIf="r.status === 'ACCEPTED'"
+                      (click)="verifyReferralRecords(r)"
+                      [disabled]="verifyingReferralId === r.id"
+                      class="btn-secondary">
+                {{ verifyingReferralId === r.id ? 'Checking blockchain…' : 'Verify & receive records' }}
+              </button>
             </div>
+          </div>
+          <div *ngIf="integrityReports[r.id] as report"
+               class="mt-4 rounded-xl border p-4"
+               [class]="report.mismatch_count ? 'border-red-300 bg-red-50' : 'border-emerald-300 bg-emerald-50'">
+            <p class="m-0 font-semibold">
+              {{ report.verified_count }} verified record(s), {{ report.mismatch_count }} integrity issue(s)
+            </p>
+            <p class="mb-3 mt-1 text-xs text-muted">
+              Blockchain transfer anchor:
+              {{ report.referral_anchored_on_chain ? 'confirmed' : 'not confirmed' }}
+              <a *ngIf="report.referral_tx_hash"
+                 [href]="'https://sepolia.etherscan.io/tx/' + report.referral_tx_hash"
+                 target="_blank" rel="noopener" class="ml-1 underline">View referral transaction</a>
+            </p>
+            <div *ngFor="let checkedRecord of report.records" class="mb-3 rounded-lg bg-white p-3 last:mb-0">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <strong>{{ checkedRecord.record_type }}</strong>
+                <span class="rounded-full px-2 py-1 text-xs font-bold"
+                      [class]="checkedRecord.verified ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'">
+                  {{ checkedRecord.status }}
+                </span>
+              </div>
+              <p class="mb-1 mt-2 break-all font-mono text-xs">
+                Anchored: {{ checkedRecord.record_hash }}
+              </p>
+              <p class="m-0 break-all font-mono text-xs">
+                Recomputed: {{ checkedRecord.computed_hash }}
+              </p>
+              <p class="mb-0 mt-2 text-xs">
+                Payload matches: {{ checkedRecord.payload_matches_hash ? 'Yes' : 'No' }} ·
+                Hash found on chain: {{ checkedRecord.anchored_on_chain ? 'Yes' : 'No' }}
+              </p>
+              <div *ngIf="checkedRecord.verified && checkedRecord.record_data" class="mt-2 border-t pt-2">
+                <p class="mb-1 text-xs font-semibold">Verified clinical data received by this hospital</p>
+                <p *ngFor="let field of entries(checkedRecord.record_data)"
+                   class="m-0 text-xs">
+                  <strong>{{ field.key }}:</strong> {{ field.value }}
+                </p>
+              </div>
+              <p *ngIf="!checkedRecord.verified" class="mb-0 mt-2 text-xs font-semibold text-red-700">
+                Payload withheld because it does not match the immutable record anchor.
+              </p>
+              <a *ngIf="checkedRecord.etherscan_url" [href]="checkedRecord.etherscan_url"
+                 target="_blank" rel="noopener" class="mt-2 inline-block text-xs text-accent-700 underline">
+                View record transaction
+              </a>
+            </div>
+            <p *ngIf="report.records.length === 0" class="mb-0 mt-2 text-sm">
+              No pre-referral records from the sending hospital were found.
+            </p>
           </div>
         </div>
 
@@ -216,9 +272,8 @@ import { AuthService } from '../../../services/auth.service';
           <h2 class="mb-1 text-xl font-bold">Data Exchange — {{ hospitalName }}</h2>
           <p class="m-0 text-sm text-muted">
             Every record added by this hospital is anchored on Sepolia as a hash.
-            The metadata pointer below is what another hospital fetches to verify
-            the record exists and matches the on-chain hash — the clinical data
-            itself stays here.
+            The receiving hospital can verify the payload against the on-chain
+            anchor after accepting a referral. Unverified data is never released.
           </p>
         </div>
 
@@ -289,11 +344,10 @@ import { AuthService } from '../../../services/auth.service';
                 <option *ngFor="let t of recordTypes" [value]="t">{{ t }}</option>
               </select>
             </label>
-            <label class="flex flex-col gap-1.5">
-              <span class="text-[13px] font-semibold text-ink">Facility name (shown to patient)</span>
-              <input [(ngModel)]="form.facility_name" [placeholder]="hospitalName || 'Hospital name'"
-                     class="px-3 py-2.5 text-sm" />
-            </label>
+            <div class="flex flex-col gap-1.5">
+              <span class="text-[13px] font-semibold text-ink">Recording facility (from your staff account)</span>
+              <span class="rounded-lg border border-gray-200 bg-slate-50 px-3 py-2.5 text-sm">{{ hospitalName }}</span>
+            </div>
           </div>
 
           <!-- key/value rows -->
@@ -488,6 +542,8 @@ export class HospitalDashboardComponent implements OnInit {
   incomingReferrals: ReferralItem[] = [];
   // --- outgoing referrals (referrals FROM this hospital to another) ---
   outgoingReferrals: ReferralItem[] = [];
+  integrityReports: Record<number, ReferralIntegrityReport> = {};
+  verifyingReferralId: number | null = null;
   // --- records this hospital has anchored on-chain (exchange pointers) ---
   exchangeRecords: any[] = [];
 
@@ -498,7 +554,7 @@ export class HospitalDashboardComponent implements OnInit {
   recordTypes = ['DIAGNOSIS', 'LAB', 'PRESCRIPTION', 'SURGERY', 'IMMUNIZATION', 'GENERAL'];
   keyHints = ['temperature', 'diagnosis', 'medication', 'result', 'notes'];
   rows: { key: string; value: string }[] = [{ key: '', value: '' }, { key: '', value: '' }];
-  form = { health_id: '', record_type: 'DIAGNOSIS', facility_name: '' };
+  form = { health_id: '', record_type: 'DIAGNOSIS' };
   busy = false;
   formMsg = '';
   formOk = false;
@@ -606,6 +662,7 @@ export class HospitalDashboardComponent implements OnInit {
     this.syncView();
     try {
       await this.api.respondReferral(r.id, action);
+      if (action === 'ACCEPTED') this.filter = 'ACCEPTED';
       await this.reload();
       void this.loadOutgoing();
     } catch (e: any) {
@@ -613,6 +670,20 @@ export class HospitalDashboardComponent implements OnInit {
     } finally {
       this.busyId = null;
       this.syncView();
+    }
+
+    async verifyReferralRecords(referral: ReferralItem) {
+      this.verifyingReferralId = referral.id;
+      this.syncView();
+      try {
+        this.integrityReports[referral.id] =
+          await this.api.verifyReferralRecords(referral.id);
+      } catch (e: any) {
+        alert(e?.error?.error || e?.message || 'Could not verify referral records');
+      } finally {
+        this.verifyingReferralId = null;
+        this.syncView();
+      }
     }
   }
 
@@ -654,8 +725,6 @@ export class HospitalDashboardComponent implements OnInit {
     try {
       const res = await this.api.addRecord({
         health_id: healthId,
-        facility_id: this.auth.hospitalCode || 'UNKNOWN',
-        facility_name: this.form.facility_name.trim() || this.hospitalName || 'Hospital',
         record_type: this.form.record_type,
         record_data: data,
       });

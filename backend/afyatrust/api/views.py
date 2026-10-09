@@ -5,6 +5,7 @@ records, permissions, doctor access check, and break-glass.
 """
 import hashlib
 import json
+import logging
 import re
 from datetime import timedelta
 
@@ -34,6 +35,14 @@ from .blockchain import (
     send_transaction_async,
 )
 from .blockchain import w3
+
+logger = logging.getLogger(__name__)
+
+
+def _record_payload_hash(record_data):
+    """Hash a record using the canonical serialization used at ingestion."""
+    serialized = json.dumps(record_data, sort_keys=True)
+    return "0x" + hashlib.sha256(serialized.encode()).hexdigest()
 
 
 def _doctor_from_request(request):
@@ -1302,22 +1311,13 @@ def hospital_outgoing_referrals(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def hospital_records_exchange(request):
-    """Records this hospital has anchored on-chain — the metadata_uri
-    exchange pointers that another hospital can fetch to verify the data.
-
-    This is the inter-hospital data flow surface: every record added by this
-    hospital writes a pointer like
-        https://api.<facility>.afyatrust.network/exchange/<hash>
-    which any other hospital can GET to confirm the record exists and matches
-    the on-chain hash — the clinical payload stays with this hospital."""
+    """Records this hospital has anchored on-chain for referral exchange."""
     staff = _staff_from_request(request)
     if not staff:
         return Response({"error": "Staff account not found"}, status=403)
 
     records = (
-        MedicalRecord.objects.filter(
-            patient__hospital=staff.hospital
-        )
+        MedicalRecord.objects.filter(facility_id__iexact=staff.hospital.code)
         .select_related("patient")
         .order_by("-created_at")[:100]
     )
@@ -1328,7 +1328,7 @@ def hospital_records_exchange(request):
             "patient_name": r.patient.full_name,
             "record_type": r.record_type,
             "record_hash": r.record_hash,
-            "metadata_uri": f"https://api.{r.facility_id.lower()}.afyatrust.network/exchange/{r.record_hash}",
+            "metadata_uri": request.build_absolute_uri(f"/exchange/{r.record_hash}/"),
             "tx_hash": r.tx_hash,
             "verified": bool(r.tx_hash) and not r.tx_hash.startswith("PENDING"),
             "created_at": r.created_at,
@@ -1405,6 +1405,110 @@ def respond_referral(request, referral_id):
     return Response({"status": action.lower(), "referral": _referral_json(ref)})
 
 
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def verify_referral_records(request, referral_id):
+    """Verify source records and hand off only records passing both checks."""
+    staff = _staff_from_request(request)
+    if not staff:
+        return Response({"error": "Hospital staff account required"}, status=403)
+
+    referral = Referral.objects.filter(
+        id=referral_id,
+        to_hospital=staff.hospital,
+        status="ACCEPTED",
+    ).select_related("patient", "from_hospital", "to_hospital").first()
+    if not referral:
+        return Response(
+            {"error": "Accepted referral not found for your hospital"},
+            status=404,
+        )
+    if not referral.from_hospital:
+        return Response(
+            {"error": "Referral does not identify a sending hospital"},
+            status=409,
+        )
+
+    try:
+        chain_records = contract.functions.getRecords(
+            referral.patient.health_id
+        ).call()
+    except Exception:
+        logger.exception(
+            "Blockchain record lookup failed for referral %s", referral.id
+        )
+        return Response(
+            {"error": "Blockchain is unavailable; records were not released"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    source_code = referral.from_hospital.code
+    records = MedicalRecord.objects.filter(
+        patient=referral.patient,
+        facility_id__iexact=source_code,
+        created_at__lte=referral.created_at,
+    ).order_by("-created_at")
+    anchors = [
+        {
+            "record_hash": str(chain_record[0]),
+            "facility_id": str(chain_record[1]),
+            "timestamp": int(chain_record[3]),
+        }
+        for chain_record in chain_records
+    ]
+
+    results = []
+    for record in records:
+        computed_hash = _record_payload_hash(record.record_data)
+        anchor = next(
+            (
+                item for item in anchors
+                if item["record_hash"].lower() == record.record_hash.lower()
+                and item["facility_id"].lower() == source_code.lower()
+            ),
+            None,
+        )
+        payload_matches = computed_hash.lower() == record.record_hash.lower()
+        on_chain = anchor is not None
+        verified = payload_matches and on_chain
+        result = {
+            "id": record.id,
+            "record_type": record.record_type,
+            "facility_id": record.facility_id,
+            "created_at": record.created_at,
+            "record_hash": record.record_hash,
+            "computed_hash": computed_hash,
+            "payload_matches_hash": payload_matches,
+            "anchored_on_chain": on_chain,
+            "verified": verified,
+            "status": "VERIFIED" if verified else "INTEGRITY_MISMATCH",
+            "tx_hash": record.tx_hash,
+            "etherscan_url": (
+                f"https://sepolia.etherscan.io/tx/{record.tx_hash}"
+                if record.tx_hash and not record.tx_hash.startswith("PENDING")
+                else None
+            ),
+            "record_data": record.record_data if verified else None,
+        }
+        if anchor:
+            result["on_chain_timestamp"] = anchor["timestamp"]
+        results.append(result)
+
+    return Response({
+        "referral_id": referral.id,
+        "patient_health_id": referral.patient.health_id,
+        "from_hospital": source_code,
+        "to_hospital": referral.to_hospital.code,
+        "referral_tx_hash": referral.tx_hash or None,
+        "referral_anchored_on_chain": bool(
+            referral.tx_hash and not referral.tx_hash.startswith("PENDING")
+        ),
+        "records": results,
+        "verified_count": sum(record["verified"] for record in results),
+        "mismatch_count": sum(not record["verified"] for record in results),
+    })
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def patient_referral_timeline(request):
@@ -1438,39 +1542,42 @@ def patient_referral_timeline(request):
         if ref.from_hospital_id:
             try:
                 chain_records = contract.functions.getRecords(patient.health_id).call()
-                from_records = [{
-                    "record_hash": r[0],
-                    "facility_id": r[1],
-                    "metadata_uri": r[2],
-                    "timestamp": r[3],
-                } for r in chain_records if r[1] and r[1].lower() == ref.from_hospital.code.lower()]
             except Exception:
-                pass
+                logger.exception(
+                    "Blockchain record lookup failed for referral %s", ref.id
+                )
+                chain_records = []
 
-            # Also pull local records from that facility for human-readable context
-            try:
-                local = patient.records.filter(
-                    facility__code__iexact=ref.from_hospital.code
-                ).order_by("-created_at")[:20]
-                for r in local:
-                    # attach on-chain verified status
-                    on_chain = next(
-                        (cr for cr in chain_records if cr[0] == r.record_hash),
-                        None
-                    )
-                    from_records.append({
-                        "record_hash": r.record_hash,
-                        "facility_id": r.facility_id,
-                        "facility_name": r.facility_name,
-                        "record_type": r.record_type,
-                        "metadata_uri": next((cr[2] for cr in chain_records if cr[0] == r.record_hash), None),
-                        "tx_hash": r.tx_hash,
-                        "verified": bool(r.tx_hash) and not r.tx_hash.startswith("PENDING"),
-                        "created_at": r.created_at.isoformat(),
-                        "on_chain_timestamp": on_chain[3] if on_chain else None,
-                    })
-            except Exception:
-                pass
+            local = patient.records.filter(
+                facility_id__iexact=ref.from_hospital.code,
+                created_at__lte=ref.created_at,
+            ).order_by("-created_at")[:20]
+            for record in local:
+                anchor = next(
+                    (
+                        chain_record for chain_record in chain_records
+                        if str(chain_record[0]).lower() == record.record_hash.lower()
+                        and str(chain_record[1]).lower() == ref.from_hospital.code.lower()
+                    ),
+                    None,
+                )
+                payload_matches = (
+                    _record_payload_hash(record.record_data).lower()
+                    == record.record_hash.lower()
+                )
+                from_records.append({
+                    "record_hash": record.record_hash,
+                    "facility_id": record.facility_id,
+                    "facility_name": record.facility_name,
+                    "record_type": record.record_type,
+                    "metadata_uri": anchor[2] if anchor else None,
+                    "tx_hash": record.tx_hash,
+                    "payload_matches_hash": payload_matches,
+                    "anchored_on_chain": anchor is not None,
+                    "verified": payload_matches and anchor is not None,
+                    "created_at": record.created_at.isoformat(),
+                    "on_chain_timestamp": anchor[3] if anchor else None,
+                })
 
         entry["from_hospital_records"] = from_records
 
@@ -1572,32 +1679,35 @@ def break_glass(request):
 # ============ FACILITY: ADD RECORD ============
 
 @api_view(["POST"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def add_record(request):
-    """Facility adds a clinical record: data off-chain, hash on-chain (step 3)."""
+    """Authenticated hospital staff adds a record under their own facility."""
+    staff = _staff_from_request(request)
+    if not staff:
+        return Response({"error": "Hospital staff account required"}, status=403)
+
     data = request.data
-    patient = Patient.objects.filter(health_id=data.get("health_id", "")).first()
+    health_id = str(data.get("health_id", "")).strip()
+    patient = Patient.objects.filter(health_id__iexact=health_id).first()
     if not patient:
         return Response({"error": "Health ID not found"}, status=404)
 
     record_data = data.get("record_data", {})
-    record_str = json.dumps(record_data, sort_keys=True)
-    record_hash = "0x" + hashlib.sha256(record_str.encode()).hexdigest()
+    if not isinstance(record_data, dict) or not record_data:
+        return Response({"error": "record_data must be a non-empty object"}, status=400)
+    record_hash = _record_payload_hash(record_data)
 
     record = MedicalRecord.objects.create(
         patient=patient,
-        facility_id=data.get("facility_id", ""),
-        facility_name=data.get("facility_name", ""),
+        facility_id=staff.hospital.code,
+        facility_name=staff.hospital.name,
         record_type=data.get("record_type", "GENERAL"),
         record_data=record_data,
         record_hash=record_hash,
     )
 
-    facility_id = data.get("facility_id", "UNKNOWN")
-    
-    # Decentralized Exchange: The hospital hosting the data exposes an endpoint.
-    # We construct the metadata_uri that will be stored on-chain, pointing to Hospital A.
-    metadata_uri = f"https://api.{facility_id.lower()}.afyatrust.network/exchange/{record_hash}"
+    facility_id = staff.hospital.code
+    metadata_uri = request.build_absolute_uri(f"/exchange/{record_hash}/")
 
     try:
         tx = contract.functions.addRecord(
@@ -1623,14 +1733,9 @@ def add_record(request):
 def exchange_record(request, record_hash):
     """Decentralized exchange endpoint (the metadata_uri stored on-chain).
 
-    Hospital A writes `https://api.<facility>.afyatrust.network/exchange/<hash>`
-    on-chain when adding a record. Anyone (typically Hospital B's backend or a
-    verifying party) can later GET this URL to confirm the record exists and
-    matches the hash anchored on Sepolia — the record data itself stays with
-    the facility that created it.
-
-    Only the hash is sensitive-free: we deliberately return the metadata and
-    on-chain anchors, NOT the clinical payload, without authentication.
+    This public metadata response never includes the clinical payload. The
+    receiving hospital obtains that payload only through the accepted-referral
+    verification flow.
     """
     h = (record_hash or "").strip()
     # Some PoC-era rows store hashes without the 0x prefix — try the exact
@@ -1643,22 +1748,39 @@ def exchange_record(request, record_hash):
 
     # Re-verify the hash of the stored payload — proves the off-chain data
     # has not been tampered with since it was anchored on-chain.
-    recomputed = "0x" + hashlib.sha256(json.dumps(record.record_data, sort_keys=True).encode()).hexdigest()
-
-    tx_ok = bool(record.tx_hash) and not record.tx_hash.startswith("PENDING")
+    recomputed = _record_payload_hash(record.record_data)
+    try:
+        chain_records = contract.functions.getRecords(record.patient.health_id).call()
+    except Exception:
+        logger.exception("Blockchain record lookup failed for exchange hash %s", h)
+        return Response(
+            {"error": "Blockchain is unavailable; record could not be verified"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    anchored = any(
+        str(chain_record[0]).lower() == record.record_hash.lower()
+        and str(chain_record[1]).lower() == record.facility_id.lower()
+        for chain_record in chain_records
+    )
+    payload_matches = recomputed.lower() == record.record_hash.lower()
 
     return Response({
         "record_hash": record.record_hash,
-        "hash_matches_payload": recomputed == record.record_hash,
+        "computed_hash": recomputed,
+        "hash_matches_payload": payload_matches,
+        "anchored_on_chain": anchored,
+        "verified": payload_matches and anchored,
         "record_type": record.record_type,
         "facility_id": record.facility_id,
         "facility_name": record.facility_name,
-        "health_id": record.patient.health_id,
         "created_at": record.created_at,
-        "anchored_on_chain": tx_ok,
-        "tx_hash": record.tx_hash if tx_ok else None,
-        "etherscan_url": f"https://sepolia.etherscan.io/tx/{record.tx_hash}" if tx_ok else None,
-        "metadata_uri": f"https://api.{record.facility_id.lower()}.afyatrust.network/exchange/{record.record_hash}",
+        "tx_hash": record.tx_hash if record.tx_hash and not record.tx_hash.startswith("PENDING") else None,
+        "etherscan_url": (
+            f"https://sepolia.etherscan.io/tx/{record.tx_hash}"
+            if record.tx_hash and not record.tx_hash.startswith("PENDING")
+            else None
+        ),
+        "metadata_uri": request.build_absolute_uri(f"/exchange/{record.record_hash}/"),
     })
 
 
@@ -1672,9 +1794,7 @@ def facility_records(request):
         return Response({"error": "Staff account not found"}, status=403)
 
     records = (
-        MedicalRecord.objects.filter(
-            patient__hospital=staff.hospital
-        )
+        MedicalRecord.objects.filter(facility_id__iexact=staff.hospital.code)
         .select_related("patient")
         .order_by("-created_at")[:50]
     )

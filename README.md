@@ -87,34 +87,50 @@ npm install
 npm start                           # http://localhost:4200
 ```
 
-## 4. Test the 7 steps from the document
+## 4. Demonstrate Hospital A → Hospital B record integrity
 
-1. **Patient receives a Health ID** — register at `/register`
-   (name, Health ID, 4-digit PIN). The backend creates a custodial wallet and
-   calls `registerPatient` on-chain.
-2. **Facility links records** — add a record (via the API or Django admin):
-   data saved off-chain, SHA-256 hash + facility ID written on-chain
-   (`addRecord`).
-3. **Only metadata on-chain** — check the `Patient` row: it holds the
-   encrypted key; the chain holds only `recordHash`, `facilityID`,
-   `metadataURI`.
-4. **Doctor verifies + requests access** — create an admin account
-   (`python manage.py createsuperuser`), then open `/doctor` in a second
-   browser profile: connect MetaMask, submit **full name + license number +
-   facility ID**, and approve the doctor at `/admin` (✅ Approve selected
-   doctors). Back on `/doctor`, enter the Health ID → "Access Records".
-   Without permission you get a denial panel → **Request Access**.
-5. **Patient approves** — sign in at `/login`, open **Requests**, **Approve**
-   → `patientGrantAccess` is written on-chain (7 days). The doctor can now
-   view records; `hasAccess` returns true.
-6. **Every access logged** — after the doctor views records, the patient's
-   **Audit Trail** tab shows the `VIEW` event (who, role, facility, time).
-7. **Break-glass** — from the denial panel, enter a reason and press
-   **Break-Glass**. Access is granted for the emergency and a
-   `BREAK_GLASS` event is permanently logged for accountability.
+Hospital A stores clinical data off-chain and anchors its SHA-256 hash on
+Sepolia. After Hospital B accepts the referral, it recomputes the hash and
+checks that the same hash and facility are in the patient's blockchain record
+list. Hospital B receives the clinical payload only if both checks pass.
 
-Scripted check of the same flow (each run uses a fresh Health ID and real
-Sepolia gas):
+1. In Django admin, create two hospitals (for example `FAC-A` and `FAC-B`) and
+   a staff login for each. Ensure the facility wallet is configured and
+   authorized on the deployed contract.
+2. Register a demo patient at `/register` and select `FAC-A` as the
+   registering hospital.
+3. Log in as Hospital A staff, open **Add Record**, and add a sample record.
+   Wait for the successful Sepolia transaction; the dashboard shows its hash
+   and Etherscan link. Only the hash, facility code, and metadata pointer are
+   stored on-chain; clinical fields remain off-chain.
+4. Sign in as the patient, open **Referrals**, and request a referral to
+   `FAC-B`.
+5. Log in as Hospital B staff, open **Incoming Referrals**, and accept the
+   referral. The backend writes the transfer-of-care event to Sepolia.
+6. On the accepted referral, click **Verify & receive records**. The screen
+   reports whether the current payload matches its stored hash and whether that
+   hash/facility pair exists on-chain. Only records passing both checks display
+   clinical data. Mismatched or unanchored records are withheld.
+7. To demonstrate detection, use Django admin to edit the record's
+   `record_data` (for example, change a lab result), save it, then run
+   **Verify & receive records** again at Hospital B. The computed hash will
+   differ from the immutable Sepolia hash, the record will show
+   `INTEGRITY_MISMATCH`, and its data will not be released. Restore the record
+   after the demonstration.
+
+The exchange metadata endpoint is `/exchange/<record-hash>/`. It exposes
+verification metadata only, not clinical data. The authenticated referral
+verification endpoint is `POST /api/staff/referrals/<id>/verify-records/`;
+it is scoped to the receiving hospital and accepted referrals.
+
+> **PoC boundary:** Hospital A and Hospital B are separate facility identities
+> and staff accounts in this demo, but they currently use one AfyaTrust
+> backend/database deployment. The on-chain hash check demonstrates detection
+> of changed off-chain data; independent hospital deployments and production
+> health-data transport/security require further integration.
+
+Run the scripted flow (creates a fresh patient, writes real Sepolia
+transactions, and includes a simulated tamper check):
 
 ```bash
 cd backend/afyatrust
@@ -143,51 +159,67 @@ This is the complete flow that is in the codebase today, not just the original 7
    - If the contract is not yet deployed or RPC is unavailable, the API still works and marks the transaction as `PENDING: ...` in the response.
 
 4. **Facility record ingestion**
-   - A facility/hospital adds patient records through the API or admin layer.
+   - Authenticated hospital staff add patient records; the backend derives the
+     facility code from the staff account, not from a client-supplied value.
    - The actual record payload remains off-chain in Django (`MedicalRecord.record_data`), while a SHA-256 hash and facility metadata are written to-chain.
    - This preserves privacy while keeping an auditable pointer and hash on the blockchain.
    - The added record is linked to the patient and the facility that created it.
 
-5. **Doctor onboarding and verification flow**
+5. **Hospital-to-hospital referral integrity**
+   - A patient registered with Hospital A requests referral to Hospital B.
+   - Hospital B accepts; the backend logs the transfer of care on-chain.
+   - Hospital B can verify records created by Hospital A before the referral.
+     It recomputes each payload hash and checks for the exact hash/facility
+     pair in the patient's on-chain `getRecords` result.
+   - The backend returns clinical content only for records passing both
+     checks. Changed or unanchored records are flagged and withheld.
+
+6. **Doctor onboarding and verification flow**
    - A doctor is not self-registered in the PoC. The admin creates the doctor profile and sets the initial PIN.
    - The doctor can then log in and check status via the backend; only `APPROVED` doctors can request access or view patient records.
    - The frontend shows the doctor status and gating states based on admin approval.
 
-6. **Access requests and patient consent**
+7. **Access requests and patient consent**
    - A verified doctor submits a request for access to a patient by Health ID.
    - The request is stored as an `AccessRequest` with the doctor’s wallet, facility, reason, and status (`PENDING`/`APPROVED`/`REJECTED`).
    - The patient sees pending requests in the patient dashboard and can approve or reject them.
    - On approval, the backend calls `patientGrantAccess(...)` with the patient’s custodial key, and the permission is logged on-chain for a configurable number of days.
    - The patient can also revoke access later.
 
-7. **Doctor record access checks**
+8. **Doctor record access checks**
    - When the doctor requests patient records, the API checks `hasAccess` on-chain with a cached read layer to avoid repeated expensive RPC calls.
    - If the patient has granted access, the doctor can view the record bundle.
    - If access is missing, the denial flow is shown in the UI and the doctor can request access or trigger break-glass if the case is urgent.
 
-8. **Audit trail and accountability**
+9. **Audit trail and accountability**
    - Every successful record view is logged on-chain as a `VIEW` event with accessor, role, facility, and timestamp.
    - The patient dashboard exposes the chain-backed audit trail and the latest tx hash when available.
    - This gives a permanent evidence trail of who accessed what and when.
 
-9. **Emergency break-glass flow**
+10. **Emergency break-glass flow**
    - From the denial panel, a doctor can enter a reason and use the break-glass mechanism.
    - The backend calls `breakGlass(...)` on-chain and creates an emergency access DB record.
    - The emergency permission is temporary and clearly marked as `BREAK_GLASS`, so there is a complete accountability trail for exceptional access.
 
-10. **Secondary clinical workflows already implemented**
+11. **Secondary clinical workflows already implemented**
    - Doctors can record measurements (`Measurement`) for granted patients.
    - Patients can see their measurements and referrals.
    - Patients can initiate referral requests to other hospitals.
    - Receiving hospital staff can review and accept/decline referrals through the staff workflow.
    - The system already supports referral handoff and hospital-to-hospital coordination, not just patient access control.
 
-11. **Frontend + backend integration**
+12. **Frontend + backend integration**
    - Angular handles the patient, doctor, and hospital portals and routes users by role.
    - Django REST Framework exposes the API and handles auth, wallet management, contract interaction, and audit aggregation.
    - Hardhat + Solidity secures the permission logic, event logging, and access checks while the backend keeps private patient records off-chain.
 
-In short, the project today implements: identity creation, custodial wallets, patient and doctor registration, hospital record storage, approval-based patient consent, permission grants, doctor access gates, audit logging, break-glass emergency access, measurements, and hospital referrals — all connected across the backend, frontend, and blockchain layers.
+In short, the project today implements: identity creation, custodial wallets,
+facility-scoped record ingestion, tamper detection and gated record handoff
+during Hospital A → Hospital B referrals, approval-based patient consent,
+doctor access gates, audit logging, break-glass emergency access,
+measurements, and referral workflows across the frontend, backend, and
+blockchain. The PoC uses a shared backend/database; it does not yet deploy
+independent hospital systems.
 
 ## API overview
 
@@ -195,7 +227,8 @@ In short, the project today implements: identity creation, custodial wallets, pa
 |---|---|---|---|
 | POST | `/api/register/` | — | Register patient (creates custodial wallet and on-chain identity) |
 | POST | `/api/login/` | — | Single login for patient, doctor, or staff (`identity` + `secret`) |
-| POST | `/api/add-record/` | JWT/facility context | Facility adds an off-chain record; hash + metadata written on-chain |
+| POST | `/api/add-record/` | Hospital staff JWT | Add off-chain record; derive facility from staff; anchor hash on-chain |
+| GET | `/exchange/<record-hash>/` | — | Public verification metadata only; no clinical payload |
 | GET | `/api/patient/my-records/` | JWT | Patient’s own records + audit trail |
 | GET | `/api/patient/requests/` | JWT | Patient’s pending access requests |
 | POST | `/api/patient/grant-access/` | JWT | Grant doctor access for N days |
@@ -210,6 +243,8 @@ In short, the project today implements: identity creation, custodial wallets, pa
 | GET | `/api/patient/measurements/` | JWT | Patient view of their own measurements |
 | POST | `/api/patient/referrals/send/` | JWT | Patient requests a referral to another hospital |
 | GET | `/api/staff/referrals/` | JWT | Staff receives and processes referral requests |
+| POST | `/api/staff/referrals/<id>/respond/` | Receiving hospital staff JWT | Accept/decline referral; acceptance is anchored on-chain |
+| POST | `/api/staff/referrals/<id>/verify-records/` | Receiving hospital staff JWT | Verify and receive records only when payload and chain hashes match |
 | POST | `/api/doctor/break-glass/` | JWT | Emergency access with permanent audit logging |
 
 ## Future work

@@ -100,6 +100,35 @@ export interface ReferralItem {
   responded_at?: string;
 }
 
+export interface ReferralIntegrityRecord {
+  id: number;
+  record_type: string;
+  facility_id: string;
+  created_at: string;
+  record_hash: string;
+  computed_hash: string;
+  payload_matches_hash: boolean;
+  anchored_on_chain: boolean;
+  verified: boolean;
+  status: 'VERIFIED' | 'INTEGRITY_MISMATCH';
+  tx_hash: string;
+  etherscan_url: string | null;
+  record_data: Record<string, unknown> | null;
+  on_chain_timestamp?: number;
+}
+
+export interface ReferralIntegrityReport {
+  referral_id: number;
+  patient_health_id: string;
+  from_hospital: string;
+  to_hospital: string;
+  referral_tx_hash: string | null;
+  referral_anchored_on_chain: boolean;
+  records: ReferralIntegrityRecord[];
+  verified_count: number;
+  mismatch_count: number;
+}
+
 export interface AssignedPatient {
   health_id: string;
   full_name: string;
@@ -447,6 +476,13 @@ export class ApiService {
     return this.request('POST', `/staff/referrals/${referral_id}/respond/`, { action });
   }
 
+  verifyReferralRecords(referral_id: number): Promise<ReferralIntegrityReport> {
+    return this.request(
+      'POST',
+      `/staff/referrals/${referral_id}/verify-records/`,
+    );
+  }
+
   breakGlass(payload: { health_id: string; facility_id: string; reason: string }) {
     return this.request('POST', '/doctor/break-glass/', payload);
   }
@@ -456,10 +492,8 @@ export class ApiService {
   /** Staff adds a clinical record: data off-chain, SHA-256 hash on-chain. */
   addRecord(payload: {
     health_id: string;
-    facility_id: string;
-    facility_name: string;
     record_type: string;
-    record_data: any;
+    record_data: Record<string, string>;
   }) {
     return this.request<{ status: string; record_id: number; hash: string; tx_hash: string }>(
       'POST', '/add-record/', payload

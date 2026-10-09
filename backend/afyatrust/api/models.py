@@ -112,6 +112,8 @@ class Referral(models.Model):
     responded_by = models.CharField(max_length=220, blank=True)  # e.g. "STAFF:juma@mnh"
     created_at = models.DateTimeField(auto_now_add=True)
     responded_at = models.DateTimeField(null=True, blank=True)
+    tx_hash = models.CharField(max_length=66, blank=True)  # on-chain ReferralAccepted tx hash
+    on_chain_referral_tx = models.TextField(blank=True, default="")  # PENDING error info if chain unreachable
 
     class Meta:
         ordering = ["-created_at"]

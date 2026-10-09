@@ -80,6 +80,24 @@ import { AuthService } from '../../../services/auth.service';
                 <span *ngIf="t.id === 'requests' && requests.length > 0" class="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{{ requests.length }}</span>
               </button>
             </nav>
+
+            <!-- BOTTOM ACTIONS -->
+            <div class="mt-6 pt-4 border-t border-slate-200 space-y-2">
+              <button (click)="viewProfile()"
+                      class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-slate-100 transition-all duration-200 group">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-500 group-hover:text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM11 8a4 4 0 11-8 0 4 4 0 018 0zM11 8a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <span class="font-medium">View Profile</span>
+              </button>
+              <button (click)="logoutAndRedirect()"
+                      class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-red-50 hover:text-red-600 transition-all duration-200 group">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-500 group-hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span class="font-medium">Sign Out</span>
+              </button>
+            </div>
           </div>
         </aside>
 
@@ -179,24 +197,6 @@ import { AuthService } from '../../../services/auth.service';
             </button>
           </div>
         </div>
-      </div>
-
-      <!-- Tabs -->
-      <div class="mb-6 flex flex-wrap gap-1 border-b border-gray-200">
-        <button
-          *ngFor="let t of tabs"
-          class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors relative"
-          [class]="tab === t.id
-            ? 'font-bold text-primary-500 border-b-4 border-primary-500 -mb-[2px]'
-            : 'text-muted hover:text-ink'"
-          (click)="setTab(t.id)"
-        >
-          {{ t.label }}
-          <span *ngIf="t.id === 'requests' && requests.length > 0"
-                class="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">
-            {{ requests.length }}
-          </span>
-        </button>
       </div>
 
           <!-- RECORDS -->
@@ -425,65 +425,459 @@ import { AuthService } from '../../../services/auth.service';
               <p class="text-slate-600">You're all caught up!</p>
             </div>
           </div>
-          <!-- WALLET & PROFILE -->
-          <div *ngIf="tab === 'wallet' && walletProfile" class="space-y-6 animate-fade-in">
+          <!-- WALLET -->
+          <div *ngIf="tab === 'wallet' && walletActivity" class="space-y-6 animate-fade-in">
             <div>
-              <h1 class="text-2xl font-bold text-slate-900 mb-2">Wallet & Profile</h1>
+              <h1 class="text-2xl font-bold text-slate-900 mb-2">Wallet</h1>
               <p class="text-slate-600">
-                Your custodial wallet was auto-generated when your account was created.
-                It is your on-chain identity on the Sepolia network — no MetaMask required.
+                Your custodial wallet is your on-chain identity on the Sepolia network.
+                Every grant, record hash, and access log is attributed to this address — no MetaMask required.
               </p>
             </div>
 
+            <!-- Wallet address card -->
             <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-              <h2 class="text-lg font-bold text-slate-900 mb-4">Profile</h2>
-              <dl class="space-y-4">
-                <div class="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <h2 class="text-lg font-bold text-slate-900 mb-4">Custodial Wallet Address</h2>
+              <div class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
+                <div class="flex items-center gap-2">
+                  <div class="w-9 h-9 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
                   <div>
-                    <p class="text-xs text-slate-500 uppercase tracking-wide">Full Name</p>
-                    <p class="text-sm font-semibold text-slate-900">{{ walletProfile.full_name }}</p>
-                  </div>
-                  <div class="text-right">
-                    <p class="text-xs text-slate-500 uppercase tracking-wide">Health ID</p>
-                    <p class="text-sm font-mono font-semibold text-slate-900">{{ walletProfile.health_id }}</p>
+                    <p class="text-xs text-slate-500">Wallet address (checksummed)</p>
+                    <p class="text-sm font-mono font-semibold text-slate-900 break-all">{{ walletActivity.wallet_address }}</p>
                   </div>
                 </div>
+                <button (click)="copyWalletAddress()"
+                        class="flex-shrink-0 self-start px-4 py-2 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">
+                  Copy address
+                </button>
+              </div>
 
-                <div class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
-                  <div class="flex items-center gap-2">
-                    <div class="w-9 h-9 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <p class="text-xs text-slate-500">Custodial Wallet Address</p>
-                      <p class="text-sm font-mono font-semibold text-slate-900 break-all">{{ walletProfile.wallet_address }}</p>
-                    </div>
-                  </div>
-                  <button (click)="copyWalletAddress()"
-                          class="flex-shrink-0 self-start px-4 py-2 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">
-                    Copy address
-                  </button>
+              <div class="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <p class="text-xs text-slate-500 mb-1">Health ID (this wallet is bound to)</p>
+                <p class="text-sm font-mono font-semibold text-slate-900">{{ walletActivity.health_id }}</p>
+              </div>
+              <div class="mt-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <p class="text-xs text-slate-500 mb-1">Account holder</p>
+                <p class="text-sm font-semibold text-slate-900">{{ walletActivity.full_name }}</p>
+              </div>
+
+              <div class="p-4 bg-amber-50 rounded-xl border border-amber-200 mt-4">
+                <p class="text-sm text-amber-800">
+                  <span class="font-semibold">Note:</span> This is a custodial wallet managed by the platform. The private key is encrypted and held by the backend so you can sign in with just your Health ID and PIN. You do not need MetaMask for any platform action.
+                </p>
+              </div>
+            </div>
+
+            <!-- Wallet activity summary -->
+            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+              <h2 class="text-lg font-bold text-slate-900 mb-4">Wallet activity summary</h2>
+              <dl class="grid grid-cols-2 gap-4">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">On-chain events</p>
+                  <p class="text-2xl font-bold text-ink">{{ walletActivity.activityCount }}</p>
+                  <p class="text-xs text-muted">actions logged on Sepolia for this wallet</p>
                 </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Pending operations</p>
+                  <p class="text-2xl font-bold" [class."text-red-600"]="walletActivity.pendingOperations > 0">{{ walletActivity.pendingOperations }}</p>
+                  <p class="text-xs text-muted">access requests waiting for your answer</p>
+                </div>
+              </dl>
 
-                <div class="p-4 bg-amber-50 rounded-xl border border-amber-200">
-                  <p class="text-sm text-amber-800">
-                    <span class="font-semibold">Note:</span> This is a custodial wallet managed by the platform. The private key is encrypted and held by the backend so you can sign in with just your Health ID and PIN. You do not need MetaMask for any platform action.
+              <div class="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <p class="text-xs text-slate-500 mb-1">Last on-chain activity</p>
+                <p class="text-sm text-slate-900">
+                  {{ walletActivity.lastActivityAt ? (walletActivity.lastActivityAt * 1000 | date:'medium') : 'No on-chain activity yet' }}
+                </p>
+              </div>
+
+              <div *ngIf="walletActivity.lastTxHash" class="mt-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <p class="text-xs text-slate-500 mb-1">Last transaction hash</p>
+                <div class="flex flex-wrap items-center gap-2">
+                  <code class="text-xs font-mono text-slate-900">{{ walletActivity.lastTxHash | slice:0:32 }}…</code>
+                  <a *ngIf="!walletActivity.lastTxHash.toLowerCase().startsWith('pending')"
+                     [href]="'https://sepolia.etherscan.io/tx/' + walletActivity.lastTxHash"
+                     target="_blank" rel="noopener"
+                     class="text-xs font-semibold text-accent-700 hover:underline">
+                    View on Etherscan
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Active grants summary -->
+            <div *ngIf="walletGrants" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+              <h2 class="text-lg font-bold text-slate-900 mb-4">Active permissions (grants)</h2>
+              <dl class="grid grid-cols-3 gap-4">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Active</p>
+                  <p class="text-2xl font-bold text-accent-700">{{ walletGrants.activeCount }}</p>
+                  <p class="text-xs text-muted">doctors with access now</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Expiring soon</p>
+                  <p class="text-2xl font-bold" [class."text-amber-600"]="walletGrants.expiringSoon > 0">{{ walletGrants.expiringSoon }}</p>
+                  <p class="text-xs text-muted">expire within 7 days</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Last grant</p>
+                  <p class="text-sm font-semibold text-slate-900 truncate">{{ walletGrants.lastGrantDoctor || '—' }}</p>
+                  <p class="text-xs text-muted">
+                    {{ walletGrants.lastGrantAt ? (walletGrants.lastGrantAt | date:'short') : 'none yet' }}
                   </p>
                 </div>
               </dl>
             </div>
+          </div>
 
-            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-              <h2 class="text-lg font-bold text-slate-900 mb-4">On-Chain Identity</h2>
-              <p class="text-sm text-slate-600 mb-4">
-                Your wallet address is the anchor for every permission grant, record hash, and access log on the Sepolia blockchain. You can verify any activity involving your identity on Etherscan using this address.
+          <!-- PROFILE -->
+          <div *ngIf="tab === 'profile' && profileInfo" class="space-y-6 animate-fade-in">
+            <div>
+              <h1 class="text-2xl font-bold text-slate-900 mb-2">Profile</h1>
+              <p class="text-slate-600">
+                Your personal account details. Full name and phone are editable.
+                Health ID and wallet address are assigned by the platform and cannot be changed.
               </p>
-              <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 font-mono text-sm">
-                <p class="text-xs text-slate-500 mb-1">Address (checksummed)</p>
-                <p class="break-all font-semibold text-slate-900">{{ walletProfile.wallet_address }}</p>
+            </div>
+
+            <!-- Read-only identity fields -->
+            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+              <h2 class="text-lg font-bold text-slate-900 mb-4">Account identity</h2>
+              <dl class="grid grid-cols-2 gap-4">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Full name</p>
+                  <p class="text-sm font-semibold text-slate-900">{{ profileInfo.full_name }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Health ID</p>
+                  <p class="text-sm font-mono font-semibold text-slate-900">{{ profileInfo.health_id }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Phone</p>
+                  <p class="text-sm text-slate-900">{{ profileInfo.phone || '—' }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Wallet address</p>
+                  <p class="text-xs font-mono text-slate-900 break-all">{{ profileInfo.wallet_address }}</p>
+                </div>
+              </dl>
+            </div>
+
+            <!-- Editable profile form -->
+            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+              <h2 class="text-lg font-bold text-slate-900 mb-4">Edit profile</h2>
+              <p class="mb-4 text-sm text-muted">
+                Update your name and phone. These changes take effect immediately.
+              </p>
+
+              <div *ngIf="editMsg" class="mb-4 rounded-lg border p-3 text-sm" [class."text-accent-900 bg-accent-50 border-accent-200"]="editOk" [class."text-red-700 bg-red-50 border-red-200"]="!editOk">
+                {{ editMsg }}
               </div>
+
+              <form (ngSubmit)="saveProfile()" #profileForm="ngForm" class="flex flex-col gap-4">
+                <label class="flex flex-col gap-1.5">
+                  <span class="text-[13px] font-semibold text-ink">Full name</span>
+                  <input
+                    type="text"
+                    name="full_name"
+                    [(ngModel)]="editName"
+                    required
+                    autocomplete="name"
+                    class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </label>
+
+                <label class="flex flex-col gap-1.5">
+                  <span class="text-[13px] font-semibold text-ink">Phone (optional)</span>
+                  <input
+                    type="tel"
+                    name="phone"
+                    [(ngModel)]="editPhone"
+                    autocomplete="tel"
+                    class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </label>
+
+                <button
+                  type="submit"
+                  [disabled]="editBusy || !profileForm.valid"
+                  class="mt-2 w-full rounded-lg bg-primary-500 px-3.5 py-3.5 text-base font-semibold text-ink transition-colors hover:bg-primary-400 disabled:opacity-50"
+                >
+                  {{ editBusy ? 'Saving…' : 'Save profile' }}
+                </button>
+              </form>
+            </div>
+
+            <!-- Grant summary for this profile -->
+            <div *ngIf="grantSummary" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+              <h2 class="text-lg font-bold text-slate-900 mb-4">Access you have granted</h2>
+              <dl class="grid grid-cols-3 gap-4">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Active grants</p>
+                  <p class="text-2xl font-bold text-accent-700">{{ grantSummary.activeCount }}</p>
+                  <p class="text-xs text-muted">doctors with access now</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Pending requests</p>
+                  <p class="text-2xl font-bold" [class."text-red-600"]="grantSummary.pendingCount > 0">{{ grantSummary.pendingCount }}</p>
+                  <p class="text-xs text-muted">waiting for your answer</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Expiring soon</p>
+                  <p class="text-2xl font-bold" [class."text-amber-600"]="grantSummary.expiringSoon > 0">{{ grantSummary.expiringSoon }}</p>
+                  <p class="text-xs text-muted">expire within 7 days</p>
+                </div>
+              </dl>
+            </div>
+          </div>
+
+          <!-- REFERRAL SECURITY (blockchain-secured cross-hospital flow) -->
+          <div *ngIf="tab === 'referral-security'" class="space-y-6 animate-fade-in">
+            <div>
+              <h1 class="text-2xl font-bold text-slate-900 mb-2">Referral Security</h1>
+              <p class="text-slate-600 leading-relaxed">
+                When you are referred from one hospital to another, the blockchain
+                secures your data every step of the way — so no one can change your
+                records in between. Each record's hash is anchored on Sepolia by the
+                sending hospital, the referral acceptance is immutably timestamped,
+                and every view by the receiving hospital is logged forever.
+              </p>
+            </div>
+
+            <!-- How it works -->
+            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+              <h2 class="text-lg font-bold text-slate-900 mb-4">How the blockchain protects your data during a referral</h2>
+              <div class="space-y-4">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-sm font-semibold text-slate-900 mb-1">1. Hospital A anchors your record hashes on Sepolia</p>
+                  <p class="text-sm text-slate-600">
+                    Before you leave, Hospital A writes the SHA-256 hash of each of
+                    your records to the blockchain. The actual clinical data stays at
+                    Hospital A — only the hash and a verification pointer go on-chain.
+                    Once written, no one (not even Hospital A) can change that hash.
+                  </p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-sm font-semibold text-slate-900 mb-1">2. You are referred to Hospital B</p>
+                  <p class="text-sm text-slate-600">
+                    When Hospital B accepts your referral, the acceptance is logged
+                    on-chain with the exact block timestamp, the clinician who accepted,
+                    and both hospitals' IDs. This is immutable proof of the transfer of
+                    care — it cannot be rewritten later.
+                  </p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-sm font-semibold text-slate-900 mb-1">3. Hospital B verifies your records by hash</p>
+                  <p class="text-sm text-slate-600">
+                    Hospital B does not trust Hospital A's word — it verifies each
+                    record by recomputing the hash of the off-chain data and comparing
+                    it to the on-chain anchor. If anyone had changed even one byte of
+                    your data in between, the hash would not match and the tampering
+                    would be detected.
+                  </p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-sm font-semibold text-slate-900 mb-1">4. Every view by Hospital B is logged on-chain</p>
+                  <p class="text-sm text-slate-600">
+                    When a doctor at Hospital B views your records, a
+                    <code>RecordViewed</code> event is written on-chain with the viewer,
+                    the facility, and the timestamp. This creates a permanent,
+                    transparent audit trail of who accessed your data and when — across
+                    hospitals.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Your referral story -->
+            <div *ngIf="referralSecurity && referralSecurity.referrals.length" class="space-y-6">
+              <h2 class="text-lg font-bold text-slate-900">Your referral story on-chain</h2>
+
+              <div *ngFor="let r of referralSecurity.referrals" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+                <!-- Referral header -->
+                <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p class="text-sm text-muted mb-1">Referral</p>
+                    <h3 class="text-xl font-bold text-slate-900">
+                      {{ r.from_hospital }} → {{ r.to_hospital }}
+                      <span class="text-sm font-normal text-muted">({{ r.patient_name }})</span>
+                    </h3>
+                    <p class="text-sm text-slate-600 mt-1">
+                      {{ r.reason || 'No reason recorded' }}
+                    </p>
+                    <div class="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted">
+                      <span>Sent {{ r.created_at | date:'medium' }}</span>
+                      <span *ngIf="r.responded_at">· Responded {{ r.responded_at | date:'medium' }}</span>
+                      <span>· {{ r.status }}</span>
+                      <span *ngIf="r.responded_by">· by {{ r.responded_by }}</span>
+                    </div>
+                  </div>
+                  <span class="rounded-full px-3 py-1 text-xs font-bold"
+                        [class."bg-accent-500 text-white"]="r.status === 'ACCEPTED'"
+                        [class."bg-red-500 text-white"]="r.status === 'DECLINED'"
+                        [class."bg-primary-300 text-ink"]="r.status === 'PENDING'">
+                    {{ r.status }}
+                  </span>
+                </div>
+
+                <!-- On-chain referral acceptance proof -->
+                <div class="mb-5 p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+                  <p class="text-xs font-semibold text-indigo-800 uppercase tracking-wide mb-2">
+                    Transfer of care — on-chain proof
+                  </p>
+                  <div *ngIf="r.on_chain_referral_accepted" class="space-y-2">
+                    <p class="text-sm text-indigo-900">
+                      This referral was accepted and immutably recorded on Sepolia.
+                      No one can change this later.
+                    </p>
+                    <div class="flex flex-wrap items-center gap-2 text-xs">
+                      <span class="font-semibold text-indigo-900">Transaction:</span>
+                      <code class="rounded bg-white/60 px-1.5 py-0.5 font-mono text-indigo-900">
+                        {{ r.on_chain_referral_tx_hash | slice:0:24 }}…
+                      </code>
+                      <a *ngIf="r.on_chain_referral_tx_hash && !r.on_chain_referral_tx_hash.toLowerCase().startsWith('pending')"
+                         [href]="'https://sepolia.etherscan.io/tx/' + r.on_chain_referral_tx_hash"
+                         target="_blank" rel="noopener"
+                         class="text-indigo-700 hover:underline">
+                        View on Etherscan
+                      </a>
+                    </div>
+                  </div>
+                  <p *ngIf="!r.on_chain_referral_accepted && r.tx_hash && r.tx_hash.toLowerCase().startsWith('pending')"
+                     class="text-sm text-amber-800">
+                    The on-chain referral acceptance is pending confirmation on Sepolia.
+                  </p>
+                  <p *ngIf="!r.on_chain_referral_accepted && (!r.tx_hash || !r.tx_hash.toLowerCase().startsWith('pending'))"
+                     class="text-sm text-slate-600">
+                    This referral was accepted in the system but has not yet been anchored
+                    on-chain (or the chain is unreachable in this demo).
+                  </p>
+                </div>
+
+                <!-- Records anchored by the sending hospital -->
+                <div *ngIf="r.from_hospital_records.length" class="mb-5">
+                  <div class="flex items-center gap-2 mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p class="text-sm font-semibold text-slate-900">
+                      Records anchored by {{ r.from_hospital }}
+                      <span class="text-xs font-normal text-muted">(before your referral)</span>
+                    </p>
+                  </div>
+                  <p class="text-xs text-slate-500 mb-3">
+                    These are the SHA-256 hashes Hospital A wrote to Sepolia. Hospital B
+                    will verify each record by recomputing the hash — if the data was
+                    changed in between, the hash would not match.
+                  </p>
+                  <div class="space-y-2">
+                    <div *ngFor="let rec of r.from_hospital_records" class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <div>
+                          <span class="text-xs text-muted uppercase tracking-wide">Type</span>
+                          <p class="text-sm font-semibold text-slate-900">{{ rec.record_type || '—' }}</p>
+                        </div>
+                        <div class="text-right">
+                          <span class="text-xs text-muted uppercase tracking-wide">Anchored</span>
+                          <p class="text-xs text-slate-900">
+                            {{ rec.on_chain_timestamp ? (rec.on_chain_timestamp * 1000 | date:'medium') : (rec.created_at | date:'medium') }}
+                          </p>
+                        </div>
+                      </div>
+                      <div class="p-2 bg-white rounded-lg border border-slate-200 font-mono text-xs break-all">
+                        <span class="text-slate-500">hash:</span>
+                        <span class="text-slate-900">{{ rec.record_hash | slice:0:32 }}…</span>
+                      </div>
+                      <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                        <span class="font-semibold" [class."text-accent-700"]="rec.verified"
+                              [class."text-muted"]="!rec.verified">
+                          {{ rec.verified ? 'On-chain verified ✓' : 'Pending' }}
+                        </span>
+                        <span *ngIf="rec.metadata_uri" class="text-muted">
+                          ·
+                          <a [href]="rec.metadata_uri" target="_blank" rel="noopener" class="text-accent-700 hover:underline break-all">
+                            verify ↗
+                          </a>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Views by the receiving hospital (immutable audit) -->
+                <div *ngIf="r.receiving_hospital_views.length" class="mb-5">
+                  <div class="flex items-center gap-2 mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    <p class="text-sm font-semibold text-slate-900">
+                      Views by {{ r.to_hospital }} (on-chain audit)
+                    </p>
+                  </div>
+                  <p class="text-xs text-slate-500 mb-3">
+                    Every time a clinician at {{ r.to_hospital }} viewed your records,
+                    it was logged on-chain. This is permanent — it cannot be deleted or
+                    changed.
+                  </p>
+                  <div class="space-y-2">
+                    <div *ngFor="let v of r.receiving_hospital_views" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div>
+                          <span class="text-muted uppercase tracking-wide">Accessor</span>
+                          <p class="text-sm font-semibold text-slate-900">
+                            {{ v.accessor | slice:0:16 }}…
+                          </p>
+                        </div>
+                        <div class="text-right">
+                          <span class="text-muted uppercase tracking-wide">Viewed at</span>
+                          <p class="text-sm text-slate-900">
+                            {{ v.timestamp * 1000 | date:'medium' }}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Verification summary -->
+                <div class="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                  <p class="text-sm font-semibold text-emerald-900 mb-1">
+                    Why this means your data was not tampered with
+                  </p>
+                  <p class="text-sm text-emerald-800">
+                    The hash Hospital A wrote on-chain is a cryptographic fingerprint
+                    of your exact records. Hospital B verifies each record by recomputing
+                    the hash of the data it receives and comparing it to the on-chain
+                    anchor. If anyone — including Hospital A, Hospital B, or a third
+                    party — had changed even a single byte of your clinical data in
+                    between the referral, the hash would not match and the tampering
+                    would be immediately detected. The on-chain referral-acceptance
+                    timestamp and the view events give you a permanent, immutable record
+                    of exactly when your care was transferred and who accessed your
+                    records.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div *ngIf="referralSecurity && !referralSecurity.referrals.length" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 text-center">
+              <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+              </div>
+              <h3 class="text-lg font-bold text-slate-900 mb-2">No referrals yet</h3>
+              <p class="text-slate-600">
+                When you are referred from one hospital to another, this page will show
+                the blockchain-secured proof of your transfer of care — the records
+                anchored by the sending hospital, the on-chain referral acceptance, and
+                every view by the receiving hospital.
+              </p>
             </div>
           </div>
 
@@ -616,7 +1010,7 @@ import { AuthService } from '../../../services/auth.service';
 
 })
 export class PatientDashboardComponent implements OnInit, OnDestroy {
-  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' = 'records';
+  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' = 'records';
   tabs = [
     { id: 'records', label: 'Records' },
     { id: 'measurements', label: 'Measurements' },
@@ -624,7 +1018,9 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     { id: 'permissions', label: 'Permissions' },
     { id: 'requests', label: 'Requests' },
     { id: 'activity', label: 'Activity' },
-    { id: 'wallet', label: 'Wallet & Profile' },
+    { id: 'wallet', label: 'Wallet' },
+    { id: 'profile', label: 'Profile' },
+    { id: 'referral-security', label: 'Referral Security' },
   ] as const;
 
   data: PatientData | null = null;
@@ -673,7 +1069,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  setTab(id: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet') {
+  setTab(id: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security') {
     this.tab = id;
     if (id === 'activity') {
       void this.loadStory();
@@ -681,28 +1077,197 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     if (id === 'wallet') {
       void this.loadWalletProfile();
     }
+    if (id === 'profile') {
+      void this.loadProfile();
+    }
+    if (id === 'referral-security') {
+      void this.loadReferralSecurity();
+    }
     this.syncView();
   }
 
-  // Wallet & profile display (full address, copied from live API response).
-  walletProfile: { full_name: string; health_id: string; wallet_address: string } | null = null;
+  // --- Wallet tab data (wallet-centric chain info) ---
+  walletActivity: {
+    wallet_address: string;
+    health_id: string;
+    full_name: string;
+    activityCount: number;
+    lastTxHash: string | null;
+    lastActivityAt: number | null;
+    pendingOperations: number;
+  } | null = null;
+
+  walletGrants: {
+    activeCount: number;
+    pendingCount: number;
+    expiringSoon: number;
+    lastGrantAt: string | null;
+    lastGrantDoctor: string | null;
+  } | null = null;
+
+  // --- Profile tab data (user-centric editable info) ---
+  profileInfo: { health_id: string; full_name: string; phone: string; wallet_address: string } | null = null;
+  grantSummary: {
+    activeCount: number;
+    pendingCount: number;
+    expiringSoon: number;
+    lastGrantAt: string | null;
+    lastGrantDoctor: string | null;
+  } | null = null;
+
+  // profile edit form
+  editName = '';
+  editPhone = '';
+  editBusy = false;
+  editMsg = '';
+  editOk = false;
 
   private async loadWalletProfile() {
     if (!this.data) {
-      this.walletProfile = null;
+      this.walletActivity = null;
       return;
     }
-    this.walletProfile = {
-      full_name: this.data.full_name,
-      health_id: this.data.health_id,
+    // Prefill walletActivity from the core payload so the wallet tab has
+    // an address immediately even before the wallet-activity endpoint responds.
+    this.walletActivity = {
       wallet_address: this.data.wallet_address,
+      health_id: this.data.health_id,
+      full_name: this.data.full_name,
+      activityCount: 0,
+      lastTxHash: null,
+      lastActivityAt: null,
+      pendingOperations: 0,
     };
+    // Enrich with live wallet-activity + grant-summary data.
+    void this.loadWalletActivity();
+    void this.loadGrantSummary();
     this.syncView();
   }
 
+  private async loadWalletActivity() {
+    try {
+      this.walletActivity = await this.api.patientWalletActivity();
+    } catch {
+      this.walletActivity = null;
+    }
+    this.syncView();
+  }
+
+  private async loadGrantSummary() {
+    try {
+      this.walletGrants = await this.api.patientGrantAccessStatus();
+    } catch {
+      this.walletGrants = null;
+    }
+    this.syncView();
+  }
+
+  /** Load the profile tab: editable user info + grant summary. */
+  private async loadProfile() {
+    if (!this.data) {
+      this.profileInfo = null;
+      this.grantSummary = null;
+      return;
+    }
+    try {
+      this.profileInfo = await this.api.patientProfile();
+      this.editName = this.profileInfo.full_name;
+      this.editPhone = this.profileInfo.phone || '';
+    } catch {
+      this.profileInfo = {
+        health_id: this.data.health_id,
+        full_name: this.data.full_name,
+        phone: '',
+        wallet_address: this.data.wallet_address,
+      };
+      this.editName = this.profileInfo.full_name;
+      this.editPhone = this.profileInfo.phone || '';
+    }
+    try {
+      this.grantSummary = await this.api.patientGrantAccessStatus();
+    } catch {
+      this.grantSummary = null;
+    }
+    this.syncView();
+  }
+
+  async saveProfile() {
+    if (!this.profileInfo) return;
+    this.editMsg = '';
+    this.editBusy = true;
+    try {
+      const res: any = await this.api.patchPatientProfile({
+        full_name: this.editName.trim(),
+        phone: this.editPhone.trim(),
+      });
+      this.editOk = true;
+      this.editMsg = 'Profile updated.';
+      this.profileInfo = { ...this.profileInfo, full_name: res.full_name, phone: res.phone };
+    } catch (e: any) {
+      this.editOk = false;
+      this.editMsg = e?.error?.error || e?.message || 'Could not update profile';
+    } finally {
+      this.editBusy = false;
+      this.syncView();
+    }
+  }
+
+  // --- Referral security tab data ---
+  referralSecurity: {
+    health_id: string;
+    referrals: {
+      id: number;
+      patient_health_id: string;
+      patient_name: string;
+      from_hospital: string;
+      from_hospital_code: string;
+      from_doctor: string;
+      to_hospital: string;
+      to_hospital_code: string;
+      reason: string;
+      status: string;
+      responded_by: string;
+      created_at: string;
+      responded_at: string;
+      tx_hash: string;
+      on_chain_referral_tx: string;
+      on_chain_referral_accepted: boolean;
+      on_chain_referral_tx_hash: string | null;
+      from_hospital_records: {
+        record_hash: string;
+        facility_id: string;
+        facility_name?: string;
+        record_type?: string;
+        metadata_uri: string | null;
+        tx_hash?: string;
+        verified?: boolean;
+        created_at?: string;
+        on_chain_timestamp?: number;
+      }[];
+      receiving_hospital_views: {
+        accessor: string;
+        role: string;
+        facility_id: string;
+        timestamp: number;
+      }[];
+    }[];
+  } | null = null;
+
   copyWalletAddress() {
-    if (!this.walletProfile) return;
-    navigator.clipboard.writeText(this.walletProfile.wallet_address).catch(() => {});
+    const addr = this.walletActivity?.wallet_address
+      ?? this.profileInfo?.wallet_address;
+    if (!addr) return;
+    navigator.clipboard.writeText(addr).catch(() => {});
+  }
+
+  /** Load the referral security tab: blockchain-secured referral story. */
+  private async loadReferralSecurity() {
+    try {
+      this.referralSecurity = await this.api.patientReferralTimeline();
+    } catch {
+      this.referralSecurity = null;
+    }
+    this.syncView();
   }
 
   /** Record the tx of an on-chain action and surface it in the banner. */
@@ -1025,6 +1590,11 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.grant.doctor_license = this.selectedDoctor?.license_no ?? '';
     this.grant.doctor_name = this.selectedDoctor?.full_name ?? '';
     this.grant.doctor_wallet = this.selectedDoctor?.wallet_address ?? '';
+  }
+
+  /** Open the account/profile page (credential rotation, role-aware). */
+  viewProfile() {
+    this.router.navigate(['/account']);
   }
 
   /** Log out and take the user back to the sign-in page. */

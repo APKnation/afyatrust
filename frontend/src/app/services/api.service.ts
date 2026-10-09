@@ -249,6 +249,82 @@ export class ApiService {
     return this.request<PatientData>('GET', '/patient/my-records/');
   }
 
+  patientProfile(): Promise<{ health_id: string; full_name: string; phone: string; wallet_address: string }> {
+    return this.request('GET', '/patient/profile/');
+  }
+
+  patchPatientProfile(payload: { full_name: string; phone: string }) {
+    return this.request('POST', '/patient/profile/patch/', payload);
+  }
+
+  /** Counts of active grants, pending requests, expiring-soon grants. */
+  patientGrantAccessStatus(): Promise<{
+    activeCount: number;
+    pendingCount: number;
+    expiringSoon: number;
+    lastGrantAt: string | null;
+    lastGrantDoctor: string | null;
+  }> {
+    return this.request('GET', '/patient/grant-access/status/');
+  }
+
+  /** Wallet-centric activity summary (address, last tx, pending ops). */
+  patientWalletActivity(): Promise<{
+    wallet_address: string;
+    health_id: string;
+    full_name: string;
+    activityCount: number;
+    lastTxHash: string | null;
+    lastActivityAt: number | null;
+    pendingOperations: number;
+  }> {
+    return this.request('GET', '/patient/wallet/activity/');
+  }
+
+  /** Blockchain-secured referral story: records anchored by sending hospital,
+   * on-chain referral-acceptance tx, and receiving-hospital view events. */
+  patientReferralTimeline(): Promise<{
+    health_id: string;
+    referrals: {
+      id: number;
+      patient_health_id: string;
+      patient_name: string;
+      from_hospital: string;
+      from_hospital_code: string;
+      from_doctor: string;
+      to_hospital: string;
+      to_hospital_code: string;
+      reason: string;
+      status: string;
+      responded_by: string;
+      created_at: string;
+      responded_at: string;
+      tx_hash: string;
+      on_chain_referral_tx: string;
+      on_chain_referral_accepted: boolean;
+      on_chain_referral_tx_hash: string | null;
+      from_hospital_records: {
+        record_hash: string;
+        facility_id: string;
+        facility_name?: string;
+        record_type?: string;
+        metadata_uri: string | null;
+        tx_hash?: string;
+        verified?: boolean;
+        created_at?: string;
+        on_chain_timestamp?: number;
+      }[];
+      receiving_hospital_views: {
+        accessor: string;
+        role: string;
+        facility_id: string;
+        timestamp: number;
+      }[];
+    }[];
+  }> {
+    return this.request('GET', '/patient/referral-timeline/');
+  }
+
   myMeasurements(): Promise<MeasurementItem[]> {
     return this.request<MeasurementItem[]>('GET', '/patient/measurements/');
   }

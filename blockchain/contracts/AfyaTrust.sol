@@ -160,6 +160,13 @@ contract AfyaTrust {
         address indexed clinician
     );
 
+    event ReferralAccepted(
+        string indexed healthID,
+        address indexed clinician,
+        string fromFacilityID,
+        string toFacilityID
+    );
+
     event RoleGranted(
         address indexed account,
         bytes32 indexed role
@@ -636,6 +643,69 @@ contract AfyaTrust {
             "DOCTOR",
             _facilityID,
             "BREAK_GLASS"
+        );
+    }
+
+    // ============================================================
+    // LOG REFERRAL ACCEPTED (transfer of care, on-chain)
+    // ============================================================
+
+    /**
+     * When Hospital B accepts a referral from Hospital A, this function
+     * immutably records the transfer of care on-chain:
+     *   - which patient (healthID)
+     *   - which clinician at the receiving hospital accepted
+     *   - which facility the patient came from
+     *   - which facility the patient is going to
+     *
+     * This is the anchor that proves the referral happened at a specific
+     * block timestamp — it cannot be changed later, so no one can rewrite
+     * the patient's transfer history.
+     *
+     * The actual clinical records stay off-chain (with Hospital A), but
+     * their hashes are already on-chain via RecordAdded. Hospital B verifies
+     * them via the hash, not by trusting Hospital A's word.
+     */
+    function logReferralAccepted(
+        string memory _healthID,
+        address _clinician,
+        string memory _fromFacilityID,
+        string memory _toFacilityID
+    ) external onlyOperator {
+
+        require(
+            patients[_healthID].exists,
+            "Patient does not exist"
+        );
+
+        require(
+            _clinician != address(0),
+            "Invalid clinician"
+        );
+
+        require(
+            bytes(_fromFacilityID).length > 0,
+            "From facility required"
+        );
+
+        require(
+            bytes(_toFacilityID).length > 0,
+            "To facility required"
+        );
+
+        emit ReferralAccepted(
+            _healthID,
+            _clinician,
+            _fromFacilityID,
+            _toFacilityID
+        );
+
+        _logAudit(
+            _healthID,
+            _clinician,
+            "DOCTOR",
+            _toFacilityID,
+            "REFERRAL_ACCEPTED"
         );
     }
 

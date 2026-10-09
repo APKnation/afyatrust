@@ -52,6 +52,24 @@ import { AuthService } from '../../../services/auth.service';
           <span *ngIf="hospitalName">{{ hospitalName }}</span>
           <span *ngIf="!hospitalName">Clinical workspace</span>
         </div>
+
+        <!-- BOTTOM ACTIONS -->
+        <div class="mt-6 pt-4 border-t border-slate-200 space-y-2">
+          <button (click)="viewProfile()"
+                  class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-slate-100 transition-all duration-200 group">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-500 group-hover:text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM11 8a4 4 0 11-8 0 4 4 0 018 0zM11 8a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+            <span class="font-medium">View Profile</span>
+          </button>
+          <button (click)="logoutAndRedirect()"
+                  class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-red-50 hover:text-red-600 transition-all duration-200 group">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-500 group-hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span class="font-medium">Sign Out</span>
+          </button>
+        </div>
       </aside>
 
       <!-- ================= MAIN CONTENT ================= -->
@@ -579,6 +597,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   viewedName = '';
   viewedHealthId = '';
   records: PatientRecord[] = [];
+  measurements: MeasurementItem[] = [];
+  referrals: ReferralItem[] = [];
+  summary: any = null;
   denied = false;
   requestSent = false;
   loading = false;
@@ -632,7 +653,8 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   constructor(
     private api: ApiService,
     public auth: AuthService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private router: Router
   ) {}
 
   /** Angular 22 is zoneless by default — re-render after async mutations. */
@@ -1027,6 +1049,22 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       case 'CANCELLED': return 'bg-gray-200 text-ink';
       default:          return 'bg-primary-300 text-ink'; // PENDING
     }
+  }
+
+  doctorCopyWallet() {
+    if (!this.walletAddress) return;
+    navigator.clipboard.writeText(this.walletAddress).catch(() => {});
+  }
+
+  /** Open the account/profile page (credential rotation, role-aware). */
+  viewProfile() {
+    this.router.navigate(['/account']);
+  }
+
+  /** Log out and take the user back to the sign-in page. */
+  logoutAndRedirect() {
+    this.auth.logout();
+    this.router.navigate(['/login']);
   }
 
   entries(data: any): { key: string; value: any }[] {

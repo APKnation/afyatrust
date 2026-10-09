@@ -285,6 +285,7 @@ def my_records(request):
     return Response({
         "health_id": patient.health_id,
         "full_name": patient.full_name,
+        "phone": patient.phone,
         "wallet_address": patient.wallet_address,
         "records": final_records,
         "measurements": [{
@@ -310,6 +311,128 @@ def my_records(request):
             "responded_at": r.responded_at,
         } for r in patient.referrals.all()],
         "audit_trail": events,
+    })
+
+
+# ============ 3b. PATIENT PROFILE (view + edit own profile) ============
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def patient_profile(request):
+    """Return the authenticated patient's own profile fields that they are
+    allowed to edit: full_name, phone. identity fields (health_id, wallet) are
+    included read-only so the UI can show the complete profile."""
+    patient = _patient_from_request(request)
+    if not patient:
+        return Response({"error": "Patient not found"}, status=404)
+    return Response({
+        "health_id": patient.health_id,
+        "full_name": patient.full_name,
+        "phone": patient.phone,
+        "wallet_address": patient.wallet_address,
+    })
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def patch_patient_profile(request):
+    """Update the authenticated patient's editable profile fields.
+    Only full_name and phone may be changed by the patient."""
+    patient = _patient_from_request(request)
+    if not patient:
+        return Response({"error": "Patient not found"}, status=404)
+
+    full_name = str(request.data.get("full_name", "")).strip()
+    phone = str(request.data.get("phone", "")).strip()
+
+    if not full_name:
+        return Response({"error": "full_name is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    patient.full_name = full_name
+    patient.phone = phone
+    patient.save(update_fields=["full_name", "phone"])
+
+    # Keep the JWT's in-memory name in sync for the current session.
+    request._cached_auth = None
+
+    return Response({
+        "status": "success",
+        "full_name": patient.full_name,
+        "phone": patient.phone,
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def patient_grant_access_status(request):
+    """How many active / pending grants this patient currently has."""
+    patient = _patient_from_request(request)
+    if not patient:
+        return Response({"error": "Patient not found"}, status=404)
+
+    now = timezone.now()
+    active = AccessGrant.objects.filter(
+        patient=patient, active=True, expires_at__gt=now
+    ).count()
+    pending_requests = AccessRequest.objects.filter(
+        patient=patient, status="PENDING"
+    ).count()
+    expiring_soon = AccessGrant.objects.filter(
+        patient=patient, active=True,
+        expires_at__gt=now, expires_at__lte=now + timedelta(days=7)
+    ).count()
+
+    last_grant = (
+        AccessGrant.objects.filter(patient=patient)
+        .order_by("-created_at")
+        .first()
+    )
+
+    return Response({
+        "activeCount": active,
+        "pendingCount": pending_requests,
+        "expiringSoon": expiring_soon,
+        "lastGrantAt": last_grant.created_at.isoformat() if last_grant else None,
+        "lastGrantDoctor": last_grant.doctor.full_name if last_grant and last_grant.doctor else None,
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def patient_wallet_activity(request):
+    """Wallet-centric activity: the wallet address, activity count, most recent
+    on-chain event timestamp, and the last transaction hash touching this patient."""
+    patient = _patient_from_request(request)
+    if not patient:
+        return Response({"error": "Patient not found"}, status=404)
+
+    try:
+        story_res = patient_activity_story(request, patient.health_id)
+        story_data = story_res.data if hasattr(story_res, "data") else {}
+        story = story_data.get("story") or []
+    except Exception:
+        story = []
+
+    last_tx_hash = None
+    last_ts = None
+    if story:
+        sorted_story = sorted(story, key=lambda s: s.get("timestamp") or 0, reverse=True)
+        last = sorted_story[0]
+        last_tx_hash = last.get("transaction_hash")
+        last_ts = last.get("timestamp")
+
+    pending_ops = AccessRequest.objects.filter(
+        patient=patient, status="PENDING"
+    ).count()
+
+    return Response({
+        "wallet_address": patient.wallet_address,
+        "health_id": patient.health_id,
+        "full_name": patient.full_name,
+        "activityCount": len(story),
+        "lastTxHash": last_tx_hash,
+        "lastActivityAt": last_ts,
+        "pendingOperations": pending_ops,
     })
 
 
@@ -597,11 +720,42 @@ def doctor_view_record(request, health_id):
             "verified": bool(r.tx_hash) and not r.tx_hash.startswith("PENDING"),
         } for r in patient.records.all()]
 
+    # Measurements (all, for the viewing doctor)
+    measurements = [{
+        "id": m.id,
+        "kind": m.kind,
+        "value": m.value,
+        "unit": m.unit,
+        "notes": m.notes,
+        "doctor": m.doctor.full_name if m.doctor else "",
+        "hospital": m.hospital.name if m.hospital else "",
+        "date": m.created_at,
+    } for m in patient.measurements.all()]
+
+    # Referrals (all, for the viewing doctor)
+    referrals = [{
+        "id": r.id,
+        "from_hospital": r.from_hospital.name if r.from_hospital else "",
+        "from_hospital_code": r.from_hospital.code if r.from_hospital else "",
+        "from_doctor": r.from_doctor.full_name if r.from_doctor else "",
+        "to_hospital": r.to_hospital.name,
+        "to_hospital_code": r.to_hospital.code,
+        "reason": r.reason,
+        "status": r.status,
+        "created_at": r.created_at,
+    } for r in patient.referrals.all()]
+
+    # Patient health summary (computed from records + measurements)
+    summary = _patient_health_summary(patient)
+
     return Response({
         "health_id": health_id,
         "full_name": patient.full_name,
         "chain_checked": chain_ok,
         "records": final_records,
+        "measurements": measurements,
+        "referrals": referrals,
+        "summary": summary,
     })
 
 
@@ -870,6 +1024,83 @@ def _hospital_label(doctor):
     return doctor.hospital.name if doctor.hospital else doctor.facility_id
 
 
+def _patient_health_summary(patient: Patient) -> dict:
+    """Compute a patient health summary from records + measurements.
+
+    Returns:
+      - diagnoses: most frequent record types (e.g. DIAGNOSIS, LAB)
+      - medicines: most-used medicines/medications extracted from record data
+      - measurements: most frequent measurement kinds with latest value + count
+      - hospital_visits: visit frequency per facility
+      - total_records, total_measurements: counts
+    """
+    from collections import Counter
+
+    # Diagnoses / record types frequency
+    type_counter: Counter = Counter()
+    for r in patient.records.all():
+        type_counter[r.record_type] += 1
+
+    # Medicines: scan record data for keys containing medicine/medication/drug/prescription
+    med_counter: Counter = Counter()
+    for r in patient.records.all():
+        for key, value in (r.record_data or {}).items():
+            lk = key.lower()
+            if any(t in lk for t in ("medicine", "medication", "drug", "prescription", "rx", "treatment")):
+                med_counter[f"{key}: {value}"] += 1
+
+    # Measurements frequency + latest value per kind
+    meas_counter: Counter = Counter()
+    meas_latest: dict = {}
+    for m in patient.measurements.all():
+        meas_counter[m.kind] += 1
+        # keep latest by date
+        if m.created_at and (m.kind not in meas_latest or m.created_at > meas_latest[m.kind].get("date")):
+            meas_latest[m.kind] = {
+                "value": m.value,
+                "unit": m.unit,
+                "date": m.created_at,
+                "doctor": m.doctor.full_name if m.doctor else "",
+                "hospital": m.hospital.name if m.hospital else "",
+            }
+
+    # Hospital visit frequency (from records)
+    hospital_counter: Counter = Counter()
+    for r in patient.records.all():
+        hospital_counter[r.facility_name or r.facility_id] += 1
+
+    return {
+        "diagnoses": [
+            {"type": t, "count": c}
+            for t, c in type_counter.most_common(10)
+        ],
+        "medicines": [
+            {"detail": d, "count": c}
+            for d, c in med_counter.most_common(10)
+        ],
+        "measurements": [
+            {
+                "kind": kind,
+                "count": count,
+                "latest_value": lv["value"],
+                "latest_unit": lv["unit"],
+                "latest_date": lv["date"].isoformat() if lv.get("date") else None,
+                "latest_doctor": lv["doctor"],
+                "latest_hospital": lv["hospital"],
+            }
+            for kind, count in meas_counter.most_common(10)
+            for lv in [meas_latest.get(kind, {})]
+            if lv
+        ],
+        "hospital_visits": [
+            {"facility": f, "count": c}
+            for f, c in hospital_counter.most_common(10)
+        ],
+        "total_records": patient.records.count(),
+        "total_measurements": patient.measurements.count(),
+    }
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def list_hospitals(request):
@@ -1009,6 +1240,7 @@ def _referral_json(r):
         "patient_health_id": r.patient.health_id,
         "patient_name": r.patient.full_name,
         "from_hospital": r.from_hospital.name if r.from_hospital else "",
+        "from_hospital_code": r.from_hospital.code if r.from_hospital else "",
         "from_doctor": r.from_doctor.full_name if r.from_doctor else "",
         "to_hospital": r.to_hospital.name,
         "to_hospital_code": r.to_hospital.code,
@@ -1017,6 +1249,8 @@ def _referral_json(r):
         "responded_by": r.responded_by,
         "created_at": r.created_at,
         "responded_at": r.responded_at,
+        "tx_hash": r.tx_hash,
+        "on_chain_referral_tx": r.on_chain_referral_tx,
     }
 
 
@@ -1143,7 +1377,131 @@ def respond_referral(request, referral_id):
     ref.responded_by = actor
     ref.responded_at = timezone.now()
     ref.save()
+
+    # Log the transfer of care on-chain when the referral is accepted.
+    # This immutably records: which patient, which clinician, which facility
+    # the patient came from, and which facility the patient is going to.
+    # No one can rewrite this later — it is anchored at a specific block.
+    if action == "ACCEPTED":
+        clinician_wallet = (
+            doctor.wallet_address if principal and principal.get("role") == "DOCTOR"
+            else facility_address()
+        )
+        try:
+            tx = contract.functions.logReferralAccepted(
+                ref.patient.health_id,
+                checksum_address(clinician_wallet),
+                ref.from_hospital.code if ref.from_hospital else "UNKNOWN",
+                ref.to_hospital.code if ref.to_hospital else "UNKNOWN",
+            )
+            tx_hash = send_transaction(tx)
+            ref.tx_hash = tx_hash
+            ref.save(update_fields=["tx_hash"])
+        except Exception as e:
+            # PoC: chain may be unreachable — referral still accepted in DB
+            ref.on_chain_referral_tx = f"PENDING: {e}"
+            ref.save(update_fields=["on_chain_referral_tx"])
+
     return Response({"status": action.lower(), "referral": _referral_json(ref)})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def patient_referral_timeline(request):
+    """The blockchain-secured referral story for this patient.
+
+    For each referral this patient was part of, returns:
+      - the referral itself (from → to hospital, status, who accepted)
+      - the on-chain record hashes Hospital A anchored BEFORE the referral
+        (the data the receiving hospital will verify via hash)
+      - the on-chain referral-accepted transaction (immutable transfer-of-care
+        proof: who accepted, from which facility, to which facility, at which block)
+      - the on-chain view events from the receiving hospital (immutable audit)
+
+    This is the core demonstration of how the blockchain secures data across
+    hospitals during a referral: every step is anchored at a specific block
+    timestamp and cannot be changed by anyone in between.
+    """
+    patient = _patient_from_request(request)
+    if not patient:
+        return Response({"error": "Patient not found"}, status=404)
+
+    # All referrals involving this patient
+    referrals = Referral.objects.filter(patient=patient).order_by("-created_at")[:50]
+
+    out = []
+    for ref in referrals:
+        entry: dict = _referral_json(ref)
+
+        # On-chain record hashes from the sending hospital (anchored BEFORE referral)
+        from_records = []
+        if ref.from_hospital_id:
+            try:
+                chain_records = contract.functions.getRecords(patient.health_id).call()
+                from_records = [{
+                    "record_hash": r[0],
+                    "facility_id": r[1],
+                    "metadata_uri": r[2],
+                    "timestamp": r[3],
+                } for r in chain_records if r[1] and r[1].lower() == ref.from_hospital.code.lower()]
+            except Exception:
+                pass
+
+            # Also pull local records from that facility for human-readable context
+            try:
+                local = patient.records.filter(
+                    facility__code__iexact=ref.from_hospital.code
+                ).order_by("-created_at")[:20]
+                for r in local:
+                    # attach on-chain verified status
+                    on_chain = next(
+                        (cr for cr in chain_records if cr[0] == r.record_hash),
+                        None
+                    )
+                    from_records.append({
+                        "record_hash": r.record_hash,
+                        "facility_id": r.facility_id,
+                        "facility_name": r.facility_name,
+                        "record_type": r.record_type,
+                        "metadata_uri": next((cr[2] for cr in chain_records if cr[0] == r.record_hash), None),
+                        "tx_hash": r.tx_hash,
+                        "verified": bool(r.tx_hash) and not r.tx_hash.startswith("PENDING"),
+                        "created_at": r.created_at.isoformat(),
+                        "on_chain_timestamp": on_chain[3] if on_chain else None,
+                    })
+            except Exception:
+                pass
+
+        entry["from_hospital_records"] = from_records
+
+        # On-chain referral acceptance event (immutable transfer-of-care proof)
+        entry["on_chain_referral_accepted"] = bool(ref.tx_hash and not ref.tx_hash.startswith("PENDING"))
+        entry["on_chain_referral_tx_hash"] = ref.tx_hash if ref.tx_hash and not ref.tx_hash.startswith("PENDING") else None
+
+        # On-chain view events from the receiving hospital (immutable audit)
+        view_events = []
+        try:
+            trail = contract.functions.getAuditTrail(patient.health_id).call()
+            for e in trail:
+                accessor, role, facility_id, action, ts = e[0], e[1], e[2], e[3], e[4]
+                if (action == "VIEW" and facility_id and
+                        facility_id.lower() == ref.to_hospital.code.lower()):
+                    view_events.append({
+                        "accessor": accessor,
+                        "role": role,
+                        "facility_id": facility_id,
+                        "timestamp": ts,
+                    })
+        except Exception:
+            pass
+        entry["receiving_hospital_views"] = view_events
+
+        out.append(entry)
+
+    return Response({
+        "health_id": patient.health_id,
+        "referrals": out,
+    })
 
 
 @api_view(["GET"])

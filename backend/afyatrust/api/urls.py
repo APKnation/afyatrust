@@ -13,11 +13,17 @@ urlpatterns = [
 
     # Patient (JWT required)
     path("patient/my-records/", views.my_records),
+    path("patient/profile/", views.patient_profile),
+    path("patient/profile/patch/", views.patch_patient_profile),
     path("patient/measurements/", views.my_measurements),
     path("patient/referrals/", views.my_referrals),
     path("patient/referrals/send/", views.patient_send_referral),
     path("patient/requests/", views.my_requests),
     path("patient/grant-access/", views.grant_access),
+    path("patient/grant-access/status/", views.patient_grant_access_status),
+    path("patient/summary/", views.my_patient_summary),
+    path("patient/wallet/activity/", views.patient_wallet_activity),
+    path("patient/referral-timeline/", views.patient_referral_timeline),
     path("patient/revoke-access/", views.revoke_access),
     path("patient/approve-request/<int:request_id>/", views.approve_request),
     path("patient/reject-request/<int:request_id>/", views.reject_request),

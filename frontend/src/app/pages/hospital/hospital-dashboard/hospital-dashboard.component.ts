@@ -33,7 +33,7 @@ import { AuthService } from '../../../services/auth.service';
                 <p class="text-sm text-slate-600">Facility Code: <span class="font-semibold text-slate-900">{{ auth.hospitalCode }}</span></p>
               </div>
               <div class="px-4 py-2 bg-amber-100 text-amber-700 rounded-full text-sm font-semibold">
-                {{ pendingCount }} Pending Referrals
+                {{ pendingIncomingCount }} Pending Incoming Referrals
               </div>
             </div>
           </div>
@@ -41,12 +41,22 @@ import { AuthService } from '../../../services/auth.service';
 
       <!-- Tabs -->
       <div class="mb-6 flex flex-wrap gap-1 border-b border-gray-200">
-        <button (click)="setTab('referrals')"
+        <button (click)="setTab('incoming')"
                 class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
-                [class]="tab === 'referrals' ? 'font-bold text-primary-500 border-b-4 border-primary-500 -mb-[2px]' : 'text-muted hover:text-ink'">
-          Referral Desk
-          <span *ngIf="pendingCount > 0"
-                class="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingCount }}</span>
+                [class]="tab === 'incoming' ? 'font-bold text-primary-500 border-b-4 border-primary-500 -mb-[2px]' : 'text-muted hover:text-ink'">
+          Incoming Referrals
+          <span *ngIf="pendingIncomingCount > 0"
+                class="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingIncomingCount }}</span>
+        </button>
+        <button (click)="setTab('outgoing'); loadOutgoing()"
+                class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
+                [class]="tab === 'outgoing' ? 'font-bold text-primary-500 border-b-4 border-primary-500 -mb-[2px]' : 'text-muted hover:text-ink'">
+          Outgoing Referrals
+        </button>
+        <button (click)="setTab('exchange'); loadExchangeRecords()"
+                class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
+                [class]="tab === 'exchange' ? 'font-bold text-primary-500 border-b-4 border-primary-500 -mb-[2px]' : 'text-muted hover:text-ink'">
+          Data Exchange
         </button>
         <button (click)="setTab('records'); loadFacilityRecords()"
                 class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
@@ -85,21 +95,28 @@ import { AuthService } from '../../../services/auth.service';
         </div>
       </div>
 
-      <!-- ================= REFERRAL DESK ================= -->
-      <div *ngIf="tab === 'referrals'" class="animate-fade-in">
+      <!-- ================= INCOMING REFERRALS ================= -->
+      <div *ngIf="tab === 'incoming'" class="animate-fade-in">
+        <div class="mb-4">
+          <h2 class="mb-1 text-xl font-bold">Referrals to this hospital</h2>
+          <p class="m-0 text-sm text-muted">
+            Patients referred from another hospital — accept or decline each one.
+            Every response is audited on-chain.
+          </p>
+        </div>
         <!-- Filters -->
         <div class="mb-5 flex flex-wrap gap-2">
           <button *ngFor="let f of filters" (click)="setFilter(f.value)"
                   class="cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
                   [class]="filter === f.value ? 'bg-ink text-white' : 'bg-primary-100 text-ink hover:bg-primary-200'">
             {{ f.label }}
-            <span *ngIf="f.value === 'PENDING' && pendingCount > 0"
-                  class="ml-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[11px] text-white">{{ pendingCount }}</span>
+            <span *ngIf="f.value === 'PENDING' && pendingIncomingCount > 0"
+                  class="ml-1 rounded-full bg-red-500 px-1.5 py-0.5 text-[11px] text-white">{{ pendingIncomingCount }}</span>
           </button>
         </div>
 
         <!-- Referral list -->
-        <div *ngFor="let r of referrals" class="card mb-4 p-5">
+        <div *ngFor="let r of incomingReferrals" class="card mb-4 p-5">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p class="m-0 text-lg font-bold text-ink">
@@ -134,12 +151,116 @@ import { AuthService } from '../../../services/auth.service';
           </div>
         </div>
 
-        <div *ngIf="referrals.length === 0 && !loading" class="card p-10 text-center">
+        <div *ngIf="incomingReferrals.length === 0 && !loading" class="card p-10 text-center">
           <h3 class="mb-1 text-lg font-bold">
             {{ filter === 'PENDING' ? 'All caught up' : 'Nothing here yet' }}
           </h3>
           <p class="m-0 text-muted">
             {{ filter === 'PENDING' ? 'No pending referrals right now.' : 'No referrals match this filter.' }}
+          </p>
+        </div>
+      </div>
+
+      <!-- ================= OUTGOING REFERRALS ================= -->
+      <div *ngIf="tab === 'outgoing'" class="animate-fade-in">
+        <div class="mb-4">
+          <h2 class="mb-1 text-xl font-bold">Referrals from this hospital</h2>
+          <p class="m-0 text-sm text-muted">
+            Patients this hospital has referred to another facility.
+            Track whether the receiving hospital accepted or declined.
+          </p>
+        </div>
+        <!-- Filters -->
+        <div class="mb-5 flex flex-wrap gap-2">
+          <button *ngFor="let f of filters" (click)="setOutgoingFilter(f.value)"
+                  class="cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition-colors"
+                  [class]="outgoingFilter === f.value ? 'bg-ink text-white' : 'bg-primary-100 text-ink hover:bg-primary-200'">
+            {{ f.label }}
+          </button>
+        </div>
+
+        <div *ngFor="let r of outgoingReferrals" class="card mb-4 p-5">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="m-0 text-lg font-bold text-ink">
+                {{ r.patient_name }}
+                <span class="text-sm font-normal text-muted">({{ r.patient_health_id }})</span>
+              </p>
+              <p class="m-0 mt-1 text-sm text-muted">
+                To: <strong>{{ r.to_hospital }}</strong>
+                <span *ngIf="r.to_hospital_code" class="ml-1">({{ r.to_hospital_code }})</span>
+              </p>
+              <p *ngIf="r.reason" class="mb-0 mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm italic text-ink">
+                {{ r.reason }}
+              </p>
+              <p class="m-0 mt-2 text-xs text-muted">Sent {{ r.created_at | date:'medium' }}</p>
+              <p *ngIf="r.responded_by" class="m-0 text-xs text-muted">
+                Responded by {{ r.responded_by }} {{ r.responded_at ? ('· ' + (r.responded_at | date:'short')) : '' }}
+              </p>
+            </div>
+            <span class="rounded-full px-3 py-1 text-xs font-bold" [class]="badge(r.status)">{{ r.status }}</span>
+          </div>
+        </div>
+
+        <div *ngIf="outgoingReferrals.length === 0 && !loading" class="card p-10 text-center">
+          <h3 class="mb-1 text-lg font-bold">No outgoing referrals yet</h3>
+          <p class="m-0 text-muted">
+            When this hospital refers a patient to another facility, it appears here.
+          </p>
+        </div>
+      </div>
+
+      <!-- ================= DATA EXCHANGE ================= -->
+      <div *ngIf="tab === 'exchange'" class="animate-fade-in">
+        <div class="mb-4">
+          <h2 class="mb-1 text-xl font-bold">Data Exchange — {{ hospitalName }}</h2>
+          <p class="m-0 text-sm text-muted">
+            Every record added by this hospital is anchored on Sepolia as a hash.
+            The metadata pointer below is what another hospital fetches to verify
+            the record exists and matches the on-chain hash — the clinical data
+            itself stays here.
+          </p>
+        </div>
+
+        <div *ngIf="exchangeRecords.length" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div *ngFor="let r of exchangeRecords" class="card p-5">
+            <div class="mb-3 flex flex-wrap items-center gap-2">
+              <span class="font-bold text-ink">{{ r.patient_name }}</span>
+              <span class="text-xs text-muted">({{ r.health_id }})</span>
+              <span class="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-bold text-primary-900">{{ r.record_type }}</span>
+              <span *ngIf="r.verified" class="btn-primary">On-chain</span>
+              <span *ngIf="!r.verified" class="rounded-full bg-primary-200 px-2.5 py-0.5 text-xs font-semibold text-primary-900">Pending</span>
+            </div>
+
+            <div class="mb-2 text-xs text-muted font-mono break-all">
+              record hash:
+              <span class="text-ink">{{ r.record_hash | slice:0:26 }}…</span>
+            </div>
+
+            <div class="mb-3 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-mono break-all">
+              <p class="text-slate-500 mb-1">Exchange endpoint (another hospital fetches this)</p>
+              <a [href]="r.metadata_uri" target="_blank" rel="noopener"
+                 class="text-accent-700 hover:underline">{{ r.metadata_uri }}</a>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 text-xs">
+              <span class="text-muted">{{ r.created_at | date:'medium' }}</span>
+              <a *ngIf="r.verified"
+                 [href]="'https://sepolia.etherscan.io/tx/' + r.tx_hash"
+                 target="_blank" rel="noopener"
+                 class="font-mono text-accent-700 underline">
+                tx {{ r.tx_hash | slice:0:14 }}…
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="exchangeRecords.length === 0 && !loading" class="card p-10 text-center">
+          <h3 class="mb-1 text-lg font-bold">No records exchanged yet</h3>
+          <p class="m-0 text-muted">
+            When this hospital adds a record, its on-chain hash and exchange
+            endpoint appear here. Another hospital can fetch the exchange URL to
+            verify the record without accessing the clinical data directly.
           </p>
         </div>
       </div>
@@ -352,8 +473,9 @@ import { AuthService } from '../../../services/auth.service';
   `,
 })
 export class HospitalDashboardComponent implements OnInit {
-  tab: 'referrals' | 'records' | 'blockchain' = 'referrals';
+  tab: 'incoming' | 'outgoing' | 'exchange' | 'records' | 'blockchain' = 'incoming';
 
+  // --- incoming / outgoing referral filters ---
   filter = 'PENDING';
   filters = [
     { label: 'Pending', value: 'PENDING' },
@@ -362,7 +484,13 @@ export class HospitalDashboardComponent implements OnInit {
     { label: 'All', value: '' },
   ] as const;
 
-  referrals: ReferralItem[] = [];
+  // --- incoming referrals (referrals TO this hospital) ---
+  incomingReferrals: ReferralItem[] = [];
+  // --- outgoing referrals (referrals FROM this hospital to another) ---
+  outgoingReferrals: ReferralItem[] = [];
+  // --- records this hospital has anchored on-chain (exchange pointers) ---
+  exchangeRecords: any[] = [];
+
   loading = false;
   busyId: number | null = null;
 
@@ -403,7 +531,7 @@ export class HospitalDashboardComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  setTab(t: 'referrals' | 'records' | 'blockchain') {
+  setTab(t: 'incoming' | 'outgoing' | 'exchange' | 'records' | 'blockchain') {
     this.tab = t;
     this.syncView();
   }
@@ -412,9 +540,12 @@ export class HospitalDashboardComponent implements OnInit {
     return this.auth.hospitalCode;
   }
 
-  get pendingCount(): number {
-    return this.referrals.filter((r) => r.status === 'PENDING').length;
+  get pendingIncomingCount(): number {
+    return this.incomingReferrals.filter((r) => r.status === 'PENDING').length;
   }
+
+  /** Outgoing referral filter (separate from incoming). */
+  outgoingFilter = 'PENDING';
 
   async ngOnInit() {
     if (!this.auth.isStaff) {
@@ -422,6 +553,8 @@ export class HospitalDashboardComponent implements OnInit {
       return;
     }
     await this.reload();
+    void this.loadOutgoing();
+    void this.loadExchangeRecords();
   }
 
   setFilter(value: string) {
@@ -429,11 +562,17 @@ export class HospitalDashboardComponent implements OnInit {
     void this.reload();
   }
 
+  setOutgoingFilter(value: string) {
+    this.outgoingFilter = value;
+    void this.loadOutgoing();
+  }
+
+  /** Incoming referrals (to this hospital). */
   async reload() {
     this.loading = true;
     this.syncView();
     try {
-      this.referrals = await this.api.hospitalReferrals(this.filter || undefined);
+      this.incomingReferrals = await this.api.hospitalReferrals(this.filter || undefined);
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed to load referrals'));
     } finally {
@@ -442,12 +581,33 @@ export class HospitalDashboardComponent implements OnInit {
     }
   }
 
+  /** Outgoing referrals (from this hospital to another). */
+  async loadOutgoing() {
+    try {
+      this.outgoingReferrals = await this.api.hospitalOutgoingReferrals(this.outgoingFilter || undefined);
+    } catch {
+      this.outgoingReferrals = [];
+    }
+    this.syncView();
+  }
+
+  /** Records this hospital has anchored on-chain (exchange pointers). */
+  async loadExchangeRecords() {
+    try {
+      this.exchangeRecords = await this.api.hospitalRecordsExchange();
+    } catch {
+      this.exchangeRecords = [];
+    }
+    this.syncView();
+  }
+
   async respond(r: ReferralItem, action: 'ACCEPTED' | 'DECLINED') {
     this.busyId = r.id;
     this.syncView();
     try {
       await this.api.respondReferral(r.id, action);
       await this.reload();
+      void this.loadOutgoing();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
     } finally {

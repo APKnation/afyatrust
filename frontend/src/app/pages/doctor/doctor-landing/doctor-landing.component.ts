@@ -19,7 +19,53 @@ import { AuthService } from '../../../services/auth.service';
   selector: 'app-doctor-dashboard',
   imports: [NgIf, NgFor, DatePipe, SlicePipe, FormsModule],
   template: `
-    <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <!-- Full-width shell: sidebar hugs the left edge; content fills the rest. -->
+    <div class="flex w-full items-start gap-6 px-4 py-8 sm:px-6">
+      <!-- Mobile backdrop for the sidebar drawer -->
+      <div *ngIf="sidebarOpen" (click)="sidebarOpen = false" aria-hidden="true"
+           class="fixed inset-0 z-[60] bg-ink/50 lg:hidden"></div>
+
+      <!-- ================= SIDEBAR NAV ================= -->
+      <aside
+        [class.translate-x-0]="sidebarOpen"
+        [class.-translate-x-full]="!sidebarOpen"
+        class="fixed inset-y-0 left-0 z-[70] w-72 max-w-[80vw] overflow-y-auto bg-surface p-4 shadow-card transition-transform duration-200 lg:sticky lg:top-24 lg:z-auto lg:block lg:w-60 lg:max-w-none lg:shrink-0 lg:translate-x-0 lg:rounded-xl lg:p-3">
+        <div class="mb-4 flex items-center justify-between lg:hidden">
+          <span class="eyebrow">Workspace</span>
+          <button (click)="sidebarOpen = false" aria-label="Close menu"
+                  class="cursor-pointer border-none bg-transparent text-xl leading-none text-muted hover:text-ink">×</button>
+        </div>
+
+        <nav class="flex flex-col gap-1" aria-label="Dashboard sections">
+          <button *ngFor="let t of tabs" (click)="setTab(t.id)"
+                  class="flex cursor-pointer items-center justify-between gap-2 rounded-lg border-none px-3.5 py-2.5 text-left text-[15px] transition-colors"
+                  [class]="tab === t.id ? 'bg-primary-50 font-bold text-primary-500' : 'bg-transparent text-muted hover:bg-gray-50 hover:text-ink'">
+            <span>{{ t.label }}</span>
+            <span *ngIf="t.id === 'referrals' && pendingIncoming > 0"
+                  class="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingIncoming }}</span>
+            <span *ngIf="t.id === 'requests' && pendingRequestCount > 0"
+                  class="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingRequestCount }}</span>
+          </button>
+        </nav>
+
+        <div class="mt-4 hidden border-t border-gray-100 pt-3 text-xs text-muted lg:block">
+          <span *ngIf="hospitalName">{{ hospitalName }}</span>
+          <span *ngIf="!hospitalName">Clinical workspace</span>
+        </div>
+      </aside>
+
+      <!-- ================= MAIN CONTENT ================= -->
+      <div class="min-w-0 max-w-6xl flex-1">
+      <!-- Mobile: hamburger opens the sidebar drawer -->
+      <div class="mb-4 flex items-center gap-3 lg:hidden">
+        <button (click)="sidebarOpen = true" aria-label="Open menu" [attr.aria-expanded]="sidebarOpen"
+                class="flex h-10 w-10 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-surface shadow-card">
+          <span class="h-0.5 w-5 rounded bg-ink"></span>
+          <span class="h-0.5 w-5 rounded bg-ink"></span>
+        </button>
+        <span class="text-sm font-bold text-ink">{{ currentTabLabel }}</span>
+      </div>
+
       <!-- Hero header -->
       <div class="card mb-6 p-6 sm:p-8">
         <div class="flex flex-wrap items-start justify-between gap-4">
@@ -84,19 +130,6 @@ import { AuthService } from '../../../services/auth.service';
                     class="flex-1 cursor-pointer rounded-lg border-2 border-red-500 px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-500 hover:text-white disabled:opacity-50">Decline</button>
           </div>
         </div>
-      </div>
-
-      <!-- Tabs -->
-      <div class="mb-6 flex flex-wrap gap-1 border-b border-gray-200">
-        <button *ngFor="let t of tabs" (click)="setTab(t.id)"
-                class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
-                [class]="tab === t.id ? 'font-bold text-primary-500 border-b-4 border-primary-500 -mb-[2px]' : 'text-muted hover:text-ink'">
-          {{ t.label }}
-          <span *ngIf="t.id === 'referrals' && pendingIncoming > 0"
-                class="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingIncoming }}</span>
-          <span *ngIf="t.id === 'requests' && pendingRequestCount > 0"
-                class="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingRequestCount }}</span>
-        </button>
       </div>
 
       <!-- ================= MY PATIENTS ================= -->
@@ -493,6 +526,7 @@ import { AuthService } from '../../../services/auth.service';
           <p class="text-slate-600">Transactions appear here when records are added, access is granted, or data is viewed.</p>
         </div>
       </div>
+      </div>
     </div>
   `,
 })
@@ -506,6 +540,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     { id: 'requests', label: 'My Requests' },
     { id: 'transactions', label: 'Blockchain Transactions' },
   ] as const;
+
+  /** Mobile sidebar drawer state (desktop sidebar is always visible). */
+  sidebarOpen = false;
 
   license = '';
   hospitalName = '';
@@ -584,9 +621,15 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
   setTab(id: 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions') {
     this.tab = id;
+    this.sidebarOpen = false; // close the mobile drawer after navigating
     if (id === 'requests') void this.loadMyRequests();
     if (id === 'transactions') void this.loadTransactions();
     this.syncView();
+  }
+
+  /** Label of the active section, shown next to the mobile hamburger. */
+  get currentTabLabel(): string {
+    return this.tabs.find((t) => t.id === this.tab)?.label ?? '';
   }
 
   async ngOnInit() {

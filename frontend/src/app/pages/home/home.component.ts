@@ -178,6 +178,130 @@ import { AuthService } from '../../services/auth.service';
       </div>
     </section>
 
+    <!-- ================= IMAGE + DESCRIPTION ================= -->
+    <section class="bg-surface">
+      <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20">
+        <div class="grid gap-8 lg:grid-cols-2 lg:items-center lg:gap-12">
+          <!-- Image (left) -->
+          <div class="overflow-hidden rounded-xl shadow-card">
+            <img
+              src="matibabu.jpg"
+              alt="A clinician reviewing a patient's digital health record"
+              class="h-64 w-full object-cover sm:h-80 lg:h-[420px]"
+              loading="lazy"
+            />
+          </div>
+
+          <!-- Description (right) -->
+          <div>
+            <span class="eyebrow">Why AfyaTrust</span>
+            <h2 class="mt-4 text-[28px] font-bold sm:text-4xl">
+              One record, every facility — without giving up control
+            </h2>
+            <p class="mt-4 text-muted">
+              Paper folders and scattered clinic systems mean history is lost when
+              it matters most. AfyaTrust keeps a single, verified record you can
+              open anywhere while clinicians only see it when you say so.
+            </p>
+            <ul class="mt-6 flex flex-col gap-3">
+              <li class="flex items-start gap-3">
+                <span class="btn-primary">&#10003;</span>
+                <span><strong>Available in seconds</strong> — no forms, no waiting rooms to update your file</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="btn-primary">&#10003;</span>
+                <span><strong>Consent you can see</strong> — active grants, expiry dates, and revoke buttons on your dashboard</span>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="btn-primary">&#10003;</span>
+                <span><strong>Works offline-first</strong> — facilities sync when connectivity returns</span>
+              </li>
+            </ul>
+            <a routerLink="/register"
+               class="btn-primary mt-8 inline-block no-underline">
+              Create your record
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= FOR CARE TEAMS (text left / image right) ================= -->
+    <section class="bg-primary-50">
+      <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20">
+        <div class="grid gap-8 lg:grid-cols-2 lg:items-center lg:gap-12">
+          <!-- Description (left) -->
+          <div>
+            <span class="eyebrow">For doctors &amp; facilities</span>
+            <h2 class="mt-4 text-[28px] font-bold sm:text-4xl">
+              Faster decisions, zero paperwork
+            </h2>
+            <p class="mt-4 text-muted">
+              Clinicians see the history they were granted — nothing more — and
+              patients are notified the moment a record is opened. Facilities get
+              a consistent ledger of who accessed what, ready for any audit.
+            </p>
+            <div class="mt-6 grid gap-4 sm:grid-cols-2">
+              <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
+                <h3 class="font-bold">Verified access requests</h3>
+                <p class="mt-1 text-sm text-muted">License-checked doctors, approved by the facility admin.</p>
+              </div>
+              <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
+                <h3 class="font-bold">Auto-expiring grants</h3>
+                <p class="mt-1 text-sm text-muted">Permissions lapse after 7 days unless renewed.</p>
+              </div>
+              <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
+                <h3 class="font-bold">Instant notifications</h3>
+                <p class="mt-1 text-sm text-muted">Patients see every view on their dashboard in real time.</p>
+              </div>
+              <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
+                <h3 class="font-bold">Audit-ready exports</h3>
+                <p class="mt-1 text-sm text-muted">On-chain events verifiable on Etherscan anytime.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Image (right) -->
+          <div class="overflow-hidden rounded-xl shadow-card">
+            <img
+              src="matibabu-hero.jpg"
+              alt="Health workers attending to a patient at a facility"
+              class="h-64 w-full object-cover sm:h-80 lg:h-[420px]"
+              loading="lazy"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= UNDER THE HOOD (stats band) ================= -->
+    <section class="bg-ink">
+      <div class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20">
+        <h2 class="text-[28px] font-bold text-white sm:text-4xl">Under the hood</h2>
+        <p class="mt-3 max-w-2xl text-white/70">
+          The guarantees the platform is built on — measurable, not marketed.
+        </p>
+        <div class="mt-10 grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
+          <div class="rounded-xl bg-white/10 p-5 backdrop-blur-sm sm:p-6">
+            <div class="text-3xl font-bold text-white sm:text-4xl">AES-256</div>
+            <div class="mt-1 text-sm leading-snug text-white/70">GCM encryption for patient keys</div>
+          </div>
+          <div class="rounded-xl bg-white/10 p-5 backdrop-blur-sm sm:p-6">
+            <div class="text-3xl font-bold text-white sm:text-4xl">SHA-256</div>
+            <div class="mt-1 text-sm leading-snug text-white/70">record fingerprints anchored on-chain</div>
+          </div>
+          <div class="rounded-xl bg-white/10 p-5 backdrop-blur-sm sm:p-6">
+            <div class="text-3xl font-bold text-white sm:text-4xl">7 days</div>
+            <div class="mt-1 text-sm leading-snug text-white/70">default consent expiry, revocable anytime</div>
+          </div>
+          <div class="rounded-xl bg-white/10 p-5 backdrop-blur-sm sm:p-6">
+            <div class="text-3xl font-bold text-white sm:text-4xl">100%</div>
+            <div class="mt-1 text-sm leading-snug text-white/70">of record views written to the audit log</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ================= CTA BAND ================= -->
     <section class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20">
       <div class="rounded-xl bg-ink px-6 py-12 text-center text-white sm:px-12">

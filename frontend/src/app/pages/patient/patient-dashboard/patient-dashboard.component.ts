@@ -1010,7 +1010,7 @@ import { AuthService } from '../../../services/auth.service';
 
 })
 export class PatientDashboardComponent implements OnInit, OnDestroy {
-  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' = 'records';
+  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'health-summary' = 'records';
   tabs = [
     { id: 'records', label: 'Records' },
     { id: 'measurements', label: 'Measurements' },
@@ -1021,6 +1021,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     { id: 'wallet', label: 'Wallet' },
     { id: 'profile', label: 'Profile' },
     { id: 'referral-security', label: 'Referral Security' },
+    { id: 'health-summary', label: 'Health Summary' },
   ] as const;
 
   data: PatientData | null = null;
@@ -1069,7 +1070,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  setTab(id: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security') {
+  setTab(id: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'health-summary') {
     this.tab = id;
     if (id === 'activity') {
       void this.loadStory();
@@ -1082,6 +1083,9 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     }
     if (id === 'referral-security') {
       void this.loadReferralSecurity();
+    }
+    if (id === 'health-summary') {
+      this.syncView();
     }
     this.syncView();
   }

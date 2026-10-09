@@ -255,36 +255,192 @@ import { AuthService } from '../../../services/auth.service';
           </div>
         </div>
 
-        <!-- Patient detail -->
-        <div *ngIf="viewedName" class="card p-6">
-          <div class="mb-1 flex flex-wrap items-baseline gap-2">
-            <h2 class="text-xl font-bold">Records for {{ viewedHealthId }}</h2>
-            <span class="text-sm text-muted">— {{ viewedName }}</span>
-          </div>
-          <p class="mb-4 text-sm text-muted">Every view of this page is logged on-chain.</p>
-
-          <div class="max-h-[460px] overflow-y-auto">
-            <div *ngFor="let rec of records" class="mb-3.5 rounded-xl border border-gray-200 bg-gray-50 p-4.5">
-              <div class="mb-3 flex flex-wrap items-center gap-3">
-                <span class="font-bold text-accent-700">{{ rec.facility }}</span>
-                <span class="text-sm text-muted">{{ rec.date | date:'medium' }}</span>
-                <span class="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-bold text-primary-900">{{ rec.type }}</span>
-                <span *ngIf="rec.verified" class="btn-primary">On-chain</span>
-              </div>
-              <div *ngIf="rec.source_uri" class="mb-3 text-xs text-muted flex items-center gap-1.5">
-                <span class="font-semibold">Source:</span>
-                <a [href]="rec.source_uri" target="_blank" rel="noopener" class="text-accent-600 hover:underline break-all">{{ rec.source_uri }}</a>
-              </div>
-              <div class="rounded-lg p-3 ">
-                <div *ngFor="let item of entries(rec.data)"
-                     class="flex border-b border-gray-100 py-1.5 last:border-b-0">
-                  <span class="w-44 shrink-0 font-semibold capitalize text-ink">{{ item.key }}:</span>
-                  <span class="text-gray-900">{{ item.value }}</span>
+        <!-- Patient detail (full medical history) -->
+        <div *ngIf="viewedName" class="space-y-6">
+          <!-- Patient header + referral reason -->
+          <div class="card p-6">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div class="mb-1 flex flex-wrap items-baseline gap-2">
+                  <h2 class="text-xl font-bold">{{ viewedName }}</h2>
+                  <span class="text-sm text-muted">Health ID: {{ viewedHealthId }}</span>
                 </div>
+                <p class="m-0 text-sm text-muted">Every view of this page is logged on-chain.</p>
+              </div>
+              <div class="flex flex-col items-end gap-1">
+                <span class="rounded-full bg-accent-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-accent-800">
+                  {{ records.length }} records
+                </span>
+                <span class="rounded-full bg-primary-100 px-3 py-1 text-xs font-bold text-primary-800">
+                  {{ measurements.length }} measurements
+                </span>
               </div>
             </div>
-            <div *ngIf="records.length === 0" class="p-8 text-center">
-              <p class="m-0 text-muted italic">No records for this patient yet.</p>
+
+            <!-- Why this patient was referred to / is under care -->
+            <div *ngIf="referrals.length" class="mt-4 p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+              <p class="text-xs font-semibold text-indigo-800 uppercase tracking-wide mb-2">Referral context</p>
+              <div *ngFor="let r of referrals" class="text-sm">
+                <p class="font-semibold text-indigo-900">
+                  {{ r.from_hospital }} → {{ r.to_hospital }}
+                  <span *ngIf="r.status" class="text-xs text-muted ml-2">({{ r.status }})</span>
+                </p>
+                <p class="text-slate-700">{{ r.reason || 'No reason recorded' }}</p>
+                <p class="text-xs text-muted mt-1">
+                  {{ r.created_at | date:'medium' }}
+                  <span *ngIf="r.responded_at">· responded {{ r.responded_at | date:'medium' }}</span>
+                </p>
+              </div>
+            </div>
+
+            <!-- Access status -->
+            <div class="mt-4 flex flex-wrap items-center gap-3">
+              <span class="rounded-full px-3 py-1 text-xs font-bold"
+                    [class."bg-accent-500 text-white"]="!denied"
+                    [class."bg-red-500 text-white"]="denied">
+                {{ denied ? 'No access permission' : 'Access granted' }}
+              </span>
+              <span class="text-xs text-muted">
+                {{ denied ? 'Request access or use break-glass to view the full history.' : 'Chain-checked: ' + (resChainChecked || 'yes') }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Patient health summary (most-used meds, frequent measurements, diagnoses) -->
+          <div *ngIf="summary" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <!-- Most-used medicines -->
+            <div class="card p-5">
+              <h3 class="mb-3 text-lg font-bold">Most-used medicines</h3>
+              <div *ngIf="summary.medicines && summary.medicines.length" class="space-y-2">
+                <div *ngFor="let med of summary.medicines" class="flex items-center justify-between gap-2 text-sm">
+                  <span class="text-slate-900">{{ med.detail }}</span>
+                  <span class="text-xs text-muted">{{ med.count }}×</span>
+                </div>
+              </div>
+              <p *ngIf="!summary.medicines || !summary.medicines.length" class="text-sm text-muted italic">
+                No medicines recorded yet.
+              </p>
+            </div>
+
+            <!-- Most frequent measurements -->
+            <div class="card p-5">
+              <h3 class="mb-3 text-lg font-bold">Most frequent measurements</h3>
+              <div *ngIf="summary.measurements && summary.measurements.length" class="space-y-2">
+                <div *ngFor="let m of summary.measurements" class="flex items-center justify-between gap-2 text-sm">
+                  <div>
+                    <span class="font-semibold text-slate-900">{{ m.kind }}</span>
+                    <span class="text-xs text-muted">: {{ m.latest_value }} {{ m.latest_unit }}</span>
+                  </div>
+                  <span class="text-xs text-muted">{{ m.count }}×</span>
+                </div>
+              </div>
+              <p *ngIf="!summary.measurements || !summary.measurements.length" class="text-sm text-muted italic">
+                No measurements recorded yet.
+              </p>
+            </div>
+
+            <!-- Frequent diagnoses -->
+            <div class="card p-5">
+              <h3 class="mb-3 text-lg font-bold">Frequent diagnoses / record types</h3>
+              <div *ngIf="summary.diagnoses && summary.diagnoses.length" class="space-y-2">
+                <div *ngFor="let d of summary.diagnoses" class="flex items-center justify-between gap-2 text-sm">
+                  <span class="text-slate-900">{{ d.type }}</span>
+                  <span class="text-xs text-muted">{{ d.count }}×</span>
+                </div>
+              </div>
+              <p *ngIf="!summary.diagnoses || !summary.diagnoses.length" class="text-sm text-muted italic">
+                No diagnoses recorded yet.
+              </p>
+            </div>
+
+            <!-- Visit frequency per hospital -->
+            <div class="card p-5">
+              <h3 class="mb-3 text-lg font-bold">Visit frequency per hospital</h3>
+              <div *ngIf="summary.hospital_visits && summary.hospital_visits.length" class="space-y-2">
+                <div *ngFor="let h of summary.hospital_visits" class="flex items-center justify-between gap-2 text-sm">
+                  <span class="text-slate-900">{{ h.facility }}</span>
+                  <span class="text-xs text-muted">{{ h.count }} visits</span>
+                </div>
+              </div>
+              <p *ngIf="!summary.hospital_visits || !summary.hospital_visits.length" class="text-sm text-muted italic">
+                No hospital visits recorded yet.
+              </p>
+            </div>
+          </div>
+
+          <!-- Full medical records -->
+          <div class="card p-6">
+            <h3 class="mb-3 text-lg font-bold">Medical records (all facilities)</h3>
+            <p class="mb-4 text-sm text-muted">
+              Records from every hospital the patient has visited. Each record's hash
+              is anchored on-chain — Hospital B verifies the data by hash, not by trust.
+            </p>
+            <div class="max-h-[500px] overflow-y-auto">
+              <div *ngFor="let rec of records" class="mb-3.5 rounded-xl border border-gray-200 bg-gray-50 p-4.5">
+                <div class="mb-3 flex flex-wrap items-center gap-3">
+                  <span class="font-bold text-accent-700">{{ rec.facility }}</span>
+                  <span class="text-sm text-muted">{{ rec.date | date:'medium' }}</span>
+                  <span class="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-bold text-primary-900">{{ rec.type }}</span>
+                  <span *ngIf="rec.verified" class="btn-primary">On-chain</span>
+                </div>
+                <div *ngIf="rec.source_uri" class="mb-3 text-xs text-muted flex items-center gap-1.5">
+                  <span class="font-semibold">Source:</span>
+                  <a [href]="rec.source_uri" target="_blank" rel="noopener" class="text-accent-600 hover:underline break-all">{{ rec.source_uri }}</a>
+                </div>
+                <div class="rounded-lg p-3 ">
+                  <div *ngFor="let item of entries(rec.data)"
+                       class="flex border-b border-gray-100 py-1.5 last:border-b-0">
+                    <span class="w-44 shrink-0 font-semibold capitalize text-ink">{{ item.key }}:</span>
+                    <span class="text-gray-900">{{ item.value }}</span>
+                  </div>
+                </div>
+                <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <span class="text-muted">hash:</span>
+                  <code class="rounded bg-white px-1 py-0.5 font-mono text-muted">{{ rec.hash | slice:0:28 }}…</code>
+                  <a *ngIf="rec.tx_hash && !rec.tx_hash.startsWith('PENDING')"
+                     [href]="'https://sepolia.etherscan.io/tx/' + rec.tx_hash"
+                     target="_blank" rel="noopener"
+                     class="text-accent-700 hover:underline">
+                    Verify ↗
+                  </a>
+                </div>
+              </div>
+              <div *ngIf="records.length === 0" class="p-8 text-center">
+                <p class="m-0 text-muted italic">No records for this patient yet.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Measurements history -->
+          <div class="card p-6">
+            <h3 class="mb-3 text-lg font-bold">Measurements history</h3>
+            <p class="mb-4 text-sm text-muted">
+              All clinical readings recorded for this patient across hospitals.
+            </p>
+            <div class="overflow-x-auto">
+              <table *ngIf="measurements.length" class="w-full">
+                <thead>
+                  <tr class="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Value</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Doctor</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Hospital</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                  <tr *ngFor="let m of measurements" class="hover:bg-slate-50 transition-colors">
+                    <td class="px-4 py-3 text-sm text-slate-900">{{ m.date | date:'short' }}</td>
+                    <td class="px-4 py-3 text-sm font-semibold text-slate-900">{{ m.kind }}</td>
+                    <td class="px-4 py-3 text-sm text-slate-900">{{ m.value }} <span class="text-slate-500">{{ m.unit }}</span></td>
+                    <td class="px-4 py-3 text-sm text-slate-600">{{ m.doctor || '—' }}</td>
+                    <td class="px-4 py-3 text-sm text-slate-600">{{ m.hospital || '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p *ngIf="!measurements.length" class="py-6 text-center text-muted italic">
+                No measurements recorded for this patient.
+              </p>
             </div>
           </div>
         </div>
@@ -603,6 +759,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   denied = false;
   requestSent = false;
   loading = false;
+  resChainChecked = false;
 
   // my access requests (patient responses)
   myRequests: AccessRequest[] = [];
@@ -816,10 +973,14 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.viewedHealthId = '';
     this.syncView();
     try {
-      const res = await this.api.doctorViewRecord(this.healthId.trim());
+      const res: any = await this.api.doctorViewRecord(this.healthId.trim());
       this.viewedName = res.full_name;
       this.viewedHealthId = res.health_id;
       this.records = res.records || [];
+      this.measurements = res.measurements || [];
+      this.referrals = res.referrals || [];
+      this.summary = res.summary || null;
+      this.resChainChecked = res.chain_checked ?? true;
     } catch (e: any) {
       if (e?.status === 403) {
         this.denied = true;

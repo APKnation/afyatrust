@@ -881,6 +881,120 @@ import { AuthService } from '../../../services/auth.service';
             </div>
           </div>
 
+          <!-- HEALTH SUMMARY -->
+          <div *ngIf="tab === 'health-summary'" class="space-y-6 animate-fade-in">
+            <div>
+              <h1 class="text-2xl font-bold text-slate-900 mb-2">Health Summary</h1>
+              <p class="text-slate-600">
+                A quick overview of your medical history across all hospitals — your most-
+                used medicines, most frequent measurements, common diagnoses, and which
+                hospitals you visit most.
+              </p>
+            </div>
+
+            <div *ngIf="healthSummary" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <!-- Most-used medicines -->
+              <div class="card p-5">
+                <h3 class="mb-3 text-lg font-bold">Most-used medicines</h3>
+                <p class="mb-3 text-sm text-muted">
+                  Medicines and medications that appear most often across your records.
+                </p>
+                <div *ngIf="healthSummary.medicines.length" class="space-y-2">
+                  <div *ngFor="let med of healthSummary.medicines" class="flex items-center justify-between gap-2 text-sm rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <span class="text-slate-900">{{ med.detail }}</span>
+                    <span class="text-xs font-semibold text-muted">{{ med.count }}×</span>
+                  </div>
+                </div>
+                <p *ngIf="!healthSummary.medicines.length" class="text-sm text-muted italic">
+                  No medicines recorded yet.
+                </p>
+              </div>
+
+              <!-- Most frequent measurements -->
+              <div class="card p-5">
+                <h3 class="mb-3 text-lg font-bold">Most frequent measurements</h3>
+                <p class="mb-3 text-sm text-muted">
+                  Clinical readings you take most often — with the latest value and where.
+                </p>
+                <div *ngIf="healthSummary.measurements.length" class="space-y-2">
+                  <div *ngFor="let m of healthSummary.measurements" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                      <span class="font-semibold text-slate-900">{{ m.kind }}</span>
+                      <span class="text-xs text-muted">{{ m.count }}×</span>
+                    </div>
+                    <p class="text-sm text-slate-700 mt-1">
+                      Latest: {{ m.latest_value }} {{ m.latest_unit }}
+                      <span class="text-xs text-muted">({{ m.latest_date | date:'medium' }})</span>
+                    </p>
+                    <p class="text-xs text-muted">
+                      by {{ m.latest_doctor || '—' }} · {{ m.latest_hospital || '—' }}
+                    </p>
+                  </div>
+                </div>
+                <p *ngIf="!healthSummary.measurements.length" class="text-sm text-muted italic">
+                  No measurements recorded yet.
+                </p>
+              </div>
+
+              <!-- Frequent diagnoses -->
+              <div class="card p-5">
+                <h3 class="mb-3 text-lg font-bold">Frequent diagnoses / record types</h3>
+                <p class="mb-3 text-sm text-muted">
+                  The types of records in your history, from most to least frequent.
+                </p>
+                <div *ngIf="healthSummary.diagnoses.length" class="space-y-2">
+                  <div *ngFor="let d of healthSummary.diagnoses" class="flex items-center justify-between gap-2 text-sm rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <span class="text-slate-900">{{ d.type }}</span>
+                    <span class="text-xs font-semibold text-muted">{{ d.count }}×</span>
+                  </div>
+                </div>
+                <p *ngIf="!healthSummary.diagnoses.length" class="text-sm text-muted italic">
+                  No diagnoses recorded yet.
+                </p>
+              </div>
+
+              <!-- Visit frequency per hospital -->
+              <div class="card p-5">
+                <h3 class="mb-3 text-lg font-bold">Visit frequency per hospital</h3>
+                <p class="mb-3 text-sm text-muted">
+                  Which hospitals you visit most, based on your records.
+                </p>
+                <div *ngIf="healthSummary.hospital_visits.length" class="space-y-2">
+                  <div *ngFor="let h of healthSummary.hospital_visits" class="flex items-center justify-between gap-2 text-sm rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <span class="text-slate-900">{{ h.facility }}</span>
+                    <span class="text-xs font-semibold text-muted">{{ h.count }} visits</span>
+                  </div>
+                </div>
+                <p *ngIf="!healthSummary.hospital_visits.length" class="text-sm text-muted italic">
+                  No hospital visits recorded yet.
+                </p>
+              </div>
+            </div>
+
+            <!-- Overall counts -->
+            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+              <h3 class="mb-4 text-lg font-bold">Your history at a glance</h3>
+              <dl class="grid grid-cols-3 gap-4">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                  <p class="text-3xl font-bold text-accent-700">{{ healthSummary.total_records }}</p>
+                  <p class="text-xs text-muted uppercase tracking-wide">Total records</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                  <p class="text-3xl font-bold text-primary-700">{{ healthSummary.total_measurements }}</p>
+                  <p class="text-xs text-muted uppercase tracking-wide">Total measurements</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
+                  <p class="text-3xl font-bold text-ink">{{ healthSummary.hospital_visits.length }}</p>
+                  <p class="text-xs text-muted uppercase tracking-wide">Hospitals visited</p>
+                </div>
+              </dl>
+            </div>
+
+            <div *ngIf="!healthSummary" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 text-center">
+              <p class="text-slate-600">Loading your health summary…</p>
+            </div>
+          </div>
+
           <!-- ACTIVITY -->
           <div *ngIf="tab === 'activity'" class="space-y-6 animate-fade-in">
             <div>
@@ -1264,8 +1378,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     navigator.clipboard.writeText(addr).catch(() => {});
   }
 
-  // --- Health summary (computed from records + measurements + referrals) ---
-  healthSummary: {
+  // --- Health summary (computed from records + measurements + referrals) ---    healthSummary: {
     diagnoses: { type: string; count: number }[];
     medicines: { detail: string; count: number }[];
     measurements: { kind: string; count: number; latest_value: number; latest_unit: string; latest_date: string; latest_doctor: string; latest_hospital: string }[];
@@ -1273,6 +1386,74 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     total_records: number;
     total_measurements: number;
   } | null = null;
+
+  /** Compute a health summary from the already-loaded patient data. */
+  private computeHealthSummary() {
+    if (!this.data) {
+      this.healthSummary = null;
+      return;
+    }
+    const records = this.data.records || [];
+    const measurements = this.data.measurements || [];
+
+    // Diagnoses / record types frequency
+    const typeCounter: Record<string, number> = {};
+    for (const r of records) {
+      typeCounter[r.type] = (typeCounter[r.type] || 0) + 1;
+    }
+    const diagnoses = Object.entries(typeCounter)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([type, count]) => ({ type, count }));
+
+    // Medicines: scan record data for keys containing medicine/medication/drug/prescription/treatment
+    const medCounter: Record<string, number> = {};
+    for (const r of records) {
+      if (!r.data) continue;
+      for (const [key, value] of Object.entries(r.data)) {
+        const lk = key.toLowerCase();
+        if (['medicine', 'medication', 'drug', 'prescription', 'rx', 'treatment'].some(t => lk.includes(t))) {
+          const detail = `${key}: ${value}`;
+          medCounter[detail] = (medCounter[detail] || 0) + 1;
+        }
+      }
+    }
+    const medicines = Object.entries(medCounter)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([detail, count]) => ({ detail, count }));
+
+    // Measurements frequency + latest value per kind
+    const measCounter: Record<string, number> = {};
+    const measLatest: Record<string, { value: number; unit: string; date: string; doctor: string; hospital: string }> = {};
+    for (const m of measurements) {
+      measCounter[m.kind] = (measCounter[m.kind] || 0) + 1;
+      if (!measLatest[m.kind] || m.date > measLatest[m.kind].date) {
+        measLatest[m.kind] = {
+          value: m.value,
+          unit: m.unit,
+          date: m.date,
+          doctor: m.doctor || '',
+          hospital: m.hospital || '',
+        };
+      }
+    }
+    const measurementsSummary = Object.entries(measCounter)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([kind, count]) => {
+        const lv = measLatest[kind];
+        return {
+          kind,
+          count,
+          latest_value: lv != null ? lv.value : 0,
+          latest_unit: lv != null ? lv.unit : '',
+          latest_date: lv != null ? lv.date : '',
+          latest_doctor: lv != null ? lv.doctor : '',
+          latest_hospital: lv != null ? lv.hospital : '',
+        };
+      });
+
 
   /** Load the referral security tab: blockchain-secured referral story. */
   private async loadReferralSecurity() {
@@ -1343,13 +1524,14 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
         return {
           kind,
           count,
-          latest_value: lv?.value ?? 0,
-          latest_unit: lv?.unit ?? '',
-          latest_date: lv?.date ?? '',
-          latest_doctor: lv?.doctor ?? '',
-          latest_hospital: lv?.hospital ?? '',
+          latest_value: lv && lv.value != null ? lv.value : 0,
+          latest_unit: (lv && lv.unit) || '',
+          latest_date: (lv && lv.date) || '',
+          latest_doctor: (lv && lv.doctor) || '',
+          latest_hospital: (lv && lv.hospital) || '',
         };
       });
+
 
     // Hospital visit frequency (from records)
     const hospitalCounter: Record<string, number> = {};

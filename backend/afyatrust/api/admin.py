@@ -182,7 +182,7 @@ class ReferralAdmin(admin.ModelAdmin):
 @admin.register(AccessGrant)
 class AccessGrantAdmin(admin.ModelAdmin):
     list_display = (
-        "patient", "doctor", "source", "active", "expires_at",
+        "patient", "doctor", "source", "reason", "active", "expires_at",
         "tx_hash", "created_at",
     )
     list_filter = ("source", "active", "hospital")

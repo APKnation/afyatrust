@@ -1175,20 +1175,33 @@ def add_measurement(request):
             patient.health_id, m.record_hash, m.facility_id, metadata_uri
         )
         tx_hash = send_transaction(tx)
-    except Exception as e:
-        logger.exception("Could not anchor measurement %s", m.id)
-        tx_hash = f"PENDING: {e}"
+    except Exception as exc:
+        # Never persist or return provider exception text: RPC URLs can contain
+        # credentials. The measurement remains saved locally for reconciliation.
+        logger.error(
+            "Could not anchor measurement %s (%s)",
+            m.id,
+            type(exc).__name__,
+        )
+        tx_hash = "PENDING"
     m.tx_hash = tx_hash[:66]
     m.save(update_fields=["tx_hash"])
 
+    verified = bool(m.tx_hash and not m.tx_hash.startswith("PENDING"))
     return Response({
-        "status": "success",
+        "status": "saved" if verified else "saved_pending_chain",
         "measurement_id": m.id,
         "record_hash": m.record_hash,
         "tx_hash": m.tx_hash,
-        "verified": bool(m.tx_hash and not m.tx_hash.startswith("PENDING")),
-        "message": f"{m.kind} recorded for {patient.full_name}",
-    }, status=status.HTTP_201_CREATED)
+        "verified": verified,
+        "message": (
+            f"{m.kind} recorded and verified on-chain for {patient.full_name}."
+            if verified else
+            f"{m.kind} was saved locally for {patient.full_name}, but blockchain anchoring failed. "
+            "It is not blockchain-verified; ask the administrator to check the Sepolia RPC URL "
+            "and facility signing key before recording more measurements."
+        ),
+    }, status=status.HTTP_201_CREATED if verified else status.HTTP_202_ACCEPTED)
 
 
 @api_view(["GET"])
@@ -1215,8 +1228,12 @@ def patient_measurements(request, health_id):
     blockchain_unavailable = False
     try:
         chain_records = contract.functions.getRecords(patient.health_id).call()
-    except Exception:
-        logger.exception("Could not verify measurements for patient %s", health_id)
+    except Exception as exc:
+        logger.error(
+            "Could not verify measurements for patient %s (%s)",
+            health_id,
+            type(exc).__name__,
+        )
         if not emergency_grant:
             return Response(
                 {"error": "Blockchain is unavailable; measurements were not released"},

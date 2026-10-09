@@ -61,6 +61,16 @@ FACILITY_PRIVATE_KEY=0x<facility wallet key, pays gas>
 MASTER_KEY=<64 hex chars = 32 bytes, encrypts patient keys>
 ```
 
+Use the real project key and facility wallet values, not the angle-bracket
+placeholders in this example. `SEPOLIA_RPC_URL` must be an active Sepolia RPC
+endpoint; `FACILITY_PRIVATE_KEY` must be a valid 32-byte hex private key for a
+funded Sepolia wallet. Restart Django after changing `backend/.env`.
+
+If a doctor records a measurement while the chain write fails, the measurement
+is saved locally but returned as `saved_pending_chain` (HTTP 202), explicitly
+marked unverified, and must not be treated as blockchain-secured. Fix the RPC
+endpoint and signer configuration before relying on on-chain integrity checks.
+
 Generate a master key:
 
 ```bash

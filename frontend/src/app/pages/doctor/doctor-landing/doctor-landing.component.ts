@@ -540,7 +540,10 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   class="btn-primary">
             {{ busyMeas ? 'Saving…' : 'Record measurement' }}
           </button>
-          <p *ngIf="measMsg" class="mb-0 mt-2 text-sm" [class]="measOk ? 'text-accent-700' : 'text-red-600'">{{ measMsg }}</p>
+          <p *ngIf="measMsg" class="mb-0 mt-2 text-sm"
+             [class]="measOk ? 'text-accent-700' : (measPending ? 'text-amber-800' : 'text-red-600')">
+            {{ measMsg }}
+          </p>
         </div>
 
         <!-- History -->
@@ -869,6 +872,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   busyMeas = false;
   measMsg = '';
   measOk = false;
+  measPending = false;
   historyHealthId = '';
   measurementHistory: MeasurementItem[] = [];
   historyLoaded = false;
@@ -1167,6 +1171,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   async addMeasurement() {
     this.measMsg = '';
     this.measOk = false;
+    this.measPending = false;
     this.setUnit();
     if (!this.meas.health_id.trim() || this.meas.value === null || isNaN(this.meas.value)) {
       this.measMsg = 'Health ID and a numeric value are required.';
@@ -1183,15 +1188,19 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
         unit: this.meas.unit,
         notes: this.meas.notes,
       });
-      this.measOk = true;
-      this.measMsg = `${res.message || 'Measurement recorded.'} ${
-        res.verified ? 'Integrity hash anchored on-chain.' : 'Blockchain anchoring is pending; this reading is not yet verified.'
-      }`;
+      this.measOk = Boolean(res.verified);
+      this.measPending = !res.verified;
+      this.measMsg = res.message || (
+        res.verified
+          ? 'Measurement recorded and verified on-chain.'
+          : 'Measurement saved locally but is not blockchain-verified.'
+      );
       this.meas = { health_id: this.meas.health_id, kind: this.measurementKinds[0], value: null, unit: '', notes: '' };
       if (this.historyHealthId.trim().toLowerCase() === this.meas.health_id.trim().toLowerCase()) {
         await this.loadMeasurements();
       }
     } catch (e: any) {
+      this.measPending = false;
       this.measMsg = e?.error?.error || e?.message || 'Failed to record measurement';
     } finally {
       this.busyMeas = false;

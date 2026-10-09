@@ -82,6 +82,12 @@ export interface MeasurementItem {
   hospital: string;
   date?: string;
   created_at?: string;
+  verified?: boolean;
+  record_hash?: string;
+  tx_hash?: string;
+  payload_matches_hash?: boolean;
+  anchored_on_chain?: boolean;
+  withheld?: boolean;
 }
 
 export interface ReferralItem {
@@ -483,7 +489,7 @@ export class ApiService {
     );
   }
 
-  breakGlass(payload: { health_id: string; facility_id: string; reason: string }) {
+  breakGlass(payload: { health_id: string; reason: string }) {
     return this.request('POST', '/doctor/break-glass/', payload);
   }
 

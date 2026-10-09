@@ -118,6 +118,14 @@ list. Hospital B receives the clinical payload only if both checks pass.
    `INTEGRITY_MISMATCH`, and its data will not be released. Restore the record
    after the demonstration.
 
+After pulling the current code, apply database changes before running the
+demo:
+
+```bash
+cd backend/afyatrust
+python manage.py migrate
+```
+
 The exchange metadata endpoint is `/exchange/<record-hash>/`. It exposes
 verification metadata only, not clinical data. The authenticated referral
 verification endpoint is `POST /api/staff/referrals/<id>/verify-records/`;
@@ -164,6 +172,9 @@ This is the complete flow that is in the codebase today, not just the original 7
    - The actual record payload remains off-chain in Django (`MedicalRecord.record_data`), while a SHA-256 hash and facility metadata are written to-chain.
    - This preserves privacy while keeping an auditable pointer and hash on the blockchain.
    - The added record is linked to the patient and the facility that created it.
+   - Doctors can add measurements during care. New measurements also receive
+     a SHA-256 integrity hash anchored on-chain; the dashboard labels old
+     pre-migration measurements as legacy/unanchored.
 
 5. **Hospital-to-hospital referral integrity**
    - A patient registered with Hospital A requests referral to Hospital B.
@@ -190,6 +201,10 @@ This is the complete flow that is in the codebase today, not just the original 7
    - When the doctor requests patient records, the API checks `hasAccess` on-chain with a cached read layer to avoid repeated expensive RPC calls.
    - If the patient has granted access, the doctor can view the record bundle.
    - If access is missing, the denial flow is shown in the UI and the doctor can request access or trigger break-glass if the case is urgent.
+   - The doctor history includes verified clinical records, all measurements
+     with integrity status, recorded referral reasons, recurring diagnoses,
+     frequently recorded medicines, measurement trends, and recorded activity
+     days per hospital. Payloads with an anchored hash mismatch are withheld.
 
 9. **Audit trail and accountability**
    - Every successful record view is logged on-chain as a `VIEW` event with accessor, role, facility, and timestamp.
@@ -198,8 +213,11 @@ This is the complete flow that is in the codebase today, not just the original 7
 
 10. **Emergency break-glass flow**
    - From the denial panel, a doctor can enter a reason and use the break-glass mechanism.
-   - The backend calls `breakGlass(...)` on-chain and creates an emergency access DB record.
-   - The emergency permission is temporary and clearly marked as `BREAK_GLASS`, so there is a complete accountability trail for exceptional access.
+   - Only an authenticated, admin-approved doctor can invoke break-glass. The
+     backend calls `breakGlass(...)` on-chain and creates a one-hour emergency
+     grant with the reason recorded. The UI indicates if the chain audit is
+     still pending; data history is not described as chain-verified when its
+     anchors cannot be checked.
 
 11. **Secondary clinical workflows already implemented**
    - Doctors can record measurements (`Measurement`) for granted patients.
@@ -241,6 +259,7 @@ independent hospital systems.
 | GET | `/api/doctor/patient/<health_id>/` | JWT | View patient records if `hasAccess` is true |
 | POST | `/api/doctor/measurements/` | JWT | Add a clinical measurement for a patient |
 | GET | `/api/patient/measurements/` | JWT | Patient view of their own measurements |
+| GET | `/api/doctor/measurements/<health_id>/` | Approved doctor JWT + access grant | View measurement history with integrity status |
 | POST | `/api/patient/referrals/send/` | JWT | Patient requests a referral to another hospital |
 | GET | `/api/staff/referrals/` | JWT | Staff receives and processes referral requests |
 | POST | `/api/staff/referrals/<id>/respond/` | Receiving hospital staff JWT | Accept/decline referral; acceptance is anchored on-chain |

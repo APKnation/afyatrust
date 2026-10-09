@@ -301,8 +301,27 @@ import { AuthService } from '../../../services/auth.service';
                 {{ denied ? 'No access permission' : 'Access granted' }}
               </span>
               <span class="text-xs text-muted">
-                {{ denied ? 'Request access or use break-glass to view the full history.' : 'Chain-checked: ' + (resChainChecked || 'yes') }}
+                {{ denied
+                  ? 'Request patient consent, or use break-glass only for an emergency.'
+                  : (emergencyAccess
+                    ? 'Temporary emergency access — expires after one hour.'
+                    : 'Patient consent verified on-chain.') }}
               </span>
+            </div>
+          </div>
+
+          <div *ngIf="integrityIssues.length" class="card border border-amber-300 bg-amber-50 p-5">
+            <h3 class="mb-2 text-base font-bold text-amber-900">History integrity warnings</h3>
+            <p class="mb-3 text-sm text-amber-900">
+              These entries are not shown as blockchain-verified. Treat legacy or changed data accordingly.
+            </p>
+            <div *ngFor="let issue of integrityIssues" class="mb-2 break-all rounded-lg bg-white p-3 text-xs last:mb-0">
+              <strong>{{ issue.record_type }}</strong> · {{ issue.facility_id || 'Unknown facility' }} · {{ issue.reason }}
+              <code *ngIf="issue.record_hash" class="mt-1 block font-mono">{{ issue.record_hash }}</code>
+            </div>
+            <div *ngIf="emergencyAccess && emergencyReason" class="card border border-red-200 bg-red-50 p-4">
+              <p class="m-0 text-sm font-semibold text-red-900">Emergency access reason</p>
+              <p class="mb-0 mt-1 text-sm text-red-800">{{ emergencyReason }}</p>
             </div>
           </div>
 
@@ -341,7 +360,7 @@ import { AuthService } from '../../../services/auth.service';
 
             <!-- Frequent diagnoses -->
             <div class="card p-5">
-              <h3 class="mb-3 text-lg font-bold">Frequent diagnoses / record types</h3>
+              <h3 class="mb-3 text-lg font-bold">Most repeated recorded conditions</h3>
               <div *ngIf="summary.diagnoses && summary.diagnoses.length" class="space-y-2">
                 <div *ngFor="let d of summary.diagnoses" class="flex items-center justify-between gap-2 text-sm">
                   <span class="text-slate-900">{{ d.type }}</span>
@@ -349,21 +368,21 @@ import { AuthService } from '../../../services/auth.service';
                 </div>
               </div>
               <p *ngIf="!summary.diagnoses || !summary.diagnoses.length" class="text-sm text-muted italic">
-                No diagnoses recorded yet.
+                No verified diagnosis or condition entries recorded yet.
               </p>
             </div>
 
             <!-- Visit frequency per hospital -->
             <div class="card p-5">
-              <h3 class="mb-3 text-lg font-bold">Visit frequency per hospital</h3>
+              <h3 class="mb-3 text-lg font-bold">Recorded visit days per hospital</h3>
               <div *ngIf="summary.hospital_visits && summary.hospital_visits.length" class="space-y-2">
                 <div *ngFor="let h of summary.hospital_visits" class="flex items-center justify-between gap-2 text-sm">
                   <span class="text-slate-900">{{ h.facility }}</span>
-                  <span class="text-xs text-muted">{{ h.count }} visits</span>
+                  <span class="text-xs text-muted">{{ h.count }} days with recorded activity</span>
                 </div>
               </div>
               <p *ngIf="!summary.hospital_visits || !summary.hospital_visits.length" class="text-sm text-muted italic">
-                No hospital visits recorded yet.
+                No verified visit activity recorded yet.
               </p>
             </div>
           </div>
@@ -431,8 +450,17 @@ import { AuthService } from '../../../services/auth.service';
                 <tbody class="divide-y divide-slate-200">
                   <tr *ngFor="let m of measurements" class="hover:bg-slate-50 transition-colors">
                     <td class="px-4 py-3 text-sm text-slate-900">{{ m.date | date:'short' }}</td>
-                    <td class="px-4 py-3 text-sm font-semibold text-slate-900">{{ m.kind }}</td>
-                    <td class="px-4 py-3 text-sm text-slate-900">{{ m.value }} <span class="text-slate-500">{{ m.unit }}</span></td>
+                    <td class="px-4 py-3 text-sm font-semibold text-slate-900">
+                      {{ m.kind }}
+                      <span class="ml-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                            [class]="m.verified ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
+                        {{ m.verified ? 'Blockchain verified' : 'Not verified' }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-slate-900">
+                      <span *ngIf="!m.withheld">{{ m.value }} <span class="text-slate-500">{{ m.unit }}</span></span>
+                      <span *ngIf="m.withheld" class="font-semibold text-red-700">Withheld — integrity check failed</span>
+                    </td>
                     <td class="px-4 py-3 text-sm text-slate-600">{{ m.doctor || '—' }}</td>
                     <td class="px-4 py-3 text-sm text-slate-600">{{ m.hospital || '—' }}</td>
                   </tr>
@@ -510,7 +538,16 @@ import { AuthService } from '../../../services/auth.service';
               <tr *ngFor="let m of measurementHistory" class="border-b border-gray-100 last:border-b-0 hover:bg-primary-50/50">
                 <td class="px-3 py-2.5 text-sm">{{ m.created_at | date:'short' }}</td>
                 <td class="px-3 py-2.5 text-sm font-semibold">{{ m.kind }}</td>
-                <td class="px-3 py-2.5 text-sm">{{ m.value }} {{ m.unit }}</td>
+                <td class="px-3 py-2.5 text-sm">
+                  <span *ngIf="!m.withheld">{{ m.value }} {{ m.unit }}</span>
+                  <span *ngIf="m.withheld" class="font-semibold text-red-700">Withheld — integrity check failed</span>
+                  <span *ngIf="!m.verified" class="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                    {{ m.record_hash ? 'Not verified' : 'Legacy, unanchored' }}
+                  </span>
+                  <span *ngIf="m.verified" class="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                    Blockchain verified
+                  </span>
+                </td>
                 <td class="px-3 py-2.5 text-sm">{{ m.doctor || '—' }}</td>
                 <td class="px-3 py-2.5 text-sm">{{ m.hospital || '—' }}</td>
               </tr>
@@ -756,6 +793,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   measurements: MeasurementItem[] = [];
   referrals: ReferralItem[] = [];
   summary: any = null;
+  integrityIssues: { record_hash: string | null; facility_id: string; record_type: string; reason: string }[] = [];
+  emergencyAccess = false;
+  emergencyReason = '';
   denied = false;
   requestSent = false;
   loading = false;
@@ -969,6 +1009,12 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.denied = false;
     this.requestSent = false;
     this.records = [];
+    this.measurements = [];
+    this.referrals = [];
+    this.summary = null;
+    this.integrityIssues = [];
+    this.emergencyAccess = false;
+    this.emergencyReason = '';
     this.viewedName = '';
     this.viewedHealthId = '';
     this.syncView();
@@ -980,6 +1026,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       this.measurements = res.measurements || [];
       this.referrals = res.referrals || [];
       this.summary = res.summary || null;
+      this.integrityIssues = res.integrity_issues || [];
+      this.emergencyAccess = !!res.emergency_access;
+      this.emergencyReason = res.emergency_reason || '';
       this.resChainChecked = res.chain_checked ?? true;
     } catch (e: any) {
       if (e?.status === 403) {
@@ -1028,7 +1077,6 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     try {
       const res: any = await this.api.breakGlass({
         health_id: this.healthId.trim(),
-        facility_id: this.myHospitalCode || 'UNKNOWN',
         reason,
       });
       const h: string = res?.tx_hash || '';
@@ -1040,7 +1088,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       this.requestReason = '';
       // Immediately reflect the BreakGlassUsed event in the on-chain log.
       void this.loadTransactions();
-      alert('Emergency access granted for 1 hour and logged on-chain.');
+      alert(res.chain_logged
+        ? 'Emergency access granted for 1 hour and logged on-chain.'
+        : 'Emergency access granted for 1 hour, but its blockchain audit transaction is pending. Check your transaction log.');
       await this.viewRecord();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
@@ -1076,7 +1126,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
         notes: this.meas.notes,
       });
       this.measOk = true;
-      this.measMsg = res.message || 'Measurement recorded.';
+      this.measMsg = `${res.message || 'Measurement recorded.'} ${
+        res.verified ? 'Integrity hash anchored on-chain.' : 'Blockchain anchoring is pending; this reading is not yet verified.'
+      }`;
       this.meas = { health_id: this.meas.health_id, kind: this.measurementKinds[0], value: null, unit: '', notes: '' };
       if (this.historyHealthId.trim().toLowerCase() === this.meas.health_id.trim().toLowerCase()) {
         await this.loadMeasurements();

@@ -6,6 +6,7 @@ records, permissions, doctor access check, and break-glass.
 import hashlib
 import json
 import logging
+import math
 import re
 from datetime import timedelta
 
@@ -45,6 +46,16 @@ def _record_payload_hash(record_data):
     return "0x" + hashlib.sha256(serialized.encode()).hexdigest()
 
 
+def _measurement_payload(measurement):
+    return {
+        "kind": measurement.kind,
+        "value": measurement.value,
+        "unit": measurement.unit,
+        "notes": measurement.notes,
+        "captured_at": measurement.created_at.isoformat(),
+    }
+
+
 def _doctor_from_request(request):
     """Resolve the JWT-authenticated doctor (APPROVED only) from the token."""
     if not request.auth or request.auth.get("role") != "DOCTOR":
@@ -59,6 +70,23 @@ def _patient_from_request(request):
     return Patient.objects.filter(
         health_id=request.auth.get("health_id", "") if request.auth else ""
     ).first()
+
+
+def _doctor_can_view_patient(doctor, patient):
+    """Require a live chain grant or a live, explicitly marked emergency grant."""
+    allowed, chain_ok = cached_has_access(
+        patient.health_id, doctor.wallet_address
+    )
+    if allowed:
+        return True, chain_ok
+    emergency = AccessGrant.objects.filter(
+        patient=patient,
+        doctor=doctor,
+        source="BREAK_GLASS",
+        active=True,
+        expires_at__gt=timezone.now(),
+    ).exists()
+    return emergency, chain_ok
 
 
 def _audit(patient, events):
@@ -663,18 +691,7 @@ def doctor_view_record(request, health_id):
     if not patient:
         return Response({"error": "Health ID not found"}, status=404)
 
-    # Cached read (60s TTL): permissions only change via grant/revoke/approve,
-    # which invalidate the cache — so this is safe and skips a slow RPC round-trip.
-    allowed, chain_ok = cached_has_access(health_id, wallet)
-
-    if not allowed:
-        # DB fallback: live AccessGrant rows authorize the view too. This covers
-        # the 1-hour emergency break-glass window (the contract never opens an
-        # on-chain permission for it) and keeps views working when the chain
-        # is unreachable for a patient with a valid, unexpired grant.
-        allowed = AccessGrant.objects.filter(
-            patient=patient, doctor=doctor, active=True, expires_at__gt=timezone.now()
-        ).exists()
+    allowed, chain_ok = _doctor_can_view_patient(doctor, patient)
 
     if not allowed:
         return Response({
@@ -691,7 +708,7 @@ def doctor_view_record(request, health_id):
         tx = contract.functions.recordView(health_id, checksum_address(wallet), facility_id)
         send_transaction_async(tx)
     except Exception:
-        pass  # PoC: audit write is best-effort
+        logger.exception("Could not submit record-view audit for %s", health_id)
 
     # Fetch the list of record pointers directly from the blockchain
     # to demonstrate true decentralized data exchange.
@@ -699,47 +716,109 @@ def doctor_view_record(request, health_id):
     try:
         chain_records = contract.functions.getRecords(health_id).call()
     except Exception:
-        pass  # Fallback to local if chain is unreachable
+        logger.exception("Could not load on-chain records for patient %s", health_id)
+        return Response(
+            {"error": "Blockchain records are unavailable; medical history was not released"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
-    if chain_records:
-        hashes = [r[0] for r in chain_records]
-        local_records = {r.record_hash: r for r in patient.records.filter(record_hash__in=hashes)}
-        final_records = []
-        for cr in chain_records:
-            r_hash, fac_id, meta_uri, ts = cr
-            if r_hash in local_records:
-                r = local_records[r_hash]
-                final_records.append({
-                    "facility": r.facility_name,
-                    "type": r.record_type,
-                    "data": r.record_data,
-                    "hash": r.record_hash,
-                    "date": r.created_at,
-                    "verified": True,
-                    "source_uri": meta_uri,
-                })
-    else:
-        # Fallback if no chain records (or chain offline in PoC)
-        final_records = [{
-            "facility": r.facility_name,
-            "type": r.record_type,
-            "data": r.record_data,
-            "hash": r.record_hash,
-            "date": r.created_at,
-            "verified": bool(r.tx_hash) and not r.tx_hash.startswith("PENDING"),
-        } for r in patient.records.all()]
+    final_records = []
+    integrity_issues = []
+    verified_record_objects = []
+    for r_hash, fac_id, meta_uri, _timestamp in chain_records:
+        record = patient.records.filter(
+            record_hash__iexact=r_hash,
+            facility_id__iexact=fac_id,
+        ).first()
+        if not record:
+            integrity_issues.append({
+                "record_hash": str(r_hash),
+                "facility_id": str(fac_id),
+                "record_type": "Unknown",
+                "reason": "ON_CHAIN_RECORD_NOT_AVAILABLE_OFF_CHAIN",
+            })
+            continue
+        payload_matches = (
+            _record_payload_hash(record.record_data).lower()
+            == str(r_hash).lower()
+        )
+        facility_matches = record.facility_id.lower() == str(fac_id).lower()
+        if not payload_matches or not facility_matches:
+            integrity_issues.append({
+                "record_hash": record.record_hash,
+                "facility_id": record.facility_id,
+                "record_type": record.record_type,
+                "reason": (
+                    "PAYLOAD_HASH_MISMATCH" if not payload_matches
+                    else "FACILITY_MISMATCH"
+                ),
+            })
+            continue
+        verified_record_objects.append(record)
+        final_records.append({
+            "facility": record.facility_name or record.facility_id,
+            "type": record.record_type,
+            "data": record.record_data,
+            "hash": record.record_hash,
+            "date": record.created_at,
+            "verified": True,
+            "source_uri": meta_uri,
+        })
 
     # Measurements (all, for the viewing doctor)
-    measurements = [{
-        "id": m.id,
-        "kind": m.kind,
-        "value": m.value,
-        "unit": m.unit,
-        "notes": m.notes,
-        "doctor": m.doctor.full_name if m.doctor else "",
-        "hospital": m.hospital.name if m.hospital else "",
-        "date": m.created_at,
-    } for m in patient.measurements.all()]
+    measurements = []
+    verified_measurement_objects = []
+    chain_anchors = {
+        (str(chain_record[0]).lower(), str(chain_record[1]).lower())
+        for chain_record in chain_records
+    }
+    for measurement in patient.measurements.select_related("doctor", "hospital").all():
+        computed_hash = _record_payload_hash(_measurement_payload(measurement))
+        payload_matches = bool(
+            measurement.record_hash
+            and computed_hash.lower() == measurement.record_hash.lower()
+        )
+        anchored = bool(
+            measurement.record_hash
+            and measurement.facility_id
+            and (measurement.record_hash.lower(), measurement.facility_id.lower())
+            in chain_anchors
+        )
+        verified = payload_matches and anchored
+        if verified:
+            verified_measurement_objects.append(measurement)
+        else:
+            integrity_issues.append({
+                "record_hash": measurement.record_hash or None,
+                "facility_id": measurement.facility_id or (
+                    measurement.hospital.code if measurement.hospital else ""
+                ),
+                "record_type": f"Measurement: {measurement.kind}",
+                "reason": (
+                    "MEASUREMENT_HASH_MISMATCH" if measurement.record_hash and not payload_matches
+                    else "MEASUREMENT_NOT_ANCHORED"
+                ),
+            })
+        measurements.append({
+            "id": measurement.id,
+            "kind": measurement.kind,
+            "value": (
+                measurement.value
+                if verified or not measurement.record_hash else None
+            ),
+            "unit": measurement.unit,
+            "notes": (
+                measurement.notes
+                if verified or not measurement.record_hash else ""
+            ),
+            "doctor": measurement.doctor.full_name if measurement.doctor else "",
+            "hospital": measurement.hospital.name if measurement.hospital else "",
+            "date": measurement.created_at,
+            "record_hash": measurement.record_hash,
+            "tx_hash": measurement.tx_hash,
+            "verified": verified,
+            "withheld": bool(measurement.record_hash and not verified),
+        })
 
     # Referrals (all, for the viewing doctor)
     referrals = [{
@@ -752,19 +831,35 @@ def doctor_view_record(request, health_id):
         "reason": r.reason,
         "status": r.status,
         "created_at": r.created_at,
+        "responded_by": r.responded_by,
+        "responded_at": r.responded_at,
     } for r in patient.referrals.all()]
 
     # Patient health summary (computed from records + measurements)
-    summary = _patient_health_summary(patient)
+    summary = _patient_health_summary(
+        patient,
+        records=verified_record_objects,
+        measurements=verified_measurement_objects,
+    )
+    emergency_grant = AccessGrant.objects.filter(
+        patient=patient,
+        doctor=doctor,
+        source="BREAK_GLASS",
+        active=True,
+        expires_at__gt=timezone.now(),
+    ).first()
 
     return Response({
         "health_id": health_id,
         "full_name": patient.full_name,
         "chain_checked": chain_ok,
+        "emergency_access": bool(emergency_grant),
+        "emergency_reason": emergency_grant.reason if emergency_grant else "",
         "records": final_records,
         "measurements": measurements,
         "referrals": referrals,
         "summary": summary,
+        "integrity_issues": integrity_issues,
     })
 
 
@@ -943,13 +1038,7 @@ def doctor_patients(request):
     grants = AccessGrant.objects.filter(doctor=doctor).select_related("patient")
     items = []
     for g in grants:
-        if g.source == "BREAK_GLASS":
-            # The contract never opens an on-chain permission for break-glass;
-            # the emergency window lives (and expires) in the DB.
-            active = g.active and g.expires_at > timezone.now()
-        else:
-            allowed, _ = cached_has_access(g.patient.health_id, doctor.wallet_address)
-            active = allowed or (g.active and g.expires_at > timezone.now())
+        active, _chain_ok = _doctor_can_view_patient(doctor, g.patient)
         items.append({
             "health_id": g.patient.health_id,
             "full_name": g.patient.full_name,
@@ -979,24 +1068,51 @@ def add_measurement(request):
     if not patient:
         return Response({"error": "Health ID not found"}, status=404)
 
-    allowed, chain_ok = cached_has_access(health_id, doctor.wallet_address)
-    if not chain_ok:
-        allowed = True  # PoC: chain unreachable — demo continues
+    allowed, _chain_ok = _doctor_can_view_patient(doctor, patient)
     if not allowed:
         return Response({"error": "No access permission for this patient"}, status=403)
+
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return Response({"error": "value must be a valid number"}, status=400)
+    if not math.isfinite(numeric_value):
+        return Response({"error": "value must be a finite number"}, status=400)
 
     m = Measurement.objects.create(
         patient=patient,
         doctor=doctor,
         hospital=doctor.hospital,
         kind=kind,
-        value=float(value),
+        value=numeric_value,
         unit=str(request.data.get("unit", "")).strip(),
         notes=str(request.data.get("notes", "")).strip(),
+        facility_id=doctor.hospital.code if doctor.hospital else doctor.facility_id,
     )
+    m.record_hash = _record_payload_hash(_measurement_payload(m))
+    m.save(update_fields=["record_hash"])
+
+    tx_hash = ""
+    try:
+        metadata_uri = request.build_absolute_uri(
+            f"/exchange/{m.record_hash}/"
+        )
+        tx = contract.functions.addRecord(
+            patient.health_id, m.record_hash, m.facility_id, metadata_uri
+        )
+        tx_hash = send_transaction(tx)
+    except Exception as e:
+        logger.exception("Could not anchor measurement %s", m.id)
+        tx_hash = f"PENDING: {e}"
+    m.tx_hash = tx_hash[:66]
+    m.save(update_fields=["tx_hash"])
+
     return Response({
         "status": "success",
         "measurement_id": m.id,
+        "record_hash": m.record_hash,
+        "tx_hash": m.tx_hash,
+        "verified": bool(m.tx_hash and not m.tx_hash.startswith("PENDING")),
         "message": f"{m.kind} recorded for {patient.full_name}",
     }, status=status.HTTP_201_CREATED)
 
@@ -1011,59 +1127,128 @@ def patient_measurements(request, health_id):
     patient = Patient.objects.filter(health_id=health_id).first()
     if not patient:
         return Response({"error": "Health ID not found"}, status=404)
-    allowed, chain_ok = cached_has_access(health_id, doctor.wallet_address)
-    if not chain_ok:
-        allowed = True  # PoC: chain unreachable — demo continues
+    allowed, _chain_ok = _doctor_can_view_patient(doctor, patient)
     if not allowed:
         return Response({"error": "No access permission for this patient"}, status=403)
 
-    return Response([{
-        "id": m.id,
-        "kind": m.kind,
-        "value": m.value,
-        "unit": m.unit,
-        "notes": m.notes,
-        "doctor": m.doctor.full_name if m.doctor else "",
-        "hospital": m.hospital.name if m.hospital else _hospital_label(doctor),
-        "created_at": m.created_at,
-    } for m in patient.measurements.all()])
+    try:
+        chain_records = contract.functions.getRecords(patient.health_id).call()
+    except Exception:
+        logger.exception("Could not verify measurements for patient %s", health_id)
+        return Response(
+            {"error": "Blockchain is unavailable; measurements were not released"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    result = []
+    for measurement in patient.measurements.select_related("doctor", "hospital").all():
+        computed_hash = (
+            _record_payload_hash(_measurement_payload(measurement))
+            if measurement.record_hash else ""
+        )
+        payload_matches = bool(
+            computed_hash
+            and computed_hash.lower() == measurement.record_hash.lower()
+        )
+        anchored = bool(
+            measurement.record_hash
+            and measurement.facility_id
+            and any(
+                str(chain_record[0]).lower() == measurement.record_hash.lower()
+                and str(chain_record[1]).lower() == measurement.facility_id.lower()
+                for chain_record in chain_records
+            )
+        )
+        verified = payload_matches and anchored
+        result.append({
+            "id": measurement.id,
+            "kind": measurement.kind,
+            "value": measurement.value if verified or not measurement.record_hash else None,
+            "unit": measurement.unit,
+            "notes": measurement.notes if verified or not measurement.record_hash else "",
+            "doctor": measurement.doctor.full_name if measurement.doctor else "",
+            "hospital": measurement.hospital.name if measurement.hospital else _hospital_label(doctor),
+            "created_at": measurement.created_at,
+            "facility_id": measurement.facility_id,
+            "record_hash": measurement.record_hash,
+            "tx_hash": measurement.tx_hash,
+            "payload_matches_hash": payload_matches,
+            "anchored_on_chain": anchored,
+            "verified": verified,
+            "withheld": bool(measurement.record_hash and not verified),
+        })
+    return Response(result)
 
 
 def _hospital_label(doctor):
     return doctor.hospital.name if doctor.hospital else doctor.facility_id
 
 
-def _patient_health_summary(patient: Patient) -> dict:
-    """Compute a patient health summary from records + measurements.
-
-    Returns:
-      - diagnoses: most frequent record types (e.g. DIAGNOSIS, LAB)
-      - medicines: most-used medicines/medications extracted from record data
-      - measurements: most frequent measurement kinds with latest value + count
-      - hospital_visits: visit frequency per facility
-      - total_records, total_measurements: counts
-    """
+def _patient_health_summary(patient: Patient, records=None, measurements=None) -> dict:
+    """Summarize repeated diagnoses, medicines, measurements, and facilities."""
     from collections import Counter
 
-    # Diagnoses / record types frequency
-    type_counter: Counter = Counter()
-    for r in patient.records.all():
-        type_counter[r.record_type] += 1
+    records = list(records if records is not None else patient.records.all())
+    diagnosis_counts: Counter = Counter()
+    diagnosis_labels: dict[str, str] = {}
+    medicine_counts: Counter = Counter()
+    medicine_labels: dict[str, str] = {}
+    facility_visit_days: dict[str, set] = {}
 
-    # Medicines: scan record data for keys containing medicine/medication/drug/prescription
-    med_counter: Counter = Counter()
-    for r in patient.records.all():
-        for key, value in (r.record_data or {}).items():
-            lk = key.lower()
-            if any(t in lk for t in ("medicine", "medication", "drug", "prescription", "rx", "treatment")):
-                med_counter[f"{key}: {value}"] += 1
+    def values(value):
+        if value is None or value == "":
+            return []
+        if isinstance(value, (list, tuple, set)):
+            return [item for child in value for item in values(child)]
+        if isinstance(value, dict):
+            return [json.dumps(value, sort_keys=True)]
+        return [str(value).strip()]
 
-    # Measurements frequency + latest value per kind
+    for record in records:
+        record_diagnoses = set()
+        record_medicines = set()
+        for key, value in (record.record_data or {}).items():
+            normalized_key = str(key).strip().lower()
+            concepts = values(value)
+            if any(term in normalized_key for term in ("diagnos", "disease", "condition", "illness")):
+                record_diagnoses.update(concept for concept in concepts if concept)
+            if (
+                any(term in normalized_key for term in ("medicine", "medication", "drug", "prescription", "rx"))
+                or (
+                    record.record_type.upper() in {"PRESCRIPTION", "MEDICATION"}
+                    and normalized_key in {"name", "item"}
+                )
+            ):
+                record_medicines.update(concept for concept in concepts if concept)
+
+        for label in record_diagnoses:
+            normalized = label.casefold()
+            diagnosis_counts[normalized] += 1
+            diagnosis_labels.setdefault(normalized, label)
+        for label in record_medicines:
+            normalized = label.casefold()
+            medicine_counts[normalized] += 1
+            medicine_labels.setdefault(normalized, label)
+
+        facility = record.facility_name or record.facility_id or "Unknown facility"
+        facility_visit_days.setdefault(facility, set()).add(
+            timezone.localtime(record.created_at).date().isoformat()
+        )
+
     meas_counter: Counter = Counter()
     meas_latest: dict = {}
-    for m in patient.measurements.all():
+    measurements = list(
+        measurements if measurements is not None
+        else patient.measurements.select_related("doctor", "hospital").all()
+    )
+    for m in measurements:
         meas_counter[m.kind] += 1
-        # keep latest by date
+        facility = m.hospital.name if m.hospital else (
+            m.facility_id or (m.doctor.facility_id if m.doctor else "Unknown facility")
+        )
+        facility_visit_days.setdefault(facility, set()).add(
+            timezone.localtime(m.created_at).date().isoformat()
+        )
         if m.created_at and (m.kind not in meas_latest or m.created_at > meas_latest[m.kind].get("date")):
             meas_latest[m.kind] = {
                 "value": m.value,
@@ -1073,19 +1258,14 @@ def _patient_health_summary(patient: Patient) -> dict:
                 "hospital": m.hospital.name if m.hospital else "",
             }
 
-    # Hospital visit frequency (from records)
-    hospital_counter: Counter = Counter()
-    for r in patient.records.all():
-        hospital_counter[r.facility_name or r.facility_id] += 1
-
     return {
         "diagnoses": [
-            {"type": t, "count": c}
-            for t, c in type_counter.most_common(10)
+            {"type": diagnosis_labels[label], "count": count}
+            for label, count in diagnosis_counts.most_common(10)
         ],
         "medicines": [
-            {"detail": d, "count": c}
-            for d, c in med_counter.most_common(10)
+            {"detail": medicine_labels[label], "count": count}
+            for label, count in medicine_counts.most_common(10)
         ],
         "measurements": [
             {
@@ -1102,11 +1282,15 @@ def _patient_health_summary(patient: Patient) -> dict:
             if lv
         ],
         "hospital_visits": [
-            {"facility": f, "count": c}
-            for f, c in hospital_counter.most_common(10)
+            {"facility": facility, "count": len(visit_days)}
+            for facility, visit_days in sorted(
+                facility_visit_days.items(),
+                key=lambda entry: len(entry[1]),
+                reverse=True,
+            )[:10]
         ],
-        "total_records": patient.records.count(),
-        "total_measurements": patient.measurements.count(),
+        "total_records": len(records),
+        "total_measurements": len(measurements),
     }
 
 
@@ -1625,53 +1809,65 @@ def doctor_incoming_referrals(request):
     return Response([_referral_json(r) for r in incoming[:50]])
 
 @api_view(["POST"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def break_glass(request):
-    """Emergency access. Always allowed, always logged on-chain (step 7).
+    """Approved doctor emergency access with a short-lived audited grant.
 
     The contract's breakGlass only emits an event + audit entry — it does not
     open a permission — so the backend opens a short emergency window in the
     DB (AccessGrant, 1 hour) and drops the cached hasAccess result so the
     clinician's next record view goes through immediately.
     """
-    data = request.data
-    health_id = str(data.get("health_id", "")).strip()
-    facility_id = data.get("facility_id", "")
-    reason = data.get("reason", "")
+    doctor = _doctor_from_request(request)
+    if not doctor:
+        return Response({"error": "Approved doctor account required"}, status=403)
+    health_id = str(request.data.get("health_id", "")).strip()
+    reason = str(request.data.get("reason", "")).strip()
+    if not health_id or not reason:
+        return Response({"error": "health_id and emergency reason are required"}, status=400)
 
     patient = Patient.objects.filter(health_id=health_id).first()
     if not patient:
         return Response({"error": "Health ID not found"}, status=404)
 
-    doctor = _doctor_from_request(request)
-    wallet = doctor.wallet_address if doctor else facility_address()
-    tx_hash = ""
+    wallet = doctor.wallet_address
+    facility_id = doctor.facility_id or "UNKNOWN"
     try:
         tx = contract.functions.breakGlass(health_id, checksum_address(wallet), facility_id, reason)
         tx_hash = send_transaction(tx)
     except Exception as e:
+        logger.exception("Break-glass transaction failed for %s", health_id)
         tx_hash = f"PENDING: {e}"
 
-    if doctor:
-        # A live normal grant is never shortened — only add the emergency
-        # window when the doctor has no active access yet.
-        live = AccessGrant.objects.filter(
-            patient=patient, doctor=doctor, active=True, expires_at__gt=timezone.now()
-        ).exists()
-        if not live:
-            AccessGrant.objects.create(
-                patient=patient, doctor=doctor,
-                tx_hash=tx_hash[:66],
-                active=True,
-                expires_at=timezone.now() + timedelta(hours=1),
-                source="BREAK_GLASS",
-            )
+    # A live normal grant is never shortened; otherwise record the emergency
+    # window even if the chain RPC is down, while reporting that limitation.
+    live = AccessGrant.objects.filter(
+        patient=patient, doctor=doctor, active=True, expires_at__gt=timezone.now(),
+        source__in=["", "grant"],
+    ).exists()
+    if not live:
+        AccessGrant.objects.update_or_create(
+            patient=patient,
+            doctor=doctor,
+            source="BREAK_GLASS",
+            defaults={
+                "tx_hash": tx_hash[:66],
+                "active": True,
+                "expires_at": timezone.now() + timedelta(hours=1),
+                "reason": reason,
+            },
+        )
     cache_invalidate(f"hasAccess:{health_id.lower()}")
 
     return Response({
         "status": "success",
-        "message": "Break-glass used. Emergency access granted for 1 hour and logged for accountability.",
+        "message": (
+            "Emergency access granted for 1 hour and logged on-chain."
+            if not tx_hash.startswith("PENDING")
+            else "Emergency access granted for 1 hour, but the on-chain audit transaction is pending."
+        ),
         "tx_hash": tx_hash,
+        "chain_logged": not tx_hash.startswith("PENDING"),
         "clinician_wallet": wallet,
     })
 

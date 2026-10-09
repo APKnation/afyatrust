@@ -75,7 +75,7 @@ class Doctor(models.Model):
 
 
 class Measurement(models.Model):
-    """Clinical reading a doctor takes for a patient (off-chain)."""
+    """Clinical reading with an off-chain payload and on-chain integrity anchor."""
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="measurements")
     doctor = models.ForeignKey(Doctor, null=True, blank=True, on_delete=models.SET_NULL, related_name="measurements")
     hospital = models.ForeignKey(Hospital, null=True, blank=True, on_delete=models.SET_NULL, related_name="measurements")
@@ -83,6 +83,9 @@ class Measurement(models.Model):
     value = models.FloatField()
     unit = models.CharField(max_length=20, blank=True) # e.g. "mmHg"
     notes = models.TextField(blank=True)
+    facility_id = models.CharField(max_length=50, blank=True)
+    record_hash = models.CharField(max_length=66, blank=True)
+    tx_hash = models.CharField(max_length=66, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -169,6 +172,7 @@ class AccessGrant(models.Model):
     tx_hash = models.CharField(max_length=66, blank=True)
     active = models.BooleanField(default=True)
     source = models.CharField(max_length=20, blank=True, default="")  # "grant" | "BREAK_GLASS"
+    reason = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
 

@@ -551,8 +551,8 @@ export class HospitalDashboardComponent implements OnInit {
   busyId: number | null = null;
 
   // --- Add record form ---
-  recordTypes = ['DIAGNOSIS', 'LAB', 'PRESCRIPTION', 'SURGERY', 'IMMUNIZATION', 'GENERAL'];
-  keyHints = ['temperature', 'diagnosis', 'medication', 'result', 'notes'];
+  recordTypes = ['DIAGNOSIS', 'LAB', 'PRESCRIPTION', 'MEDICATION', 'SURGERY', 'IMMUNIZATION', 'GENERAL'];
+  keyHints = ['temperature', 'diagnosis', 'disease', 'medicine', 'medication', 'result', 'notes'];
   rows: { key: string; value: string }[] = [{ key: '', value: '' }, { key: '', value: '' }];
   form = { health_id: '', record_type: 'DIAGNOSIS' };
   busy = false;

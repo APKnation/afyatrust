@@ -7,6 +7,7 @@ import {
   BlockchainEvent,
 } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
+import { RecordChartComponent, RecordChartPoint } from '../../../components/shared/record-chart/record-chart.component';
 
 /**
  * Doctor workspace (PIN-login, JWT-identified).
@@ -17,7 +18,7 @@ import { AuthService } from '../../../services/auth.service';
  */
 @Component({
   selector: 'app-doctor-dashboard',
-  imports: [NgIf, NgFor, DatePipe, SlicePipe, FormsModule],
+  imports: [NgIf, NgFor, DatePipe, SlicePipe, FormsModule, RecordChartComponent],
   template: `
     <!-- Full-width shell: sidebar hugs the left edge; content fills the rest. -->
     <div class="flex w-full items-start gap-6 px-4 py-8 sm:px-6">
@@ -333,6 +334,28 @@ import { AuthService } from '../../../services/auth.service';
           </div>
 
           <!-- Patient health summary (most-used meds, frequent measurements, diagnoses) -->
+          <div *ngIf="summary" class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <app-record-chart
+              title="Recorded conditions and record types"
+              description="Frequency in the blockchain-verified history."
+              [data]="diagnosisChartData"
+              emptyMessage="No verified diagnosis or record-type entries." />
+            <app-record-chart
+              title="Measurement history"
+              description="Frequency of verified measurements."
+              [data]="measurementChartData"
+              emptyMessage="No verified measurements are available." />
+            <app-record-chart
+              title="Medicine mentions"
+              description="Recorded medication entries; this is not a measure of doses taken."
+              [data]="medicineChartData"
+              emptyMessage="No verified medicine entries." />
+            <app-record-chart
+              title="Recorded activity by hospital"
+              description="Verified activity days grouped by facility."
+              [data]="hospitalChartData"
+              emptyMessage="No verified hospital activity is available." />
+          </div>
           <div *ngIf="summary" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <!-- Most-used medicines -->
             <div class="card p-5">
@@ -804,6 +827,26 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   measurements: MeasurementItem[] = [];
   referrals: ReferralItem[] = [];
   summary: any = null;
+  get diagnosisChartData(): RecordChartPoint[] {
+    return (this.summary?.diagnoses ?? []).map((item: { type: string; count: number }) => ({
+      label: item.type, value: item.count,
+    }));
+  }
+  get measurementChartData(): RecordChartPoint[] {
+    return (this.summary?.measurements ?? []).map((item: { kind: string; count: number }) => ({
+      label: item.kind, value: item.count,
+    }));
+  }
+  get medicineChartData(): RecordChartPoint[] {
+    return (this.summary?.medicines ?? []).map((item: { detail: string; count: number }) => ({
+      label: item.detail, value: item.count,
+    }));
+  }
+  get hospitalChartData(): RecordChartPoint[] {
+    return (this.summary?.hospital_visits ?? []).map((item: { facility: string; count: number }) => ({
+      label: item.facility, value: item.count,
+    }));
+  }
   integrityIssues: { record_hash: string | null; facility_id: string; record_type: string; reason: string }[] = [];
   emergencyAccess = false;
   emergencyReason = '';

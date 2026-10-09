@@ -6,6 +6,7 @@ import {
   ApiService, FacilityRecord, ReferralItem, ReferralIntegrityReport, BlockchainEvent,
 } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
+import { RecordChartComponent, RecordChartPoint } from '../../../components/shared/record-chart/record-chart.component';
 
 /**
  * Hospital workspace: referral desk + staff record entry.
@@ -17,7 +18,7 @@ import { AuthService } from '../../../services/auth.service';
  */
 @Component({
   selector: 'app-hospital-dashboard',
-  imports: [NgIf, NgFor, DatePipe, SlicePipe, FormsModule],
+  imports: [NgIf, NgFor, DatePipe, SlicePipe, FormsModule, RecordChartComponent],
   template: `
     <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/30">
       <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -37,6 +38,19 @@ import { AuthService } from '../../../services/auth.service';
               </div>
             </div>
           </div>
+        </div>
+
+        <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <app-record-chart
+            title="Clinical records by type"
+            description="Records created by this hospital."
+            [data]="facilityRecordChartData"
+            emptyMessage="No facility records have been loaded yet." />
+          <app-record-chart
+            title="Blockchain activity"
+            description="On-chain events recorded for this hospital."
+            [data]="blockchainActivityChartData"
+            emptyMessage="No blockchain event summary is available yet." />
         </div>
 
       <!-- Tabs -->
@@ -575,6 +589,19 @@ export class HospitalDashboardComponent implements OnInit {
    * with a direct Etherscan link. */
   lastTx: { label: string; tx_hash: string; pending: boolean } | null = null;
 
+  get facilityRecordChartData(): RecordChartPoint[] {
+    const counts = new Map<string, number>();
+    for (const record of this.facilityRecords) {
+      counts.set(record.record_type, (counts.get(record.record_type) ?? 0) + 1);
+    }
+    return Array.from(counts, ([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+  }
+
+  get blockchainActivityChartData(): RecordChartPoint[] {
+    return this.summaryItems().map(({ label, count }) => ({ label, value: count }));
+  }
+
   constructor(
     private api: ApiService,
     public auth: AuthService,
@@ -611,6 +638,8 @@ export class HospitalDashboardComponent implements OnInit {
     await this.reload();
     void this.loadOutgoing();
     void this.loadExchangeRecords();
+    void this.loadFacilityRecords();
+    void this.loadBlockchainLogs();
   }
 
   setFilter(value: string) {

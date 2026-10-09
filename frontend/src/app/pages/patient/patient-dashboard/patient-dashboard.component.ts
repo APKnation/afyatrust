@@ -4,10 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService, PatientData, AccessRequest, DoctorOption, ActivityStoryItem } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
+import { RecordChartComponent, RecordChartPoint } from '../../../components/shared/record-chart/record-chart.component';
 
 @Component({
   selector: 'app-patient-dashboard',
-  imports: [NgIf, NgFor, SlicePipe, DatePipe, FormsModule],
+  imports: [NgIf, NgFor, SlicePipe, DatePipe, FormsModule, RecordChartComponent],
   template: `
     <!-- LOADING (instant — skeleton, disappears as soon as first bytes arrive) -->
     <div *ngIf="loading && !data" class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40">
@@ -893,6 +894,29 @@ import { AuthService } from '../../../services/auth.service';
             </div>
 
             <div *ngIf="healthSummary" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <app-record-chart
+                title="Recorded conditions and record types"
+                description="Frequency of entries in your medical history."
+                [data]="diagnosisChartData"
+                emptyMessage="No diagnosis or record-type entries are available." />
+              <app-record-chart
+                title="Measurement history"
+                description="How often each measurement appears in your records."
+                [data]="measurementChartData"
+                emptyMessage="No measurements are available." />
+              <app-record-chart
+                title="Medicine mentions"
+                description="Recorded medication entries; this is not a measure of doses taken."
+                [data]="medicineChartData"
+                emptyMessage="No medicine entries are available." />
+              <app-record-chart
+                title="Recorded activity by hospital"
+                description="Records grouped by the facility that created them."
+                [data]="hospitalChartData"
+                emptyMessage="No hospital activity is available." />
+            </div>
+
+            <div *ngIf="healthSummary" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <!-- Most-used medicines -->
               <div class="card p-5">
                 <h3 class="mb-3 text-lg font-bold">Most-used medicines</h3>
@@ -1214,6 +1238,22 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     lastActivityAt: number | null;
     pendingOperations: number;
   } | null = null;
+
+  get diagnosisChartData(): RecordChartPoint[] {
+    return (this.healthSummary?.diagnoses ?? []).map((item) => ({ label: item.type, value: item.count }));
+  }
+
+  get measurementChartData(): RecordChartPoint[] {
+    return (this.healthSummary?.measurements ?? []).map((item) => ({ label: item.kind, value: item.count }));
+  }
+
+  get medicineChartData(): RecordChartPoint[] {
+    return (this.healthSummary?.medicines ?? []).map((item) => ({ label: item.detail, value: item.count }));
+  }
+
+  get hospitalChartData(): RecordChartPoint[] {
+    return (this.healthSummary?.hospital_visits ?? []).map((item) => ({ label: item.facility, value: item.count }));
+  }
 
   walletGrants: {
     activeCount: number;

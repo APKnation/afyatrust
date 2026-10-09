@@ -453,49 +453,44 @@ import { AuthService } from '../../../services/auth.service';
           </div>
         </div>
 
-        <div class="card overflow-hidden">
-          <table *ngIf="filteredTransactions.length" class="w-full">
-            <thead>
-              <tr class="bg-ink text-left text-white">
-                <th class="px-4 py-3 text-sm font-semibold">Date</th>
-                <th class="px-4 py-3 text-sm font-semibold">Event Type</th>
-                <th class="px-4 py-3 text-sm font-semibold">Transaction Hash</th>
-                <th class="px-4 py-3 text-sm font-semibold">Block</th>
-                <th class="px-4 py-3 text-sm font-semibold">Details</th>
-                <th class="px-4 py-3 text-sm font-semibold">Verify</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let tx of filteredTransactions" class="border-b border-gray-100 last:border-b-0 hover:bg-primary-50/50">
-                <td class="px-4 py-3 text-sm">{{ tx.timestamp ? (tx.timestamp * 1000 | date:'short') : '—' }}</td>
-                <td class="px-4 py-3">
-                  <span class="rounded-full px-2.5 py-0.5 text-xs font-bold"
-                        [class]="eventBadge(tx.event)">{{ formatEventName(tx.event) }}</span>
-                </td>
-                <td class="px-4 py-3">
-                  <code class="text-xs font-mono">{{ tx.transaction_hash | slice:0:20 }}…</code>
-                </td>
-                <td class="px-4 py-3 text-sm font-mono">{{ tx.block_number }}</td>
-                <td class="px-4 py-3 text-xs text-muted">
-                  <div *ngFor="let arg of eventArgs(tx.args)">{{ arg.key }}: <span class="text-ink">{{ arg.value }}</span></div>
-                </td>
-                <td class="px-4 py-3">
-                  <a [href]="tx.etherscan_url" target="_blank" rel="noopener"
-                     class="rounded px-2 py-1 text-xs font-mono text-accent-700 underline  hover:bg-primary-50">
-                    View on Etherscan
-                  </a>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div *ngIf="filteredTransactions.length === 0 && transactions.length > 0" class="p-10 text-center">
-            <h3 class="mb-1 text-lg font-bold">No transactions match your filters</h3>
-            <p class="m-0 text-muted">Try adjusting your filters or clearing them.</p>
+        <div *ngIf="filteredTransactions.length" class="space-y-3">
+          <div *ngFor="let tx of filteredTransactions" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 hover:shadow-xl transition-shadow">
+            <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+              <div class="flex flex-wrap items-center gap-3">
+                <span class="rounded-full px-3 py-1 text-xs font-bold" [class]="eventBadge(tx.event)">{{ formatEventName(tx.event) }}</span>
+                <span class="text-sm text-slate-500">{{ tx.timestamp ? (tx.timestamp * 1000 | date:'medium') : '—' }}</span>
+              </div>
+              <a [href]="tx.etherscan_url" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-100 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                View on Etherscan
+              </a>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <p class="text-xs text-slate-500 mb-1">Transaction Hash</p>
+                <code class="text-xs font-mono text-slate-700 break-all">{{ tx.transaction_hash }}</code>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <p class="text-xs text-slate-500 mb-1">Block Number</p>
+                <span class="text-sm font-mono text-slate-700">{{ tx.block_number }}</span>
+              </div>
+            </div>
+            <div *ngIf="eventArgs(tx.args).length > 0" class="p-4 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200">
+              <p class="text-xs font-semibold text-slate-600 mb-2">Event Details</p>
+              <div *ngFor="let arg of eventArgs(tx.args)" class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 py-2 border-b border-slate-200 last:border-b-0">
+                <span class="text-xs font-medium text-slate-600 capitalize">{{ arg.key }}</span>
+                <span class="text-sm text-slate-900 break-all">{{ arg.value }}</span>
+              </div>
+            </div>
           </div>
-          <div *ngIf="transactions.length === 0" class="p-10 text-center">
-            <h3 class="mb-1 text-lg font-bold">No blockchain transactions yet</h3>
-            <p class="m-0 text-muted">Transactions appear here when records are added, access is granted, or data is viewed.</p>
-          </div>
+        </div>
+        <div *ngIf="filteredTransactions.length === 0 && transactions.length > 0" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 text-center">
+          <h3 class="mb-2 text-lg font-bold text-slate-900">No transactions match your filters</h3>
+          <p class="text-slate-600">Try adjusting your filters or clearing them.</p>
+        </div>
+        <div *ngIf="transactions.length === 0" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 text-center">
+          <h3 class="mb-2 text-lg font-bold text-slate-900">No blockchain transactions yet</h3>
+          <p class="text-slate-600">Transactions appear here when records are added, access is granted, or data is viewed.</p>
         </div>
       </div>
     </div>

@@ -45,6 +45,27 @@ export interface PatientBlockchainHistoryResponse {
   count: number;
 }
 
+/** One human-readable entry of the unified on-chain activity story. */
+export interface ActivityStoryItem {
+  action: string;
+  event: string;
+  who: string;
+  wallet: string;
+  role: string;
+  facility: string;
+  verb: string;
+  icon: string;
+  timestamp: number;
+  transaction_hash: string | null;
+  etherscan_url: string | null;
+}
+
+export interface ActivityStoryResponse {
+  health_id: string;
+  story: ActivityStoryItem[];
+  count: number;
+}
+
 export interface HospitalBlockchainSummaryResponse {
   hospital_code: string;
   summary: Record<string, number>;
@@ -376,6 +397,13 @@ export class ApiService {
   /** Fetch complete blockchain transaction history for a specific patient. */
   patientBlockchainHistory(health_id: string): Promise<PatientBlockchainHistoryResponse> {
     return this.request<PatientBlockchainHistoryResponse>('GET', `/blockchain/patient/${encodeURIComponent(health_id)}/`);
+  }
+
+  /** Unified human-readable on-chain story: who did what, when — tx-verified. */
+  patientActivityStory(health_id: string): Promise<ActivityStoryResponse> {
+    return this.request<ActivityStoryResponse>(
+      'GET', `/blockchain/patient/${encodeURIComponent(health_id)}/story/`
+    );
   }
 
   /** Get a summary of blockchain activity for the hospital. */

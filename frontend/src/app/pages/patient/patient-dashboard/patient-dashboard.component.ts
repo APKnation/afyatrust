@@ -996,7 +996,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
 
             <!-- Overall counts -->
-            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <div *ngIf="healthSummary" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
               <h3 class="mb-4 text-lg font-bold">Your history at a glance</h3>
               <dl class="grid grid-cols-3 gap-4">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
@@ -1418,7 +1418,8 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     navigator.clipboard.writeText(addr).catch(() => {});
   }
 
-  // --- Health summary (computed from records + measurements + referrals) ---    healthSummary: {
+  // --- Health summary (computed from records + measurements + referrals) ---
+  healthSummary: {
     diagnoses: { type: string; count: number }[];
     medicines: { detail: string; count: number }[];
     measurements: { kind: string; count: number; latest_value: number; latest_unit: string; latest_date: string; latest_doctor: string; latest_hospital: string }[];
@@ -1478,11 +1479,12 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     const measLatest: Record<string, { value: number; unit: string; date: string; doctor: string; hospital: string }> = {};
     for (const m of measurements) {
       measCounter[m.kind] = (measCounter[m.kind] || 0) + 1;
-      if (!measLatest[m.kind] || m.date > measLatest[m.kind].date) {
+      const measurementDate = m.date ?? m.created_at ?? '';
+      if (!measLatest[m.kind] || measurementDate > measLatest[m.kind].date) {
         measLatest[m.kind] = {
           value: m.value,
           unit: m.unit,
-          date: m.date,
+          date: measurementDate,
           doctor: m.doctor || '',
           hospital: m.hospital || '',
         };

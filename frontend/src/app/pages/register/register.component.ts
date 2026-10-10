@@ -12,6 +12,10 @@ import { AuthService } from '../../services/auth.service';
  * custodial wallet. The patient chooses a 4-digit PIN for login.
  */
 @Component({
+  selector: 'app-register',
+  imports: [NgFor, NgIf, FormsModule, RouterLink],
+  template: `
+    <!-- ================= NAVBAR ================= -->
     <nav class="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-5 lg:px-12">
       <div class="flex items-center gap-2">
         <a routerLink="/" class="text-2xl font-bold text-slate-900 tracking-tight cursor-pointer">Afya<span class="text-primary-500">Trust</span></a>
@@ -22,44 +26,41 @@ import { AuthService } from '../../services/auth.service';
       </div>
     </nav>
 
+    <!-- ================= SPLIT LAYOUT ================= -->
     <div class="flex min-h-screen bg-white">
+
       <!-- LEFT: Form Side -->
       <div class="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 pt-28 pb-12 overflow-y-auto">
         <div class="max-w-[440px] w-full mx-auto">
           <div class="mb-10">
-            <span class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-primary-50 text-primary-600 mb-6 border border-primary-100/50">
-              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-            </span>
-            <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Create your account</h1>
-            <p class="text-slate-500 text-lg">Your custodial blockchain wallet will be automatically generated for you.</p>
+            <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Join AfyaTrust</h1>
+            <p class="text-slate-500 text-base leading-relaxed">Your health records, kept safe. You decide who sees them, always.</p>
           </div>
-          
-          <div *ngIf="error" class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-3 animate-fade-in">
-             <svg class="w-5 h-5 shrink-0 mt-0.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-             <span>{{ error }}</span>
+
+          <div *ngIf="error" class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-3">
+            <span>{{ error }}</span>
           </div>
 
           <form (ngSubmit)="register()" #form="ngForm" class="flex flex-col gap-5">
+
             <div class="space-y-1.5">
               <label class="text-sm font-semibold text-slate-700">Full Name</label>
-              <input type="text" name="full_name" [(ngModel)]="model.full_name" required 
-                     class="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all" 
+              <input type="text" name="full_name" [(ngModel)]="model.full_name" required
+                     class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
                      placeholder="John Doe" />
             </div>
 
             <div class="space-y-1.5">
               <label class="text-sm font-semibold text-slate-700">Health ID</label>
-              <input type="text" name="health_id" [(ngModel)]="model.health_id" required 
-                     class="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all" 
+              <input type="text" name="health_id" [(ngModel)]="model.health_id" required
+                     class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
                      placeholder="e.g. 123456789" />
             </div>
 
             <div class="space-y-1.5">
               <label class="text-sm font-semibold text-slate-700">Registering hospital</label>
-              <select name="facility_id" [(ngModel)]="model.facility_id" required 
-                      class="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all">
+              <select name="facility_id" [(ngModel)]="model.facility_id" required
+                      class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all">
                 <option value="" disabled selected>Select your hospital</option>
                 <option *ngFor="let hospital of hospitals" [value]="hospital.code">
                   {{ hospital.name }} ({{ hospital.code }})
@@ -68,38 +69,41 @@ import { AuthService } from '../../services/auth.service';
             </div>
 
             <div class="space-y-1.5">
-              <label class="text-sm font-semibold text-slate-700 flex justify-between">
+              <label class="text-sm font-semibold text-slate-700 flex items-center justify-between">
                 <span>Phone Number</span>
-                <span class="text-slate-400 font-normal">Optional</span>
+                <span class="text-xs text-slate-400 font-normal">Optional</span>
               </label>
-              <input type="text" name="phone" [(ngModel)]="model.phone" 
-                     class="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all" 
-                     placeholder="+255..." />
+              <input type="text" name="phone" [(ngModel)]="model.phone"
+                     class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
+                     placeholder="+255 700 000 000" />
             </div>
 
             <div class="grid grid-cols-2 gap-4">
               <div class="space-y-1.5">
                 <label class="text-sm font-semibold text-slate-700">PIN (4 digits)</label>
-                <input type="password" name="pin" [(ngModel)]="model.pin" required minlength="4" maxlength="4" pattern="[0-9]*" inputmode="numeric" 
-                       class="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all tracking-[0.4em] text-center font-mono text-lg" 
+                <input type="password" name="pin" [(ngModel)]="model.pin" required
+                       minlength="4" maxlength="4" pattern="[0-9]*" inputmode="numeric"
+                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 text-center font-mono text-xl tracking-[0.5em] outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
                        placeholder="••••" />
               </div>
               <div class="space-y-1.5">
                 <label class="text-sm font-semibold text-slate-700">Confirm PIN</label>
-                <input type="password" name="pin2" [(ngModel)]="model.pin2" required minlength="4" maxlength="4" pattern="[0-9]*" inputmode="numeric" 
-                       class="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all tracking-[0.4em] text-center font-mono text-lg" 
+                <input type="password" name="pin2" [(ngModel)]="model.pin2" required
+                       minlength="4" maxlength="4" pattern="[0-9]*" inputmode="numeric"
+                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 text-center font-mono text-xl tracking-[0.5em] outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
                        placeholder="••••" />
               </div>
             </div>
 
-            <button type="submit" [disabled]="loading || !model.full_name || !model.health_id || !model.facility_id || model.pin.length !== 4" 
-                    class="btn-primary w-full py-4 mt-4 text-lg rounded-xl shadow-lg shadow-primary-500/25">
+            <button type="submit"
+                    [disabled]="loading || !model.full_name || !model.health_id || !model.facility_id || model.pin.length !== 4"
+                    class="btn-primary w-full py-4 mt-4 text-base rounded-xl shadow-lg shadow-primary-500/25">
               {{ loading ? 'Generating Wallet & Registering…' : 'Complete Registration' }}
             </button>
           </form>
 
           <p class="mt-8 text-center text-slate-500 font-medium">
-            Already registered? 
+            Already registered?
             <a routerLink="/login" class="font-bold text-primary-600 hover:text-primary-700 transition-colors ml-1">Log in here</a>
           </p>
         </div>
@@ -107,20 +111,29 @@ import { AuthService } from '../../services/auth.service';
 
       <!-- RIGHT: Hero Side -->
       <div class="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden items-center justify-center p-12">
-        <!-- Abstract glowing orbs background -->
-        <div class="absolute inset-0 opacity-40">
-           <div class="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-accent-500 mix-blend-screen filter blur-[120px] animate-pulse" style="animation-duration: 9s"></div>
-           <div class="absolute bottom-[-10%] left-[-10%] w-[70%] h-[70%] rounded-full bg-primary-600 mix-blend-screen filter blur-[140px] animate-pulse" style="animation-delay: 3s; animation-duration: 11s"></div>
+        <!-- Animated glowing orbs -->
+        <div class="absolute inset-0 opacity-40 pointer-events-none">
+          <div class="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-accent-500 mix-blend-screen filter blur-[120px] animate-pulse" style="animation-duration: 9s;"></div>
+          <div class="absolute bottom-[-10%] left-[-10%] w-[70%] h-[70%] rounded-full bg-primary-600 mix-blend-screen filter blur-[140px] animate-pulse" style="animation-delay: 3s; animation-duration: 11s;"></div>
+          <div class="absolute top-[40%] left-[30%] w-[40%] h-[40%] rounded-full bg-accent-600 mix-blend-screen filter blur-[100px] animate-pulse" style="animation-delay: 1s; animation-duration: 13s;"></div>
         </div>
-        
-        <!-- Glassmorphism overlay card -->
-        <div class="relative z-10 max-w-lg w-full text-center px-10 py-16 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl">
-          <div class="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md mb-8 border border-white/20 shadow-inner">
-            <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-            Zero-knowledge custodial wallets
+
+        <!-- Glassmorphism card -->
+        <div class="relative z-10 max-w-lg w-full text-center px-10 py-14 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl">
+          <h2 class="text-4xl font-bold text-white mb-6 leading-[1.15] tracking-tight">Your health.<br/>Your privacy.</h2>
+          <p class="text-lg text-slate-300 font-light leading-relaxed mb-10">AfyaTrust gives you peace of mind knowing your medical information is always safe, private, and accessible only to people you trust.</p>
+
+          <div class="flex flex-col gap-3 text-left">
+            <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
+              <span class="text-slate-300 text-sm">You choose who can see your records</span>
+            </div>
+            <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
+              <span class="text-slate-300 text-sm">Revoke access at any time, instantly</span>
+            </div>
+            <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
+              <span class="text-slate-300 text-sm">Your doctor sees exactly what you allow</span>
+            </div>
           </div>
-          <h2 class="text-4xl font-bold text-white mb-6 leading-[1.15] tracking-tight">Your health data.<br/>Under your control.</h2>
-          <p class="text-lg text-slate-300 font-light leading-relaxed">No MetaMask required. We automatically encrypt and manage your on-chain identity while you log in seamlessly with just an ID and PIN.</p>
         </div>
       </div>
     </div>

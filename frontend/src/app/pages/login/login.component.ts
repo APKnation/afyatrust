@@ -32,17 +32,11 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
       <div class="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 pt-24 pb-12 overflow-y-auto">
         <div class="max-w-[420px] w-full mx-auto">
           <div class="mb-10">
-            <span class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-primary-50 text-primary-600 mb-6 border border-primary-100/50">
-              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
-              </svg>
-            </span>
             <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Welcome back</h1>
-            <p class="text-slate-500 text-lg">Enter your ID and PIN to access your secure workspace.</p>
+            <p class="text-slate-500 text-lg">Your health records are safe and waiting for you.</p>
           </div>
           
           <div *ngIf="error" class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-3 animate-fade-in">
-             <svg class="w-5 h-5 shrink-0 mt-0.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
              <span>{{ error }}</span>
           </div>
 
@@ -84,15 +78,20 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
         
         <!-- Glassmorphism overlay card -->
         <div class="relative z-10 max-w-lg w-full text-center px-10 py-16 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl">
-          <div class="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-white backdrop-blur-md mb-8 border border-white/20 shadow-inner">
-            <span class="flex h-2.5 w-2.5 relative">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-accent-500"></span>
-            </span>
-            Ethereum Sepolia Network
+          <h2 class="text-4xl font-bold text-white mb-6 leading-[1.15] tracking-tight">Trusted by patients.<br/>Trusted by doctors.</h2>
+          <p class="text-lg text-slate-300 font-light leading-relaxed mb-10">AfyaTrust keeps your medical history private and secure. Only you decide who gets to see it — and you can change that decision at any time.</p>
+
+          <div class="flex flex-col gap-3 text-left">
+            <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
+              <span class="text-slate-300 text-sm">Your records are never shared without your approval</span>
+            </div>
+            <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
+              <span class="text-slate-300 text-sm">See exactly who viewed your information and when</span>
+            </div>
+            <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
+              <span class="text-slate-300 text-sm">Seamless referrals between hospitals you trust</span>
+            </div>
           </div>
-          <h2 class="text-4xl font-bold text-white mb-6 leading-[1.15] tracking-tight">Securing health data<br/>with blockchain.</h2>
-          <p class="text-lg text-slate-300 font-light leading-relaxed">Experience tamper-proof medical records, seamless institutional referrals, and cryptographically enforced patient consent.</p>
         </div>
       </div>
     </div>

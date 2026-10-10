@@ -133,4 +133,100 @@
   .btn-accent {
     @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-accent-500 to-accent-600 text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:from-accent-600 hover:to-accent-700 focus:ring-4 focus:ring-accent-500/30 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
   }
+
+  /* ── Dashboard: Stat card ── */
+  .stat-card {
+    @apply bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200;
+  }
+  .stat-card-value {
+    @apply text-2xl font-bold text-slate-900 tracking-tight;
+  }
+  .stat-card-label {
+    @apply text-xs font-semibold uppercase tracking-widest text-slate-400 mt-1;
+  }
+
+  /* ── Dashboard: Section header ── */
+  .section-header {
+    @apply flex flex-wrap items-center justify-between gap-4 mb-5;
+  }
+  .section-title {
+    @apply text-lg font-bold text-slate-900;
+  }
+  .section-subtitle {
+    @apply text-sm text-slate-500 mt-0.5;
+  }
+
+  /* ── Dashboard: Tab bar ── */
+  .tab-bar {
+    @apply flex flex-wrap gap-1 bg-white rounded-2xl p-1.5 shadow-sm border border-slate-100 mb-6;
+  }
+  .tab-btn {
+    @apply px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer border-none bg-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100;
+  }
+  .tab-btn-active {
+    @apply bg-primary-500 text-white font-semibold shadow-sm;
+  }
+
+  /* ── Dashboard: Table ── */
+  .data-table-wrap {
+    @apply overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white;
+  }
+  .data-table {
+    @apply min-w-full text-sm divide-y divide-slate-100;
+  }
+  .data-table thead tr {
+    @apply bg-slate-50;
+  }
+  .data-table th {
+    @apply px-5 py-3.5 text-left text-xs font-bold uppercase tracking-widest text-slate-500;
+  }
+  .data-table td {
+    @apply px-5 py-4 text-slate-700;
+  }
+  .data-table tbody tr {
+    @apply hover:bg-slate-50/80 transition-colors;
+  }
+
+  /* ── Dashboard: Form group ── */
+  .form-group {
+    @apply flex flex-col gap-1.5;
+  }
+  .form-label {
+    @apply text-sm font-semibold text-slate-700;
+  }
+  .form-input {
+    @apply w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all;
+  }
+
+  /* ── Dashboard: Status badge ── */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold border;
+  }
+  .badge-green  { @apply bg-emerald-50 text-emerald-700 border-emerald-100; }
+  .badge-red    { @apply bg-red-50 text-red-700 border-red-100; }
+  .badge-amber  { @apply bg-amber-50 text-amber-700 border-amber-100; }
+  .badge-blue   { @apply bg-blue-50 text-blue-700 border-blue-100; }
+  .badge-slate  { @apply bg-slate-100 text-slate-600 border-slate-200; }
+
+  /* ── Dashboard: Info/empty state ── */
+  .empty-state {
+    @apply rounded-2xl bg-slate-50 border border-slate-200 p-8 text-center text-sm text-slate-500;
+  }
+  .info-box {
+    @apply rounded-xl bg-blue-50 border border-blue-100 p-4 text-sm text-blue-700;
+  }
+  .warn-box {
+    @apply rounded-xl bg-amber-50 border border-amber-100 p-4 text-sm text-amber-700;
+  }
+  .error-box {
+    @apply rounded-xl bg-red-50 border border-red-100 p-4 text-sm text-red-700;
+  }
+
+  /* ── Dashboard: TX banner ── */
+  .tx-banner {
+    @apply mb-6 rounded-2xl border border-slate-100 bg-white shadow-sm p-5 border-l-4;
+  }
+  .tx-banner-pending { @apply border-l-amber-500; }
+  .tx-banner-success { @apply border-l-emerald-500; }
 }
+

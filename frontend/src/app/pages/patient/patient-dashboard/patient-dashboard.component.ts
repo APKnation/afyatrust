@@ -20,9 +20,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     <div *ngIf="!auth.isAuthenticated()" class="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40">
       <div class="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200 p-8 text-center">
         <div class="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
         </div>
         <h2 class="text-2xl font-bold text-slate-900 mb-2">Session Expired</h2>
         <p class="text-slate-600 mb-6">Please sign in again to access your records.</p>
@@ -36,9 +33,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     <div *ngIf="errorMsg && !data" class="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40">
       <div class="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200 p-8 text-center">
         <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
         </div>
         <h2 class="text-2xl font-bold text-slate-900 mb-2">Unable to Load</h2>
         <p class="text-slate-600 mb-6">{{ errorMsg }}</p>
@@ -49,19 +43,16 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     </div>
 
     <!-- DASHBOARD WITH SIDEBAR -->
-    <div *ngIf="data" class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/30">
+    <div *ngIf="data" class="min-h-screen bg-slate-50">
       <div class="flex flex-col lg:flex-row">
         <!-- SIDEBAR -->
-        <aside class="w-full lg:w-72 xl:w-80 bg-white border-r border-slate-200 shadow-sm lg:min-h-screen">
+        <aside class="w-full lg:w-64 xl:w-72 bg-white border-r border-slate-100 lg:min-h-screen">
           <div class="p-6">
             <div class="mb-8">
               <h2 class="text-xl font-bold text-slate-900 mb-1">{{ data.full_name }}</h2>
               <p class="text-sm text-slate-500 mb-3">Health ID: <span class="font-semibold text-slate-700">{{ data.health_id }}</span></p>
               <div class="flex items-center gap-2 p-3 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
                 <div class="w-8 h-8 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
                 </div>
                 <div class="flex-1 min-w-0">
                   <p class="text-xs text-slate-500">Custodial Wallet</p>
@@ -86,16 +77,10 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <div class="mt-6 pt-4 border-t border-slate-200 space-y-2">
               <button (click)="viewProfile()"
                       class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-slate-100 transition-all duration-200 group">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-500 group-hover:text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM11 8a4 4 0 11-8 0 4 4 0 018 0zM11 8a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
                 <span class="font-medium">View Profile</span>
               </button>
               <button (click)="logoutAndRedirect()"
                       class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-red-50 hover:text-red-600 transition-all duration-200 group">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-500 group-hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
                 <span class="font-medium">Sign Out</span>
               </button>
             </div>
@@ -111,12 +96,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <div class="flex items-start gap-3">
                 <div class="w-10 h-10 rounded-xl flex items-center justify-center"
                      [class]="lastTx.pending ? 'bg-amber-100' : 'bg-emerald-100'">
-                  <svg *ngIf="!lastTx.pending" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <svg *ngIf="lastTx.pending" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
                 </div>
                 <div>
                   <h3 class="font-semibold text-slate-900 mb-1">{{ lastTx.label }}</h3>
@@ -128,22 +107,16 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <div class="flex items-center gap-3">
                 <code class="text-xs font-mono bg-slate-100 px-3 py-1.5 rounded-lg text-slate-700">{{ lastTx.tx_hash | slice:0:16 }}…</code>
                 <a *ngIf="!isPendingTx(lastTx.tx_hash)" [href]="etherscanUrl(lastTx.tx_hash)" target="_blank" rel="noopener" class="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
                   View on Etherscan
                 </a>
                 <button (click)="lastTx = null" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
                 </button>
               </div>
             </div>
           </div>
 
       <!-- LAST ON-CHAIN ACTION (Etherscan-verifiable) -->
-      <div *ngIf="lastTx" class="card mb-6 border-l-4 p-5"
+      <div *ngIf="lastTx" class="mb-6 rounded-2xl border-l-4 p-5 bg-white shadow-sm border border-slate-100"
            [class]="lastTx.pending ? 'border-l-orange-500' : 'border-l-accent-500'">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -162,7 +135,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               View on Etherscan
             </a>
             <button (click)="lastTx = null" aria-label="Dismiss"
-                    class="cursor-pointer border-none bg-transparent text-lg leading-none text-muted hover:text-ink">×</button>
+                    class="cursor-pointer border-none bg-transparent text-lg leading-none text-slate-500 hover:text-slate-900 hover:bg-slate-100">×</button>
           </div>
         </div>
       </div>
@@ -214,9 +187,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
                   <div class="flex flex-wrap items-center gap-3">
                     <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
                     </div>
                     <div>
                       <h3 class="font-bold text-slate-900 text-lg">{{ rec.facility }}</h3>
@@ -226,9 +196,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   <div class="flex flex-wrap items-center gap-2">
                     <span class="px-3 py-1 bg-primary-100 text-primary-700 text-xs font-semibold rounded-full">{{ rec.type }}</span>
                     <span *ngIf="rec.verified" class="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full flex items-center gap-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
                       On-chain Verified
                     </span>
                     <span *ngIf="!rec.verified" class="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">Pending</span>
@@ -239,9 +206,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   <p class="text-xs text-slate-500 mb-1">Source Document</p>
                   <a [href]="rec.source_uri" target="_blank" rel="noopener" class="text-sm text-primary-600 hover:text-primary-700 hover:underline break-all inline-flex items-center gap-1">
                     {{ rec.source_uri }}
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
                   </a>
                 </div>
 
@@ -258,9 +222,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                     <code class="text-xs font-mono bg-slate-100 px-2 py-1 rounded-lg text-slate-700">{{ rec.hash | slice:0:36 }}…</code>
                   </div>
                   <a *ngIf="rec.tx_hash && !rec.tx_hash.startsWith('PENDING')" [href]="'https://sepolia.etherscan.io/tx/' + rec.tx_hash" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-300 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
                     Verify Tx (Etherscan)
                   </a>
                 </div>
@@ -269,15 +230,11 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
             <div *ngIf="data.records.length === 0" class="card">
               <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
               </div>
               <h3 class="text-lg font-bold text-slate-900 mb-2">No Records Yet</h3>
               <p class="text-slate-600">Records will appear here when a healthcare facility adds them to your profile.</p>
             </div>
           </div>
-
 
           <!-- MEASUREMENTS -->
           <div *ngIf="tab === 'measurements'" class="space-y-6 animate-fade-in">
@@ -298,7 +255,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-200">
-                    <tr *ngFor="let m of data.measurements" class="hover:bg-slate-50 transition-colors">
+                    <tr *ngFor="let m of data.measurements" class="hover:bg-slate-50/80 transition-colors group">
                       <td class="px-6 py-4 text-sm text-slate-900">{{ m.date | date:'short' }}</td>
                       <td class="px-6 py-4 text-sm font-semibold text-slate-900">{{ m.kind }}</td>
                       <td class="px-6 py-4 text-sm text-slate-900">{{ m.value }} <span class="text-slate-500">{{ m.unit }}</span></td>
@@ -310,7 +267,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </div>
               <div *ngIf="!data.measurements.length" class="p-12 text-center">
                 <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                 </div>
                 <h3 class="text-lg font-bold text-slate-900 mb-2">No Measurements Yet</h3>
                 <p class="text-slate-600">Measurements will appear when recorded by your provider.</p>
@@ -326,7 +282,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 <p class="text-slate-600">Hospital referrals and their current status.</p>
               </div>
               <button (click)="referralModal = true" class="btn-secondary w-full sm:w-auto">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                 Request Referral
               </button>
             </div>
@@ -342,7 +297,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
             <div *ngIf="data.referrals.length === 0" class="card">
               <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
               </div>
               <h3 class="text-lg font-bold text-slate-900 mb-2">No Referrals Yet</h3>
               <p class="text-slate-600">Referrals will appear here once initiated.</p>
@@ -367,7 +321,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                         <p class="font-semibold text-slate-900">{{ d.full_name }}</p>
                         <p class="text-xs text-slate-500">{{ d.license_no }} • {{ d.facility_id }}</p>
                       </div>
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                     </li>
                   </ul>
                   <p *ngIf="showSuggestions && !doctorLoading && doctors.length === 0" class="text-xs text-slate-500">No doctors found</p>
@@ -420,7 +373,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
             <div *ngIf="requests.length === 0" class="card">
               <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
               <h3 class="text-lg font-bold text-slate-900 mb-2">No Pending Requests</h3>
               <p class="text-slate-600">You're all caught up!</p>
@@ -442,9 +394,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <div class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
                 <div class="flex items-center gap-2">
                   <div class="w-9 h-9 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
                   </div>
                   <div>
                     <p class="text-xs text-slate-500">Wallet address (checksummed)</p>
@@ -479,7 +428,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <dl class="grid grid-cols-2 gap-4">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">On-chain events</p>
-                  <p class="text-2xl font-bold text-ink">{{ walletActivity.activityCount }}</p>
+                  <p class="text-2xl font-bold text-slate-900">{{ walletActivity.activityCount }}</p>
                   <p class="text-xs text-muted">actions logged on Sepolia for this wallet</p>
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -762,9 +711,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 <!-- Records anchored by the sending hospital -->
                 <div *ngIf="r.from_hospital_records.length" class="mb-5">
                   <div class="flex items-center gap-2 mb-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
                     <p class="text-sm font-semibold text-slate-900">
                       Records anchored by {{ r.from_hospital }}
                       <span class="text-xs font-normal text-muted">(before your referral)</span>
@@ -812,10 +758,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 <!-- Views by the receiving hospital (immutable audit) -->
                 <div *ngIf="r.receiving_hospital_views.length" class="mb-5">
                   <div class="flex items-center gap-2 mb-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
                     <p class="text-sm font-semibold text-slate-900">
                       Views by {{ r.to_hospital }} (on-chain audit)
                     </p>
@@ -868,9 +810,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
             <div *ngIf="referralSecurity && !referralSecurity.referrals.length" class="card">
               <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
               </div>
               <h3 class="text-lg font-bold text-slate-900 mb-2">No referrals yet</h3>
               <p class="text-slate-600">
@@ -1049,9 +988,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                       </div>
                     </div>
                     <a *ngIf="s.etherscan_url" [href]="s.etherscan_url" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-100 transition-colors shadow-sm">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
                       Verify on Etherscan
                     </a>
                     <span *ngIf="!s.etherscan_url" class="text-xs text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">Transaction pending</span>
@@ -1062,9 +998,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
             <div *ngIf="story.length === 0" class="card">
               <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
               </div>
               <h3 class="text-lg font-bold text-slate-900 mb-2">No Activity Yet</h3>
               <p class="text-slate-600">Blockchain activity will appear here when records are accessed or permissions change.</p>
@@ -1084,7 +1017,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <p class="text-sm text-slate-600 mt-1">Dr. {{ n.doctor_name }} from {{ n.facility_id }}</p>
             </div>
             <button (click)="dismiss(n.id)" class="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
           <div *ngIf="n.reason" class="p-3 bg-slate-50 rounded-xl border border-slate-200 mb-3">
@@ -1109,7 +1041,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <h2 class="text-xl font-bold">Request a hospital referral</h2>
           </div>
           <button (click)="referralModal = false" aria-label="Close"
-                  class="cursor-pointer rounded-lg p-1 text-2xl leading-none text-muted hover:text-ink">×</button>
+                  class="cursor-pointer rounded-lg p-1 text-2xl leading-none text-slate-500 hover:text-slate-900 hover:bg-slate-100">×</button>
         </div>
         <p class="mb-4 text-sm text-muted">
           Choose the hospital you want to be referred to and why. That hospital's staff
@@ -1506,7 +1438,6 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
         };
       });
 
-
     // Hospital visit frequency (from records)
     const hospitalCounter: Record<string, number> = {};
     for (const r of records) {
@@ -1581,17 +1512,17 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   getIcon(tabId: string): string {
     switch (tabId) {
       case 'records':
-        return '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>';
+        return '';
       case 'measurements':
-        return '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>';
+        return '';
       case 'referrals':
-        return '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>';
+        return '';
       case 'permissions':
-        return '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>';
+        return '';
       case 'requests':
-        return '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>';
+        return '';
       case 'activity':
-        return '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>';
+        return '';
       default:
         return '';
     }

@@ -20,7 +20,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
   selector: 'app-hospital-dashboard',
   imports: [NgIf, NgFor, DatePipe, SlicePipe, FormsModule, RecordChartComponent],
   template: `
-    <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/30">
+    <div class="min-h-screen bg-slate-50">
       <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <!-- Hero header -->
         <div class="card">
@@ -59,38 +59,38 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         </div>
 
       <!-- Tabs -->
-      <div class="mb-6 flex flex-wrap gap-1 border-b border-gray-200">
+      <div class="mb-6 flex flex-wrap gap-1 bg-white rounded-2xl p-1.5 shadow-sm border border-slate-100">
         <button (click)="setTab('incoming')"
-                class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
-                [class]="tab === 'incoming' ? 'font-bold text-primary-500 border-b-4 border-primary-500 -mb-[2px]' : 'text-muted hover:text-ink'">
+                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
+                [class]="tab === 'incoming' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
           Incoming Referrals
           <span *ngIf="pendingIncomingCount > 0"
                 class="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingIncomingCount }}</span>
         </button>
         <button (click)="setTab('outgoing'); loadOutgoing()"
-                class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
-                [class]="tab === 'outgoing' ? 'font-bold text-primary-500 border-b-4 border-primary-500 -mb-[2px]' : 'text-muted hover:text-ink'">
+                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
+                [class]="tab === 'outgoing' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
           Outgoing Referrals
         </button>
         <button (click)="setTab('exchange'); loadExchangeRecords()"
-                class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
-                [class]="tab === 'exchange' ? 'font-bold text-primary-500 border-b-4 border-primary-500 -mb-[2px]' : 'text-muted hover:text-ink'">
+                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
+                [class]="tab === 'exchange' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
           Data Exchange
         </button>
         <button (click)="setTab('records'); loadFacilityRecords()"
-                class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
-                [class]="tab === 'records' ? 'font-bold text-primary-500 border-b-4 border-primary-500 -mb-[2px]' : 'text-muted hover:text-ink'">
+                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
+                [class]="tab === 'records' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
           Add Record
         </button>
         <button (click)="setTab('blockchain'); loadBlockchainLogs()"
-                class="cursor-pointer border-none bg-transparent px-4 py-3 text-[15px] transition-colors"
-                [class]="tab === 'blockchain' ? 'font-bold text-primary-500 border-b-4 border-primary-500 -mb-[2px]' : 'text-muted hover:text-ink'">
+                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
+                [class]="tab === 'blockchain' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
           Blockchain Logs
         </button>
       </div>
 
       <!-- LAST ON-CHAIN ACTION — Etherscan-verifiable -->
-      <div *ngIf="lastTx" class="card mb-6 border-l-4 p-5"
+      <div *ngIf="lastTx" class="mb-6 rounded-2xl border-l-4 p-5 bg-white shadow-sm border border-slate-100"
            [class]="lastTx.pending ? 'border-l-orange-500' : 'border-l-accent-500'">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -109,7 +109,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               View on Etherscan
             </a>
             <button (click)="lastTx = null" aria-label="Dismiss"
-                    class="cursor-pointer border-none bg-transparent text-lg leading-none text-muted hover:text-ink">×</button>
+                    class="cursor-pointer border-none bg-transparent text-lg leading-none text-slate-500 hover:text-slate-900 hover:bg-slate-100">×</button>
           </div>
         </div>
       </div>
@@ -117,7 +117,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       <!-- ================= INCOMING REFERRALS ================= -->
       <div *ngIf="tab === 'incoming'" class="animate-fade-in">
         <div class="mb-4">
-          <h2 class="mb-1 text-xl font-bold">Referrals to this hospital</h2>
+          <h2 class="text-xl font-bold text-slate-900 mb-1">Referrals to this hospital</h2>
           <p class="m-0 text-sm text-muted">
             Patients referred from another hospital — accept or decline each one.
             Every response is audited on-chain.
@@ -135,7 +135,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         </div>
 
         <!-- Referral list -->
-        <div *ngFor="let r of incomingReferrals" class="card mb-4 p-5">
+        <div *ngFor="let r of incomingReferrals" class="card mb-4 p-6">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p class="m-0 text-lg font-bold text-ink">
@@ -239,7 +239,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       <!-- ================= OUTGOING REFERRALS ================= -->
       <div *ngIf="tab === 'outgoing'" class="animate-fade-in">
         <div class="mb-4">
-          <h2 class="mb-1 text-xl font-bold">Referrals from this hospital</h2>
+          <h2 class="text-xl font-bold text-slate-900 mb-1">Referrals from this hospital</h2>
           <p class="m-0 text-sm text-muted">
             Patients this hospital has referred to another facility.
             Track whether the receiving hospital accepted or declined.
@@ -254,7 +254,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           </button>
         </div>
 
-        <div *ngFor="let r of outgoingReferrals" class="card mb-4 p-5">
+        <div *ngFor="let r of outgoingReferrals" class="card mb-4 p-6">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p class="m-0 text-lg font-bold text-ink">
@@ -288,7 +288,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       <!-- ================= DATA EXCHANGE ================= -->
       <div *ngIf="tab === 'exchange'" class="animate-fade-in">
         <div class="mb-4">
-          <h2 class="mb-1 text-xl font-bold">Data Exchange — {{ hospitalName }}</h2>
+          <h2 class="text-xl font-bold text-slate-900 mb-1">Data Exchange — {{ hospitalName }}</h2>
           <p class="m-0 text-sm text-muted">
             Every record added by this hospital is anchored on Sepolia as a hash.
             The receiving hospital can verify the payload against the on-chain
@@ -341,15 +341,15 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
       <!-- ================= ADD RECORD ================= -->
       <div *ngIf="tab === 'records'" class="animate-fade-in">
-        <div class="card mb-4 p-5">
-          <h2 class="mb-1 text-xl font-bold">Add Medical Record</h2>
+        <div class="card mb-4 p-6">
+          <h2 class="text-xl font-bold text-slate-900 mb-1">Add Medical Record</h2>
           <p class="m-0 text-sm text-muted">
             Clinical data stays off-chain. A SHA-256 hash of the content is written to
             Sepolia, so patients and doctors can verify it on Etherscan.
           </p>
         </div>
 
-        <div class="card mb-4 p-5">
+        <div class="card mb-4 p-6">
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Patient Health ID</span>
@@ -463,7 +463,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
       <!-- ================= BLOCKCHAIN LOGS ================= -->
       <div *ngIf="tab === 'blockchain'" class="animate-fade-in">
-        <h2 class="mb-1 text-xl font-bold">On-Chain Event Log</h2>
+        <h2 class="text-xl font-bold text-slate-900 mb-1">On-Chain Event Log</h2>
         <p class="mb-4 text-sm text-muted">
           Every transaction your hospital has written to Sepolia — record additions,
           break-glass emergency access and more. Each row links to Etherscan for
@@ -479,7 +479,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         </div>
 
         <!-- Filters -->
-        <div class="card mb-4 p-5">
+        <div class="card mb-4 p-6">
           <div class="flex flex-wrap gap-3">
             <select [(ngModel)]="txFilterEvent" (ngModelChange)="applyTxFilter()"
                     class="px-3 py-2.5 text-sm">
@@ -509,7 +509,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 <span class="text-sm text-slate-500">{{ tx.timestamp ? (tx.timestamp * 1000 | date:'medium') : '—' }}</span>
               </div>
               <a [href]="tx.etherscan_url" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-100 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                 View on Etherscan
               </a>
             </div>

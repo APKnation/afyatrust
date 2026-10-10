@@ -30,17 +30,17 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       <aside
         [class.translate-x-0]="sidebarOpen"
         [class.-translate-x-full]="!sidebarOpen"
-        class="fixed inset-y-0 left-0 z-[70] w-72 max-w-[80vw] overflow-y-auto bg-surface p-4 shadow-card transition-transform duration-200 lg:sticky lg:top-24 lg:z-auto lg:block lg:w-60 lg:max-w-none lg:shrink-0 lg:translate-x-0 lg:rounded-xl lg:p-3">
+        class="fixed inset-y-0 left-0 z-[70] w-64 max-w-[80vw] overflow-y-auto bg-white p-5 shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:block lg:w-56 lg:max-w-none lg:shrink-0 lg:translate-x-0 lg:rounded-none lg:p-6 lg:border-r lg:border-slate-100">
         <div class="mb-4 flex items-center justify-between lg:hidden">
           <span class="eyebrow">Workspace</span>
           <button (click)="sidebarOpen = false" aria-label="Close menu"
-                  class="cursor-pointer border-none bg-transparent text-xl leading-none text-muted hover:text-ink">×</button>
+                  class="cursor-pointer border-none bg-transparent text-xl leading-none text-slate-500 hover:text-slate-900 hover:bg-slate-100">×</button>
         </div>
 
         <nav class="flex flex-col gap-1" aria-label="Dashboard sections">
           <button *ngFor="let t of tabs" (click)="setTab(t.id)"
                   class="flex cursor-pointer items-center justify-between gap-2 rounded-lg border-none px-3.5 py-2.5 text-left text-[15px] transition-colors"
-                  [class]="tab === t.id ? 'bg-primary-50 font-bold text-primary-500' : 'bg-transparent text-muted hover:bg-gray-50 hover:text-ink'">
+                  [class]="tab === t.id ? 'bg-primary-500 text-white font-semibold shadow-sm' : 'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'">
             <span>{{ t.label }}</span>
             <span *ngIf="t.id === 'referrals' && pendingIncoming > 0"
                   class="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingIncoming }}</span>
@@ -58,16 +58,10 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         <div class="mt-6 pt-4 border-t border-slate-200 space-y-2">
           <button (click)="viewProfile()"
                   class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-slate-100 transition-all duration-200 group">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-500 group-hover:text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM11 8a4 4 0 11-8 0 4 4 0 018 0zM11 8a4 4 0 11-8 0 4 4 0 018 0z" />
-            </svg>
             <span class="font-medium">View Profile</span>
           </button>
           <button (click)="logoutAndRedirect()"
                   class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-red-50 hover:text-red-600 transition-all duration-200 group">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-500 group-hover:text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
             <span class="font-medium">Sign Out</span>
           </button>
         </div>
@@ -124,7 +118,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       </div>
 
       <!-- LAST ON-CHAIN ACTION (break-glass, etc.) — Etherscan-verifiable -->
-      <div *ngIf="lastTx" class="card mb-6 border-l-4 p-5"
+      <div *ngIf="lastTx" class="mb-6 rounded-2xl border-l-4 p-5 bg-white shadow-sm border border-slate-100"
            [class]="lastTx.pending ? 'border-l-orange-500' : 'border-l-red-500'">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -143,7 +137,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               View on Etherscan
             </a>
             <button (click)="lastTx = null" aria-label="Dismiss"
-                    class="cursor-pointer border-none bg-transparent text-lg leading-none text-muted hover:text-ink">×</button>
+                    class="cursor-pointer border-none bg-transparent text-lg leading-none text-slate-500 hover:text-slate-900 hover:bg-slate-100">×</button>
           </div>
         </div>
       </div>
@@ -154,7 +148,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           <div class="mb-1 flex items-center justify-between gap-2">
             <span class="text-sm font-bold text-ink">Referral received</span>
             <button (click)="dismissReferral(n.id)" aria-label="Dismiss"
-                    class="cursor-pointer border-none bg-transparent text-xl leading-none text-muted hover:text-ink">×</button>
+                    class="cursor-pointer border-none bg-transparent text-xl leading-none text-slate-500 hover:text-slate-900 hover:bg-slate-100">×</button>
           </div>
           <p class="m-0 text-sm text-ink">
             <strong>{{ n.patient_name }}</strong> ({{ n.patient_health_id }}) sent from
@@ -175,7 +169,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       <div *ngIf="tab === 'patients'" class="animate-fade-in">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 class="mb-1 text-xl font-bold">My Patients</h2>
+            <h2 class="text-xl font-bold text-slate-900 mb-1">My Patients</h2>
             <p class="m-0 text-sm text-muted">
               Patients who granted you access. Liveness is verified against the chain;
               expired grants stay listed but marked.
@@ -210,8 +204,8 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
       <!-- ================= FIND PATIENT ================= -->
       <div *ngIf="tab === 'find'" class="animate-fade-in">
-        <div class="card mb-4 p-5">
-          <h2 class="mb-1 text-xl font-bold">Find Patient</h2>
+        <div class="card mb-4 p-6">
+          <h2 class="text-xl font-bold text-slate-900 mb-1">Find Patient</h2>
           <p class="mb-4 m-0 text-sm text-muted">Enter a Health ID. Permission is checked live on-chain before anything opens.</p>
           <div class="flex flex-wrap gap-3">
             <input [(ngModel)]="healthId" placeholder="Health ID"
@@ -264,7 +258,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <div>
                 <div class="mb-1 flex flex-wrap items-baseline gap-2">
                   <h2 class="text-xl font-bold">{{ viewedName }}</h2>
-                  <span class="text-sm text-muted">Health ID: {{ viewedHealthId }}</span>
+                  <span class="text-sm text-slate-500">Health ID: {{ viewedHealthId }}</span>
                 </div>
                 <p class="m-0 text-sm text-muted">Every view of this page is logged on-chain.</p>
               </div>
@@ -428,7 +422,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <div *ngFor="let rec of records" class="mb-3.5 rounded-xl border border-gray-200 bg-gray-50 p-4.5">
                 <div class="mb-3 flex flex-wrap items-center gap-3">
                   <span class="font-bold text-accent-700">{{ rec.facility }}</span>
-                  <span class="text-sm text-muted">{{ rec.date | date:'medium' }}</span>
+                  <span class="text-sm text-slate-500">{{ rec.date | date:'medium' }}</span>
                   <span class="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-bold text-primary-900">{{ rec.type }}</span>
                   <span *ngIf="rec.verified" class="btn-primary">On-chain</span>
                   <span *ngIf="!rec.verified" class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">Not blockchain verified</span>
@@ -479,7 +473,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-200">
-                  <tr *ngFor="let m of measurements" class="hover:bg-slate-50 transition-colors">
+                  <tr *ngFor="let m of measurements" class="hover:bg-slate-50/80 transition-colors group">
                     <td class="px-4 py-3 text-sm text-slate-900">{{ m.date | date:'short' }}</td>
                     <td class="px-4 py-3 text-sm font-semibold text-slate-900">
                       {{ m.kind }}
@@ -507,11 +501,11 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
       <!-- ================= MEASUREMENTS ================= -->
       <div *ngIf="tab === 'measurements'" class="animate-fade-in">
-        <h2 class="mb-1 text-xl font-bold">Disease Measurements</h2>
+        <h2 class="text-xl font-bold text-slate-900 mb-1">Disease Measurements</h2>
         <p class="mb-4 text-sm text-muted">Record a clinical reading, then watch the trend for any measurement type.</p>
 
         <!-- Add measurement -->
-        <div class="card mb-4 p-5">
+        <div class="card mb-4 p-6">
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Patient Health ID</span>
@@ -611,13 +605,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 </p>
                 <p class="m-0 text-xs text-muted">latest of {{ trendPoints.length }} reading(s)</p>
               </div>
-              <svg viewBox="0 0 300 120" class="h-32 w-full max-w-md" preserveAspectRatio="none">
-                <polygon [attr.points]="trendAreaPoints()" fill="#82B440" opacity="0.15"></polygon>
-                <polyline [attr.points]="trendLinePoints()" fill="none" stroke="#82B440"
-                          stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></polyline>
-                <circle *ngFor="let p of trendCircles" [attr.cx]="p.x" [attr.cy]="p.y"
-                        r="3.5" fill="#82B440"></circle>
-              </svg>
             </div>
             <p *ngIf="trendPoints.length < 2" class="mb-0 mt-2 text-xs text-muted">
               One reading of this type so far — the line appears with the second one.
@@ -628,7 +615,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
       <!-- ================= MY REQUESTS ================= -->
       <div *ngIf="tab === 'requests'" class="animate-fade-in">
-        <h2 class="mb-1 text-xl font-bold">My Access Requests</h2>
+        <h2 class="text-xl font-bold text-slate-900 mb-1">My Access Requests</h2>
         <p class="mb-4 text-sm text-muted">
           Every request you've sent, with the patient's response. Approved requests unlock
           the patient's records and add them to My Patients.
@@ -658,10 +645,10 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
       <!-- ================= REFERRALS ================= -->
       <div *ngIf="tab === 'referrals'" class="animate-fade-in">
-        <h2 class="mb-1 text-xl font-bold">Refer a Patient to Another Hospital</h2>
+        <h2 class="text-xl font-bold text-slate-900 mb-1">Refer a Patient to Another Hospital</h2>
         <p class="mb-4 text-sm text-muted">The receiving hospital's staff or doctors accept or decline — every response is audited.</p>
 
-        <div class="card mb-4 p-5">
+        <div class="card mb-4 p-6">
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Patient Health ID</span>
@@ -725,14 +712,14 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
       <!-- ================= BLOCKCHAIN TRANSACTIONS ================= -->
       <div *ngIf="tab === 'transactions'" class="animate-fade-in">
-        <h2 class="mb-1 text-xl font-bold">Blockchain Transaction History</h2>
+        <h2 class="text-xl font-bold text-slate-900 mb-1">Blockchain Transaction History</h2>
         <p class="mb-4 text-sm text-muted">
           All on-chain transactions for {{ hospitalName || 'your hospital' }}. Filter by event type or patient Health ID.
           Every transaction is verifiable on Etherscan.
         </p>
 
         <!-- Filters -->
-        <div class="card mb-4 p-5">
+        <div class="card mb-4 p-6">
           <div class="flex flex-wrap gap-3">
             <select [(ngModel)]="txFilterEvent" (ngModelChange)="applyTxFilter()"
                     class="px-3 py-2.5 text-sm">
@@ -762,7 +749,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 <span class="text-sm text-slate-500">{{ tx.timestamp ? (tx.timestamp * 1000 | date:'medium') : '—' }}</span>
               </div>
               <a [href]="tx.etherscan_url" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-100 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                 View on Etherscan
               </a>
             </div>

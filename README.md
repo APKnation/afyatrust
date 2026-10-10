@@ -25,7 +25,8 @@ auditable break-glass flow.
 PoC simplifications: patients log in with **Health ID + 4-digit PIN** (no
 OTP/SMS, no MetaMask). The backend creates and manages **custodial patient
 wallets** — private keys encrypted with AES-256-GCM (`MASTER_KEY`). Only
-facility/doctor wallets pay gas. Doctors may optionally connect MetaMask.
+facility/doctor wallets pay gas. Doctors may optionally connect MetaMask. 
+*(Note: To handle testnet propagation delays and EIP-1559 gas spikes on Sepolia, the backend includes automated gas-limit buffering and state-sync delays when funding custodial wallets).*
 
 ## 1. Deploy the contract to Sepolia
 
@@ -280,7 +281,7 @@ This is the complete flow that is in the codebase today, not just the original 7
    - The system already supports referral handoff and hospital-to-hospital coordination, not just patient access control.
 
 12. **Frontend + backend integration**
-   - Angular handles the patient, doctor, and hospital portals and routes users by role.
+   - Angular handles the patient, doctor, and hospital portals and routes users by role (including secure logout and session clearing).
    - Django REST Framework exposes the API and handles auth, wallet management, contract interaction, and audit aggregation.
    - Hardhat + Solidity secures the permission logic, event logging, and access checks while the backend keeps private patient records off-chain.
 

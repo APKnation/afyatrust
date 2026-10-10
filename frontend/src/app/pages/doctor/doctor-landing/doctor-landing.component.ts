@@ -210,7 +210,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
       <!-- ================= FIND PATIENT ================= -->
       <div *ngIf="tab === 'find'" class="animate-fade-in">
-        <div class="card mb-5 p-6">
+        <div class="card mb-4 p-5">
           <h2 class="mb-1 text-xl font-bold">Find Patient</h2>
           <p class="mb-4 m-0 text-sm text-muted">Enter a Health ID. Permission is checked live on-chain before anything opens.</p>
           <div class="flex flex-wrap gap-3">
@@ -511,7 +511,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         <p class="mb-4 text-sm text-muted">Record a clinical reading, then watch the trend for any measurement type.</p>
 
         <!-- Add measurement -->
-        <div class="card mb-5 p-6">
+        <div class="card mb-4 p-5">
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Patient Health ID</span>
@@ -661,7 +661,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         <h2 class="mb-1 text-xl font-bold">Refer a Patient to Another Hospital</h2>
         <p class="mb-4 text-sm text-muted">The receiving hospital's staff or doctors accept or decline — every response is audited.</p>
 
-        <div class="card mb-6 p-6">
+        <div class="card mb-4 p-5">
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Patient Health ID</span>
@@ -732,7 +732,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         </p>
 
         <!-- Filters -->
-        <div class="card mb-5 p-5">
+        <div class="card mb-4 p-5">
           <div class="flex flex-wrap gap-3">
             <select [(ngModel)]="txFilterEvent" (ngModelChange)="applyTxFilter()"
                     class="px-3 py-2.5 text-sm">
@@ -755,7 +755,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         </div>
 
         <div *ngIf="filteredTransactions.length" class="space-y-3">
-          <div *ngFor="let tx of filteredTransactions" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 hover:shadow-xl transition-shadow">
+          <div *ngFor="let tx of filteredTransactions" class="card">
             <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
               <div class="flex flex-wrap items-center gap-3">
                 <span class="rounded-full px-3 py-1 text-xs font-bold" [class]="eventBadge(tx.event)">{{ formatEventName(tx.event) }}</span>
@@ -785,11 +785,11 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
           </div>
         </div>
-        <div *ngIf="filteredTransactions.length === 0 && transactions.length > 0" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 text-center">
+        <div *ngIf="filteredTransactions.length === 0 && transactions.length > 0" class="card">
           <h3 class="mb-2 text-lg font-bold text-slate-900">No transactions match your filters</h3>
           <p class="text-slate-600">Try adjusting your filters or clearing them.</p>
         </div>
-        <div *ngIf="transactions.length === 0" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 text-center">
+        <div *ngIf="transactions.length === 0" class="card">
           <h3 class="mb-2 text-lg font-bold text-slate-900">No blockchain transactions yet</h3>
           <p class="text-slate-600">Transactions appear here when records are added, access is granted, or data is viewed.</p>
         </div>

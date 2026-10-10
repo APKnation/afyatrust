@@ -23,10 +23,15 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     <div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/30">
       <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <!-- Hero header -->
-        <div class="bg-white rounded-2xl shadow-lg border border-slate-200 mb-6 overflow-hidden">
-          <div class="bg-gradient-to-r from-primary-500 to-primary-600 px-6 py-4">
-            <h1 class="text-2xl font-bold text-white sm:text-3xl">Hospital Dashboard</h1>
-            <p class="text-primary-100 mt-1">{{ hospitalName || 'Hospital' }} • {{ auth.fullName }}</p>
+        <div class="card">
+          <div class="bg-gradient-to-r from-primary-500 to-primary-600 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-bold text-white sm:text-3xl">Hospital Dashboard</h1>
+              <p class="text-primary-100 mt-1">{{ hospitalName || 'Hospital' }} • {{ auth.fullName }}</p>
+            </div>
+            <button (click)="logoutAndRedirect()" class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold rounded-xl transition-colors">
+              Sign Out
+            </button>
           </div>
           <div class="p-6">
             <div class="flex flex-wrap items-center justify-between gap-4">
@@ -336,7 +341,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
       <!-- ================= ADD RECORD ================= -->
       <div *ngIf="tab === 'records'" class="animate-fade-in">
-        <div class="card mb-6 p-6">
+        <div class="card mb-4 p-5">
           <h2 class="mb-1 text-xl font-bold">Add Medical Record</h2>
           <p class="m-0 text-sm text-muted">
             Clinical data stays off-chain. A SHA-256 hash of the content is written to
@@ -344,7 +349,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           </p>
         </div>
 
-        <div class="card mb-5 p-6">
+        <div class="card mb-4 p-5">
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label class="flex flex-col gap-1.5">
               <span class="text-[13px] font-semibold text-ink">Patient Health ID</span>
@@ -474,7 +479,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         </div>
 
         <!-- Filters -->
-        <div class="card mb-5 p-5">
+        <div class="card mb-4 p-5">
           <div class="flex flex-wrap gap-3">
             <select [(ngModel)]="txFilterEvent" (ngModelChange)="applyTxFilter()"
                     class="px-3 py-2.5 text-sm">
@@ -497,7 +502,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         </div>
 
         <div *ngIf="filteredChainEvents.length" class="space-y-3">
-          <div *ngFor="let tx of filteredChainEvents" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-5 hover:shadow-xl transition-shadow">
+          <div *ngFor="let tx of filteredChainEvents" class="card">
             <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
               <div class="flex flex-wrap items-center gap-3">
                 <span class="rounded-full px-3 py-1 text-xs font-bold" [class]="chainEventBadge(tx.event)">{{ formatEventName(tx.event) }}</span>
@@ -617,6 +622,11 @@ export class HospitalDashboardComponent implements OnInit {
   setTab(t: 'incoming' | 'outgoing' | 'exchange' | 'records' | 'blockchain') {
     this.tab = t;
     this.syncView();
+  }
+
+  logoutAndRedirect() {
+    this.auth.logout();
+    this.router.navigate(['/login']);
   }
 
   get hospitalName(): string {

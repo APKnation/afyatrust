@@ -26,7 +26,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         </div>
         <h2 class="text-2xl font-bold text-slate-900 mb-2">Session Expired</h2>
         <p class="text-slate-600 mb-6">Please sign in again to access your records.</p>
-        <button (click)="logoutAndRedirect()" class="w-full px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg">
+        <button (click)="logoutAndRedirect()" class="btn-primary w-full sm:w-auto">
           Sign In Again
         </button>
       </div>
@@ -42,7 +42,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         </div>
         <h2 class="text-2xl font-bold text-slate-900 mb-2">Unable to Load</h2>
         <p class="text-slate-600 mb-6">{{ errorMsg }}</p>
-        <button (click)="retry()" class="w-full px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg">
+        <button (click)="retry()" class="btn-primary w-full sm:w-auto">
           Try Again
         </button>
       </div>
@@ -209,7 +209,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </p>
             </div>
 
-            <div *ngFor="let rec of data.records" class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden hover:shadow-xl transition-shadow">
+            <div *ngFor="let rec of data.records" class="card">
               <div class="p-6">
                 <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
                   <div class="flex flex-wrap items-center gap-3">
@@ -267,7 +267,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </div>
             </div>
 
-            <div *ngIf="data.records.length === 0" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 text-center">
+            <div *ngIf="data.records.length === 0" class="card">
               <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -285,7 +285,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <h1 class="text-2xl font-bold text-slate-900 mb-2">My Measurements</h1>
               <p class="text-slate-600">Clinical readings recorded by your healthcare providers.</p>
             </div>
-            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+            <div class="card">
               <div class="overflow-x-auto">
                 <table *ngIf="data?.measurements?.length" class="w-full">
                   <thead>
@@ -325,12 +325,12 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 <h1 class="text-2xl font-bold text-slate-900 mb-2">My Referrals</h1>
                 <p class="text-slate-600">Hospital referrals and their current status.</p>
               </div>
-              <button (click)="referralModal = true" class="px-5 py-2.5 bg-white border-2 border-primary-500 text-primary-600 font-semibold rounded-xl hover:bg-primary-50 transition-colors flex items-center gap-2">
+              <button (click)="referralModal = true" class="btn-secondary w-full sm:w-auto">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                 Request Referral
               </button>
             </div>
-            <div *ngFor="let r of data.referrals" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <div *ngFor="let r of data.referrals" class="card">
               <div class="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h3 class="font-bold text-slate-900 text-lg">{{ r.to_hospital }}</h3>
@@ -340,7 +340,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 <span class="px-3 py-1 rounded-full text-xs font-semibold" [class]="r.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' : r.status === 'DECLINED' ? 'bg-red-100 text-red-700' : r.status === 'CANCELLED' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700'">{{ r.status }}</span>
               </div>
             </div>
-            <div *ngIf="data.referrals.length === 0" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 text-center">
+            <div *ngIf="data.referrals.length === 0" class="card">
               <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
               </div>
@@ -356,7 +356,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <p class="text-slate-600">Search for a doctor by name or license number, then grant time-limited on-chain access.</p>
             </div>
 
-            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <div class="card">
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label class="flex flex-col gap-2 relative">
                   <span class="text-sm font-semibold text-slate-700">Doctor</span>
@@ -385,11 +385,11 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   <ng-container *ngIf="!selectedDoctor">Select a doctor above</ng-container>
                 </p>
               </div>
-              <button (click)="grantAccess()" [disabled]="busy" class="mt-6 w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 text-white font-semibold rounded-xl hover:from-primary-600 hover:to-primary-700 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+              <button (click)="grantAccess()" [disabled]="busy" class="btn-primary w-full sm:w-auto">
                 {{ busy ? 'Granting Access...' : 'Grant Access' }}
               </button>
             </div>
-            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-5">
+            <div class="card">
               <p class="text-sm text-slate-600">
                 <span class="font-semibold text-slate-700">Note:</span> Access expires automatically after the granted duration. Revocations are permanently logged on the blockchain.
               </p>
@@ -400,7 +400,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <h1 class="text-2xl font-bold text-slate-900 mb-2">Access Requests</h1>
               <p class="text-slate-600">Doctors requesting access to your medical records. Approval grants 7 days of on-chain access.</p>
             </div>
-            <div *ngFor="let req of requests" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <div *ngFor="let req of requests" class="card">
               <div class="flex flex-wrap items-start justify-between gap-4">
                 <div class="space-y-3">
                   <div>
@@ -413,12 +413,12 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   <p class="text-xs text-slate-500">Requested {{ req.created_at | date:'medium' }}</p>
                 </div>
                 <div class="flex gap-2">
-                  <button (click)="approve(req)" class="px-5 py-2.5 bg-emerald-500 text-white font-semibold rounded-xl hover:bg-emerald-600 transition-colors shadow-sm">Approve</button>
-                  <button (click)="reject(req)" class="px-5 py-2.5 bg-white border-2 border-red-500 text-red-600 font-semibold rounded-xl hover:bg-red-50 transition-colors">Reject</button>
+                  <button (click)="approve(req)" class="btn-accent w-full sm:w-auto">Approve</button>
+                  <button (click)="reject(req)" class="btn-secondary !border-red-500 !text-red-600 hover:!bg-red-50 w-full sm:w-auto">Reject</button>
                 </div>
               </div>
             </div>
-            <div *ngIf="requests.length === 0" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 text-center">
+            <div *ngIf="requests.length === 0" class="card">
               <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
@@ -437,7 +437,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
 
             <!-- Wallet address card -->
-            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <div class="card">
               <h2 class="text-lg font-bold text-slate-900 mb-4">Custodial Wallet Address</h2>
               <div class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
                 <div class="flex items-center gap-2">
@@ -474,7 +474,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
 
             <!-- Wallet activity summary -->
-            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <div class="card">
               <h2 class="text-lg font-bold text-slate-900 mb-4">Wallet activity summary</h2>
               <dl class="grid grid-cols-2 gap-4">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -511,7 +511,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
 
             <!-- Active grants summary -->
-            <div *ngIf="walletGrants" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <div *ngIf="walletGrants" class="card">
               <h2 class="text-lg font-bold text-slate-900 mb-4">Active permissions (grants)</h2>
               <dl class="grid grid-cols-3 gap-4">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -546,7 +546,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
 
             <!-- Read-only identity fields -->
-            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <div class="card">
               <h2 class="text-lg font-bold text-slate-900 mb-4">Account identity</h2>
               <dl class="grid grid-cols-2 gap-4">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -569,7 +569,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
 
             <!-- Editable profile form -->
-            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <div class="card">
               <h2 class="text-lg font-bold text-slate-900 mb-4">Edit profile</h2>
               <p class="mb-4 text-sm text-muted">
                 Update your name and phone. These changes take effect immediately.
@@ -614,7 +614,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
 
             <!-- Grant summary for this profile -->
-            <div *ngIf="grantSummary" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <div *ngIf="grantSummary" class="card">
               <h2 class="text-lg font-bold text-slate-900 mb-4">Access you have granted</h2>
               <dl class="grid grid-cols-3 gap-4">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -650,7 +650,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
 
             <!-- How it works -->
-            <div class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <div class="card">
               <h2 class="text-lg font-bold text-slate-900 mb-4">How the blockchain protects your data during a referral</h2>
               <div class="space-y-4">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -698,7 +698,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <div *ngIf="referralSecurity && referralSecurity.referrals.length" class="space-y-6">
               <h2 class="text-lg font-bold text-slate-900">Your referral story on-chain</h2>
 
-              <div *ngFor="let r of referralSecurity.referrals" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+              <div *ngFor="let r of referralSecurity.referrals" class="card">
                 <!-- Referral header -->
                 <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -866,7 +866,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </div>
             </div>
 
-            <div *ngIf="referralSecurity && !referralSecurity.referrals.length" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 text-center">
+            <div *ngIf="referralSecurity && !referralSecurity.referrals.length" class="card">
               <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
@@ -996,7 +996,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
 
             <!-- Overall counts -->
-            <div *ngIf="healthSummary" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+            <div *ngIf="healthSummary" class="card">
               <h3 class="mb-4 text-lg font-bold">Your history at a glance</h3>
               <dl class="grid grid-cols-3 gap-4">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
@@ -1014,7 +1014,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </dl>
             </div>
 
-            <div *ngIf="!healthSummary" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-10 text-center">
+            <div *ngIf="!healthSummary" class="card">
               <p class="text-slate-600">Loading your health summary…</p>
             </div>
           </div>
@@ -1060,7 +1060,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </div>
             </div>
 
-            <div *ngIf="story.length === 0" class="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 text-center">
+            <div *ngIf="story.length === 0" class="card">
               <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -1091,7 +1091,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <p class="text-xs text-slate-600 italic">"{{ n.reason }}"</p>
           </div>
           <div class="flex gap-2">
-            <button (click)="approveFromToast(n)" class="flex-1 px-3 py-2 bg-emerald-500 text-white text-sm font-semibold rounded-lg hover:bg-emerald-600 transition-colors">Approve</button>
+            <button (click)="approveFromToast(n)" class="btn-accent w-full sm:w-auto">Approve</button>
             <button (click)="rejectFromToast(n)" class="flex-1 px-3 py-2 bg-white border border-red-500 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-50 transition-colors">Reject</button>
           </div>
           <p class="text-center text-xs text-slate-500 mt-2">Grants 7 days of on-chain access</p>

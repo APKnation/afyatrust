@@ -212,7 +212,9 @@ def ensure_gas(patient_address: str) -> str:
 
     facility = w3.eth.account.from_key(FACILITY_PRIVATE_KEY)
     to = Web3.to_checksum_address(patient_address)
+    print(f"ensure_gas: balance of {to} before: {w3.eth.get_balance(to)}")
     if w3.eth.get_balance(to) >= w3.to_wei(0.005, "ether"):
+        print("ensure_gas: already funded")
         return ""  # already funded
 
     tx = {
@@ -220,11 +222,17 @@ def ensure_gas(patient_address: str) -> str:
         "to": to,
         "value": w3.to_wei(0.01, "ether"),
         "nonce": w3.eth.get_transaction_count(facility.address),
-        "gas": 21_000,
+        "gas": 100_000,
         "chainId": w3.eth.chain_id,  # EIP-155 required by public RPCs
         **_eip1559_fees(),
     }
     signed = w3.eth.account.sign_transaction(tx, FACILITY_PRIVATE_KEY)
     tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-    w3.eth.wait_for_transaction_receipt(tx_hash)
+    print(f"ensure_gas: tx_hash {tx_hash.hex()}")
+    receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+    print(f"ensure_gas: receipt status {receipt.status}")
+    if receipt.status != 1:
+        raise RuntimeError(f"Gas transfer reverted! Tx: {tx_hash.hex()}")
+    time.sleep(3)  # Give Infura nodes time to sync state
+    print(f"ensure_gas: balance of {to} after: {w3.eth.get_balance(to)}")
     return "0x" + tx_hash.hex()

@@ -13,24 +13,50 @@ import { AuthService } from '../../services/auth.service';
   imports: [RouterLink, NgIf],
   template: `
     <!-- ================= NAVBAR ================= -->
-    <nav class="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 backdrop-blur-md bg-black/20 border-b border-white/10">
-      <div class="flex items-center gap-2">
-        <span class="text-2xl font-bold text-white tracking-tight">Afya<span class="text-primary-400">Trust</span></span>
+    <nav class="absolute top-0 left-0 right-0 z-50 backdrop-blur-md bg-black/20 border-b border-white/10">
+      <div class="flex items-center justify-between px-6 py-4">
+        <div class="flex items-center gap-2">
+          <a routerLink="/" class="text-2xl font-bold text-white tracking-tight no-underline">Afya<span class="text-primary-400">Trust</span></a>
+        </div>
+        <div class="hidden md:flex items-center gap-8">
+          <a routerLink="/" class="text-white/80 hover:text-white font-medium transition-colors relative after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-full after:bg-primary-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300">Home</a>
+          <a href="/#how-it-works" class="text-white/80 hover:text-white font-medium transition-colors relative after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-full after:bg-primary-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300">How it works</a>
+        </div>
+        <div class="hidden md:flex items-center gap-3">
+          <ng-container *ngIf="!auth.isAuthenticated()">
+            <a routerLink="/login" class="px-4 py-2 text-white font-medium hover:text-primary-300 transition-colors">Log in</a>
+            <a routerLink="/register" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">Get Started</a>
+          </ng-container>
+          <ng-container *ngIf="auth.isAuthenticated()">
+            <a *ngIf="auth.isPatient" routerLink="/patient" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">Dashboard</a>
+            <a *ngIf="auth.isDoctor" routerLink="/doctor" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">Dashboard</a>
+            <a *ngIf="auth.isStaff" routerLink="/hospital" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">Dashboard</a>
+          </ng-container>
+        </div>
+        <!-- Mobile menu button -->
+        <button (click)="menuOpen = !menuOpen"
+                class="md:hidden flex flex-col items-center justify-center gap-1.5 p-2 text-white"
+                aria-label="Toggle menu">
+          <span class="h-0.5 w-6 bg-white transition-transform" [class.rotate-45]="menuOpen" [class.translate-y-1.5]="menuOpen"></span>
+          <span class="h-0.5 w-6 bg-white transition-opacity" [class.opacity-0]="menuOpen"></span>
+          <span class="h-0.5 w-6 bg-white transition-transform" [class.-rotate-45]="menuOpen" [class.-translate-y-1.5]="menuOpen"></span>
+        </button>
       </div>
-      <div class="hidden md:flex items-center gap-8">
-        <a routerLink="/" class="text-white/80 hover:text-white font-medium transition-colors relative after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-full after:bg-primary-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300">Home</a>
-        <a href="/#how-it-works" class="text-white/80 hover:text-white font-medium transition-colors relative after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-full after:bg-primary-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300">How it works</a>
-      </div>
-      <div class="flex items-center gap-3">
-        <ng-container *ngIf="!auth.isAuthenticated()">
-          <a routerLink="/login" class="px-4 py-2 text-white font-medium hover:text-primary-300 transition-colors hidden sm:block">Log in</a>
-          <a routerLink="/register" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">Get Started</a>
-        </ng-container>
-        <ng-container *ngIf="auth.isAuthenticated()">
-          <a *ngIf="auth.isPatient" routerLink="/patient" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">Dashboard</a>
-          <a *ngIf="auth.isDoctor" routerLink="/doctor" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">Dashboard</a>
-          <a *ngIf="auth.isStaff" routerLink="/hospital" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">Dashboard</a>
-        </ng-container>
+      <!-- Mobile menu -->
+      <div *ngIf="menuOpen" class="md:hidden bg-black/90 border-t border-white/10">
+        <div class="flex flex-col px-6 py-4 gap-4">
+          <a routerLink="/" (click)="menuOpen = false" class="text-white/90 hover:text-white font-medium">Home</a>
+          <a href="/#how-it-works" (click)="menuOpen = false" class="text-white/90 hover:text-white font-medium">How it works</a>
+          <ng-container *ngIf="!auth.isAuthenticated()">
+            <a routerLink="/login" (click)="menuOpen = false" class="text-white/90 hover:text-white font-medium">Log in</a>
+            <a routerLink="/register" (click)="menuOpen = false" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl text-center hover:bg-primary-600">Get Started</a>
+          </ng-container>
+          <ng-container *ngIf="auth.isAuthenticated()">
+            <a *ngIf="auth.isPatient" routerLink="/patient" (click)="menuOpen = false" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl text-center hover:bg-primary-600">Dashboard</a>
+            <a *ngIf="auth.isDoctor" routerLink="/doctor" (click)="menuOpen = false" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl text-center hover:bg-primary-600">Dashboard</a>
+            <a *ngIf="auth.isStaff" routerLink="/hospital" (click)="menuOpen = false" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl text-center hover:bg-primary-600">Dashboard</a>
+          </ng-container>
+        </div>
       </div>
     </nav>
 
@@ -115,35 +141,60 @@ import { AuthService } from '../../services/auth.service';
     </section>
 
     <!-- ================= HOW IT WORKS ================= -->
-    <section class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20">
+    <section id="how-it-works" class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20">
       <h2 class="text-center text-[28px] font-bold sm:text-4xl">How it works</h2>
       <p class="mx-auto mt-3 max-w-2xl text-center text-muted">
         Three steps, one promise: no record moves without the patient's consent.
+        Every action is secured by blockchain for full transparency.
       </p>
       <div class="mt-10 grid gap-6 md:grid-cols-3">
         <div class="rounded-xl bg-surface p-6 shadow-card sm:p-8">
           <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-500 text-lg font-bold text-ink">1</div>
           <h3 class="mt-4 text-xl font-bold">Register at a facility</h3>
           <p class="mt-2 text-muted">
-            The facility issues your Health ID and creates a secure wallet for you.
-            You choose a 4-digit PIN — no MetaMask, no technical setup.
+            The facility issues your Health ID and creates a secure custodial wallet for you.
+            You choose a 4-digit PIN — no MetaMask, no technical setup required.
+            Your account is instantly ready to use.
           </p>
         </div>
         <div class="rounded-xl bg-surface p-6 shadow-card sm:p-8">
           <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-500 text-lg font-bold text-ink">2</div>
-          <h3 class="mt-4 text-xl font-bold">Doctors request access</h3>
+          <h3 class="mt-4 text-xl font-bold">Grant or deny access</h3>
           <p class="mt-2 text-muted">
-            Verified doctors ask to see your history. You approve or reject from
-            your dashboard, and access expires automatically after 7 days.
+            Verified doctors request to see your medical history. You approve or reject
+            directly from your dashboard. Access expires automatically after 7 days,
+            and you can revoke it anytime with full on-chain audit trail.
           </p>
         </div>
         <div class="rounded-xl bg-surface p-6 shadow-card sm:p-8">
           <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-500 text-lg font-bold text-ink">3</div>
-          <h3 class="mt-4 text-xl font-bold">Every view is logged</h3>
+          <h3 class="mt-4 text-xl font-bold">Transparent, auditable access</h3>
           <p class="mt-2 text-muted">
             Who viewed what, when, and from which facility — permanently recorded
-            on-chain. In emergencies, break-glass access is still auditable.
+            on the Sepolia blockchain. Record hashes ensure data integrity across
+            hospitals. In emergencies, break-glass access is still fully auditable.
           </p>
+        </div>
+      </div>
+      <div class="mt-10 rounded-xl bg-gradient-to-r from-primary-50 to-accent-50 p-6 sm:p-8 shadow-card">
+        <h3 class="text-center text-xl font-bold mb-4">Key Security Features</h3>
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div class="text-center">
+            <h4 class="font-semibold text-sm">End-to-end Control</h4>
+            <p class="text-xs text-muted mt-1">You own and control all access to your records</p>
+          </div>
+          <div class="text-center">
+            <h4 class="font-semibold text-sm">Blockchain Verified</h4>
+            <p class="text-xs text-muted mt-1">SHA-256 hashes anchored on-chain for tamper detection</p>
+          </div>
+          <div class="text-center">
+            <h4 class="font-semibold text-sm">Auto-expiring Consent</h4>
+            <p class="text-xs text-muted mt-1">Permissions automatically expire after 7 days</p>
+          </div>
+          <div class="text-center">
+            <h4 class="font-semibold text-sm">Auditable Emergencies</h4>
+            <p class="text-xs text-muted mt-1">Break-glass access is always logged and traceable</p>
+          </div>
         </div>
       </div>
     </section>
@@ -363,5 +414,6 @@ import { AuthService } from '../../services/auth.service';
   `,
 })
 export class HomeComponent {
+  menuOpen = false;
   constructor(public auth: AuthService) {}
 }

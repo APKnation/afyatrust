@@ -17,13 +17,28 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
   selector: 'app-login',
   imports: [NgIf, FormsModule, RouterLink],
   template: `
-    <nav class="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-5 lg:px-12">
-      <div class="flex items-center gap-2">
-        <a routerLink="/" class="text-2xl font-bold text-slate-900 tracking-tight cursor-pointer">Afya<span class="text-primary-500">Trust</span></a>
+    <nav class="absolute top-0 left-0 right-0 z-50 px-6 py-5 lg:px-12">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <a routerLink="/" class="text-2xl font-bold text-slate-900 tracking-tight cursor-pointer">Afya<span class="text-primary-500">Trust</span></a>
+        </div>
+        <div class="hidden md:flex items-center gap-4">
+          <a routerLink="/" class="text-slate-500 hover:text-slate-900 font-medium transition-colors">Back to Home</a>
+          <a routerLink="/register" class="px-5 py-2.5 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition-colors shadow-sm">Get Started</a>
+        </div>
+        <button (click)="menuOpen = !menuOpen"
+                class="md:hidden flex flex-col items-center justify-center gap-1.5 p-2"
+                aria-label="Toggle menu">
+          <span class="h-0.5 w-6 bg-ink transition-transform" [class.rotate-45]="menuOpen" [class.translate-y-1.5]="menuOpen"></span>
+          <span class="h-0.5 w-6 bg-ink transition-opacity" [class.opacity-0]="menuOpen"></span>
+          <span class="h-0.5 w-6 bg-ink transition-transform" [class.-rotate-45]="menuOpen" [class.-translate-y-1.5]="menuOpen"></span>
+        </button>
       </div>
-      <div class="flex items-center gap-4">
-        <a routerLink="/" class="hidden sm:block text-slate-500 hover:text-slate-900 font-medium transition-colors">Back to Home</a>
-        <a routerLink="/register" class="px-5 py-2.5 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition-colors shadow-sm">Get Started</a>
+      <div *ngIf="menuOpen" class="md:hidden mt-4 bg-white border border-gray-200 rounded-xl shadow">
+        <div class="flex flex-col p-4 gap-3">
+          <a routerLink="/" (click)="menuOpen = false">Back to Home</a>
+          <a routerLink="/register" (click)="menuOpen = false" class="px-4 py-2 bg-slate-900 text-white rounded-lg text-center">Get Started</a>
+        </div>
       </div>
     </nav>
 
@@ -98,6 +113,7 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
   `,
 })
 export class LoginComponent {
+  menuOpen = false;
   identity = '';
   secret = '';
   loading = false;

@@ -821,6 +821,97 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
           </div>
 
+          <!-- HOW IT WORKS -->
+          <div *ngIf="tab === 'how-it-works'" class="space-y-6 animate-fade-in">
+            <div class="card p-6">
+              <h1 class="text-2xl font-bold text-slate-900 mb-2">How AfyaTrust Works</h1>
+              <p class="text-slate-600">
+                AfyaTrust gives you complete control over your medical records using blockchain technology.
+              </p>
+            </div>
+
+            <div class="card">
+              <h2 class="text-lg font-bold text-slate-900 mb-4">For Patients</h2>
+              <div class="space-y-4">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-sm font-semibold text-slate-900 mb-1">1. Secure Registration</p>
+                  <p class="text-sm text-slate-600">
+                    Register at any participating hospital. You'll receive a Health ID and a secure custodial wallet.
+                    Set up your 4-digit PIN — no cryptocurrency or MetaMask needed.
+                  </p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-sm font-semibold text-slate-900 mb-1">2. Manage Access</p>
+                  <p class="text-sm text-slate-600">
+                    When doctors request access to your records, you'll get notified. Approve or deny from your dashboard.
+                    Access automatically expires after 7 days, and you can revoke it anytime.
+                  </p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-sm font-semibold text-slate-900 mb-1">3. Track Everything</p>
+                  <p class="text-sm text-slate-600">
+                    See a complete audit trail of who accessed your records, when, and why. All access events
+                    are permanently logged on the blockchain for transparency.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2 class="text-lg font-bold text-slate-900 mb-4">For Doctors</h2>
+              <div class="space-y-4">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-sm font-semibold text-slate-900 mb-1">1. Verified Access</p>
+                  <p class="text-sm text-slate-600">
+                    Only licensed, verified doctors can request access. Each request requires patient consent
+                    unless it's a documented medical emergency (break-glass).
+                  </p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-sm font-semibold text-slate-900 mb-1">2. Cross-Hospital Collaboration</p>
+                  <p class="text-sm text-slate-600">
+                    Refer patients to other hospitals and share verified medical histories. Every referral
+                    and access is tracked on-chain for accountability.
+                  </p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-sm font-semibold text-slate-900 mb-1">3. Data Integrity</p>
+                  <p class="text-sm text-slate-600">
+                    Record hashes are stored on the blockchain. This ensures medical data hasn't been
+                    tampered with when transferring between facilities.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2 class="text-lg font-bold text-slate-900 mb-4">Security & Privacy</h2>
+              <div class="space-y-4">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-sm font-semibold text-slate-900 mb-1">Blockchain Technology</p>
+                  <p class="text-sm text-slate-600">
+                    Built on Ethereum Sepolia testnet. Only cryptographic hashes and audit events are stored on-chain.
+                    Actual medical records remain securely at the originating facilities.
+                  </p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-sm font-semibold text-slate-900 mb-1">Patient-Controlled Access</p>
+                  <p class="text-sm text-slate-600">
+                    You decide who sees your data. No one can access your records without explicit consent
+                    or a properly documented emergency break-glass event.
+                  </p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <p class="text-sm font-semibold text-slate-900 mb-1">Full Transparency</p>
+                  <p class="text-sm text-slate-600">
+                    Every access, grant, revoke, and view is permanently recorded. You can verify all
+                    transactions on Etherscan for complete peace of mind.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- HEALTH SUMMARY -->
           <div *ngIf="tab === 'health-summary'" class="space-y-6 animate-fade-in">
             <div>
@@ -1007,6 +1098,19 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       </div>
     </div>
 
+    <!-- FOOTER -->
+    <footer class="border-t border-gray-200 mt-12 bg-white">
+      <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
+        <div class="flex items-center gap-2">
+          <strong class="font-heading text-ink">AfyaTrust</strong>
+        </div>
+        <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
+        <div class="flex gap-5">
+          <span class="text-muted">&copy; 2024 AfyaTrust</span>
+        </div>
+      </div>
+    </footer>
+
     <!-- ACCESS-REQUEST NOTIFICATIONS -->
     <div class="fixed top-20 right-4 z-[60] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3">
       <div *ngFor="let n of notifications" class="bg-white rounded-2xl shadow-2xl border-l-4 border-l-primary-500 animate-fade-in overflow-hidden">
@@ -1080,7 +1184,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
 })
 export class PatientDashboardComponent implements OnInit, OnDestroy {
-  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'health-summary' = 'records';
+  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'health-summary' | 'how-it-works' = 'records';
   tabs = [
     { id: 'records', label: 'Records' },
     { id: 'measurements', label: 'Measurements' },
@@ -1092,6 +1196,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     { id: 'profile', label: 'Profile' },
     { id: 'referral-security', label: 'Referral Security' },
     { id: 'health-summary', label: 'Health Summary' },
+    { id: 'how-it-works', label: 'How it works' },
   ] as const;
 
   data: PatientData | null = null;
@@ -1140,7 +1245,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  setTab(id: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'health-summary') {
+  setTab(id: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'health-summary' | 'how-it-works') {
     this.tab = id;
     if (id === 'activity') {
       void this.loadStory();
@@ -1781,9 +1886,9 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.grant.doctor_wallet = this.selectedDoctor?.wallet_address ?? '';
   }
 
-  /** Open the account/profile page (credential rotation, role-aware). */
+  /** Switch to profile tab within the dashboard. */
   viewProfile() {
-    this.router.navigate(['/account']);
+    this.setTab('profile');
   }
 
   /** Log out and take the user back to the sign-in page. */

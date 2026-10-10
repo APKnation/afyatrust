@@ -780,12 +780,112 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           <p class="text-slate-600">Transactions appear here when records are added, access is granted, or data is viewed.</p>
         </div>
       </div>
+
+      <!-- ================= HOW IT WORKS ================= -->
+      <div *ngIf="tab === 'how-it-works'" class="animate-fade-in">
+        <div class="card p-6">
+          <h2 class="text-xl font-bold text-slate-900 mb-1">How AfyaTrust Works</h2>
+          <p class="text-sm text-muted">
+            A guide for healthcare providers on using the platform securely and effectively.
+          </p>
+        </div>
+        <div class="space-y-4">
+          <div class="card p-6">
+            <h3 class="text-lg font-bold text-slate-900 mb-3">Clinical Workflow</h3>
+            <div class="space-y-3">
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">1. Access Patient Records</p>
+                <p class="text-sm text-slate-600">
+                  Use "Find Patient" to search by Health ID. The system verifies your access rights on-chain.
+                  If no access, you can request permission or use break-glass in emergencies.
+                </p>
+              </div>
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">2. Record Measurements &amp; Data</p>
+                <p class="text-sm text-slate-600">
+                  Add clinical measurements and view patient history. All actions are logged on the blockchain
+                  for complete auditability.
+                </p>
+              </div>
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">3. Collaborate Across Hospitals</p>
+                <p class="text-sm text-slate-600">
+                  Refer patients to specialists at other hospitals. Accept incoming referrals and access
+                  verified medical histories with proper consent.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="card p-6">
+            <h3 class="text-lg font-bold text-slate-900 mb-3">Security &amp; Compliance</h3>
+            <div class="space-y-3">
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">Verified Identity</p>
+                <p class="text-sm text-slate-600">
+                  Only licensed doctors verified by hospital administration can access the system.
+                </p>
+              </div>
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">Consent-Based Access</p>
+                <p class="text-sm text-slate-600">
+                  Patient consent is required for all non-emergency access. Access expires after 7 days.
+                </p>
+              </div>
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">Complete Audit Trail</p>
+                <p class="text-sm text-slate-600">
+                  Every record view, grant, and action is immutably logged on the Sepolia blockchain.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= PROFILE ================= -->
+      <div *ngIf="tab === 'profile'" class="animate-fade-in">
+        <h2 class="text-xl font-bold text-slate-900 mb-1">My Profile</h2>
+        <p class="mb-4 text-sm text-muted">Your account information and professional details.</p>
+        <div class="card p-6 space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Full Name</p>
+              <p class="text-sm font-semibold text-slate-900">Dr. {{ auth.fullName }}</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">License Number</p>
+              <p class="text-sm font-semibold text-slate-900">{{ license }}</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Hospital</p>
+              <p class="text-sm font-semibold text-slate-900">{{ hospitalName || '—' }}</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Wallet Address</p>
+              <p class="text-xs font-mono text-slate-900 break-all">{{ walletAddress }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
       </div>
     </div>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-gray-200 mt-12 bg-white">
+      <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
+        <div class="flex items-center gap-2">
+          <strong class="font-heading text-ink">AfyaTrust</strong>
+        </div>
+        <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
+        <div class="flex gap-5">
+          <span class="text-muted">&copy; 2024 AfyaTrust</span>
+        </div>
+      </div>
+    </footer>
   `,
 })
 export class DoctorLandingComponent implements OnDestroy, OnInit {
-  tab: 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' = 'patients';
+  tab: 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' | 'how-it-works' | 'profile' = 'patients';
   tabs = [
     { id: 'patients', label: 'My Patients' },
     { id: 'find', label: 'Find Patient' },
@@ -793,6 +893,8 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     { id: 'referrals', label: 'Referrals' },
     { id: 'requests', label: 'My Requests' },
     { id: 'transactions', label: 'Blockchain Transactions' },
+    { id: 'how-it-works', label: 'How it works' },
+    { id: 'profile', label: 'Profile' },
   ] as const;
 
   /** Mobile sidebar drawer state (desktop sidebar is always visible). */
@@ -905,7 +1007,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.cdr.detectChanges();
   }
 
-  setTab(id: 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions') {
+  setTab(id: 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' | 'how-it-works' | 'profile') {
     this.tab = id;
     this.sidebarOpen = false; // close the mobile drawer after navigating
     if (id === 'requests') void this.loadMyRequests();
@@ -1325,9 +1427,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     navigator.clipboard.writeText(this.walletAddress).catch(() => {});
   }
 
-  /** Open the account/profile page (credential rotation, role-aware). */
+  /** Switch to profile tab within the dashboard. */
   viewProfile() {
-    this.router.navigate(['/account']);
+    this.setTab('profile');
   }
 
   /** Log out and take the user back to the sign-in page. */

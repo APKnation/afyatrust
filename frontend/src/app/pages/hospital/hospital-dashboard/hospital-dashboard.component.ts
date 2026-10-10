@@ -87,6 +87,11 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 [class]="tab === 'blockchain' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
           Blockchain Logs
         </button>
+        <button (click)="setTab('how-it-works')"
+                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
+                [class]="tab === 'how-it-works' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
+          How it works
+        </button>
       </div>
 
       <!-- LAST ON-CHAIN ACTION — Etherscan-verifiable -->
@@ -541,11 +546,81 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           </div>
         </div>
       </div>
+
+      <!-- ================= HOW IT WORKS ================= -->
+      <div *ngIf="tab === 'how-it-works'" class="animate-fade-in">
+        <div class="card p-6">
+          <h2 class="text-xl font-bold text-slate-900 mb-1">How AfyaTrust Works</h2>
+          <p class="text-sm text-muted">
+            Guide for hospital staff on managing referrals and securing patient data.
+          </p>
+        </div>
+        <div class="space-y-4">
+          <div class="card p-6">
+            <h3 class="text-lg font-bold text-slate-900 mb-3">Referral Management</h3>
+            <div class="space-y-3">
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">1. Incoming Referrals</p>
+                <p class="text-sm text-slate-600">
+                  Review and respond to referrals from other hospitals. Accept or decline based on capacity
+                  and specialty requirements. All responses are logged on-chain.
+                </p>
+              </div>
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">2. Outgoing Referrals</p>
+                <p class="text-sm text-slate-600">
+                  Refer patients to specialists at other facilities. Include detailed reasons and track
+                  referral status in real-time.
+                </p>
+              </div>
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">3. Data Exchange</p>
+                <p class="text-sm text-slate-600">
+                  Securely exchange patient records with verified hospitals. Record hashes ensure data
+                  integrity throughout the transfer process.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div class="card p-6">
+            <h3 class="text-lg font-bold text-slate-900 mb-3">Record Management</h3>
+            <div class="space-y-3">
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">Add Records</p>
+                <p class="text-sm text-slate-600">
+                  Create new medical records for patients. Each record's SHA-256 hash is anchored
+                  on the Sepolia blockchain for tamper-proof verification.
+                </p>
+              </div>
+              <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p class="text-sm font-semibold text-slate-900 mb-1">Blockchain Logging</p>
+                <p class="text-sm text-slate-600">
+                  Monitor all on-chain transactions and events. Verify record authenticity and
+                  maintain complete audit trails.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-gray-200 mt-12 bg-white">
+      <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
+        <div class="flex items-center gap-2">
+          <strong class="font-heading text-ink">AfyaTrust</strong>
+        </div>
+        <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
+        <div class="flex gap-5">
+          <span class="text-muted">&copy; 2024 AfyaTrust</span>
+        </div>
+      </div>
+    </footer>
   `,
 })
 export class HospitalDashboardComponent implements OnInit {
-  tab: 'incoming' | 'outgoing' | 'exchange' | 'records' | 'blockchain' = 'incoming';
+  tab: 'incoming' | 'outgoing' | 'exchange' | 'records' | 'blockchain' | 'how-it-works' = 'incoming';
 
   // --- incoming / outgoing referral filters ---
   filter = 'PENDING';
@@ -618,7 +693,7 @@ export class HospitalDashboardComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  setTab(t: 'incoming' | 'outgoing' | 'exchange' | 'records' | 'blockchain') {
+  setTab(t: 'incoming' | 'outgoing' | 'exchange' | 'records' | 'blockchain' | 'how-it-works') {
     this.tab = t;
     this.syncView();
   }

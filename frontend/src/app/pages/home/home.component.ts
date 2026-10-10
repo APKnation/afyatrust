@@ -12,6 +12,28 @@ import { AuthService } from '../../services/auth.service';
   selector: 'app-home',
   imports: [RouterLink, NgIf],
   template: `
+    <!-- ================= NAVBAR ================= -->
+    <nav class="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 backdrop-blur-md bg-black/20 border-b border-white/10">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl font-bold text-white tracking-tight">Afya<span class="text-primary-400">Trust</span></span>
+      </div>
+      <div class="hidden md:flex items-center gap-8">
+        <a routerLink="/" class="text-white/80 hover:text-white font-medium transition-colors relative after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-full after:bg-primary-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300">Home</a>
+        <a href="/#how-it-works" class="text-white/80 hover:text-white font-medium transition-colors relative after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-full after:bg-primary-400 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300">How it works</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <ng-container *ngIf="!auth.isAuthenticated()">
+          <a routerLink="/login" class="px-4 py-2 text-white font-medium hover:text-primary-300 transition-colors hidden sm:block">Log in</a>
+          <a routerLink="/register" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">Get Started</a>
+        </ng-container>
+        <ng-container *ngIf="auth.isAuthenticated()">
+          <a *ngIf="auth.isPatient" routerLink="/patient" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">Dashboard</a>
+          <a *ngIf="auth.isDoctor" routerLink="/doctor" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">Dashboard</a>
+          <a *ngIf="auth.isStaff" routerLink="/hospital" class="px-5 py-2.5 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">Dashboard</a>
+        </ng-container>
+      </div>
+    </nav>
+
     <!-- ================= HERO ================= -->
     <section class="relative isolate overflow-hidden">
       <picture>

@@ -25,7 +25,7 @@ from .models import (
 from django.db.models import Q
 from . import wallet_manager
 from .blockchain import (
-    cached_has_access,
+    check_has_access,
     cache_invalidate,
     checksum_address,
     contract,
@@ -74,16 +74,8 @@ def _patient_from_request(request):
 
 
 def _doctor_can_view_patient(doctor, patient):
-    """Require a live chain grant, a live emergency grant, or an accepted
-    referral TO this doctor's hospital (transfer of care for this patient).
-
-    The referral rule is what makes the Hospital A → Hospital B handoff
-    work: the referring doctor at A initiates it, the receiving hospital
-    accepts, and then ANY approved doctor at B — a different doctor than the
-    one who referred — can open and treat the same patient. The rule is
-    identical for every doctor at every hospital.
-    """
-    allowed, chain_ok = cached_has_access(
+    """Require an individual live chain grant or a live emergency grant."""
+    allowed, chain_ok = check_has_access(
         patient.health_id, doctor.wallet_address
     )
     if allowed:
@@ -96,12 +88,6 @@ def _doctor_can_view_patient(doctor, patient):
         expires_at__gt=timezone.now(),
     ).exists()
     if emergency:
-        return True, chain_ok
-    if doctor.hospital and Referral.objects.filter(
-        patient=patient,
-        to_hospital=doctor.hospital,
-        status="ACCEPTED",
-    ).exists():
         return True, chain_ok
     return False, chain_ok
 
@@ -751,13 +737,10 @@ def doctor_view_record(request, health_id):
         expires_at__gt=timezone.now(),
     ).first()
 
-    # Referral transfer of care: an accepted referral to this doctor's
-    # hospital is the access basis only when the doctor has no personal
-    # grant of their own (a personal on-chain grant takes precedence).
-    personal_grant, _ = cached_has_access(health_id, wallet)
-    referral_grant = None
-    if not emergency_grant and not personal_grant and doctor.hospital:
-        referral_grant = Referral.objects.filter(
+    # Referral context is shown separately and never grants record access.
+    referral_context = None
+    if doctor.hospital:
+        referral_context = Referral.objects.filter(
             patient=patient,
             to_hospital=doctor.hospital,
             status="ACCEPTED",
@@ -958,13 +941,13 @@ def doctor_view_record(request, health_id):
         "chain_checked": chain_ok,
         "emergency_access": bool(emergency_grant),
         "emergency_reason": emergency_grant.reason if emergency_grant else "",
-        "referral_access": bool(referral_grant),
+        "referral_access": False,
         "referral_context": ({
-            "from_hospital": referral_grant.from_hospital.name if referral_grant and referral_grant.from_hospital else "",
-            "from_doctor": referral_grant.from_doctor.full_name if referral_grant and referral_grant.from_doctor else "",
-            "reason": referral_grant.reason if referral_grant else "",
-            "accepted_at": referral_grant.responded_at if referral_grant else None,
-        } if referral_grant else None),
+            "from_hospital": referral_context.from_hospital.name if referral_context and referral_context.from_hospital else "",
+            "from_doctor": referral_context.from_doctor.full_name if referral_context and referral_context.from_doctor else "",
+            "reason": referral_context.reason if referral_context else "",
+            "accepted_at": referral_context.responded_at if referral_context else None,
+        } if referral_context else None),
         "chain_verification_unavailable": chain_verification_unavailable,
         "records": final_records,
         "measurements": measurements,
@@ -1140,8 +1123,7 @@ def reject_request(request, request_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def doctor_patients(request):
-    """Patients assigned to the logged-in doctor: granted access on-chain
-    (fresh from chain) plus a bookkeeping mirror of past grants."""
+    """Patients with individual access grants plus referral coordination entries."""
     doctor = _doctor_from_request(request)
     if not doctor:
         return Response({"error": "Doctor not found"}, status=403)
@@ -1161,8 +1143,9 @@ def doctor_patients(request):
             "source": g.source or ("grant" if g.active else "expired"),
         })
 
-    # Transfer of care: patients referred TO this doctor's hospital and
-    # accepted — every approved doctor there treats them like own patients.
+    # Accepted referrals are listed for coordination, but do not grant
+    # access to records. The record endpoint still requires consent or
+    # documented break-glass access.
     if doctor.hospital:
         referral_qs = Referral.objects.filter(
             to_hospital=doctor.hospital, status="ACCEPTED"
@@ -1175,8 +1158,8 @@ def doctor_patients(request):
                 "health_id": r.patient.health_id,
                 "full_name": r.patient.full_name,
                 "granted_at": r.responded_at or r.created_at,
-                "expires_at": None,  # transfer of care has no expiry
-                "active": True,
+                "expires_at": None,
+                "active": False,
                 "source": "REFERRAL",
             })
     return Response(items)
@@ -1218,22 +1201,12 @@ def doctor_dashboard(request):
         return Response({"error": "Doctor not found"}, status=403)
 
     grants = AccessGrant.objects.filter(doctor=doctor).select_related("patient")
-    patient_ids = {g.patient_id for g in grants}
-    active_patient_ids = {
-        g.patient_id for g in grants
-        if g.active and g.expires_at and g.expires_at > timezone.now()
-    }
-
-    # Transfer of care: patients referred TO this doctor's hospital and
-    # accepted also count toward the practice overview.
-    if doctor.hospital:
-        referral_patient_ids = set(
-            Referral.objects.filter(
-                to_hospital=doctor.hospital, status="ACCEPTED"
-            ).values_list("patient_id", flat=True)
-        )
-        patient_ids |= referral_patient_ids
-        active_patient_ids |= referral_patient_ids
+    patient_ids = set()
+    active_patient_ids = set()
+    for grant in grants:
+        if _doctor_can_view_patient(doctor, grant.patient)[0]:
+            patient_ids.add(grant.patient_id)
+            active_patient_ids.add(grant.patient_id)
 
     measurements = Measurement.objects.filter(doctor=doctor)
     meas_counter = Counter(measurements.values_list("kind", flat=True))
@@ -1626,9 +1599,8 @@ def _create_referral(doctor, request):
     if not to_hospital:
         return Response({"error": "Target hospital not found"}, status=404)
 
-    # A referral is a transfer of care, so only the treating doctor may
-    # initiate it: they must already have access to this patient (chain
-    # grant, emergency grant, or an accepted referral to their hospital).
+    # A referral may only be initiated by a doctor who already has an
+    # individual grant or a documented emergency grant for the patient.
     allowed, _chain_ok = _doctor_can_view_patient(doctor, patient)
     if not allowed:
         return Response(
@@ -2146,7 +2118,7 @@ def break_glass(request):
 
     wallet = doctor.wallet_address
     facility_id = doctor.facility_id or "UNKNOWN"
-    has_normal_access, _chain_ok = cached_has_access(health_id, wallet)
+    has_normal_access, _chain_ok = check_has_access(health_id, wallet)
     if has_normal_access:
         return Response({"error": "Doctor already has patient access"}, status=409)
     active_emergency = AccessGrant.objects.filter(
@@ -2690,12 +2662,8 @@ def patient_activity_story(request, health_id):
         doctor = _doctor_from_request(request)
         if not doctor:
             return Response({"error": "Doctor not verified"}, status=403)
-        allowed, _ = cached_has_access(health_id, doctor.wallet_address)
-        live_grant = AccessGrant.objects.filter(
-            patient__health_id__iexact=health_id, doctor=doctor,
-            active=True, expires_at__gt=timezone.now(),
-        ).exists()
-        if not (allowed or live_grant):
+        patient = Patient.objects.filter(health_id=health_id).first()
+        if not patient or not _doctor_can_view_patient(doctor, patient)[0]:
             return Response({"error": "No access permission for this patient"}, status=403)
     elif requestor_role == "STAFF":
         staff = _staff_from_request(request)
@@ -2817,8 +2785,8 @@ def patient_blockchain_history(request, health_id):
         doctor = _doctor_from_request(request)
         if not doctor:
             return Response({"error": "Doctor not verified"}, status=403)
-        allowed, _ = cached_has_access(health_id, doctor.wallet_address)
-        if not allowed:
+        patient = Patient.objects.filter(health_id=health_id).first()
+        if not patient or not _doctor_can_view_patient(doctor, patient)[0]:
             return Response({"error": "No access permission for this patient"}, status=403)
     elif requestor_role == "STAFF":
         staff = _staff_from_request(request)

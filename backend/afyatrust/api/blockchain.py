@@ -120,6 +120,17 @@ def cached_has_access(health_id: str, wallet: str) -> tuple[bool, bool]:
     return allowed, True
 
 
+def check_has_access(health_id: str, wallet: str) -> tuple[bool, bool]:
+    """Read hasAccess directly for authorization decisions that must be fresh."""
+    try:
+        allowed = contract.functions.hasAccess(
+            health_id.strip(), checksum_address(wallet)
+        ).call()
+    except Exception:
+        return False, False
+    return bool(allowed), True
+
+
 def cached_patient_wallet(health_id: str) -> str:
     """patientWallet mapping with the same short TTL."""
     key = f"patientWallet:{health_id.strip().lower()}"

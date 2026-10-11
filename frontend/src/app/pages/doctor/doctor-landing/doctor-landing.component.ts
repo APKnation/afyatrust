@@ -260,8 +260,8 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           <div>
             <h2 class="text-xl font-bold text-slate-900 mb-1">My Patients</h2>
             <p class="m-0 text-sm text-muted">
-              Patients who granted you access. Liveness is verified against the chain;
-              expired grants stay listed but marked.
+              Patients who granted you access and patients referred to your hospital.
+              Referrals do not grant record access; patient consent or emergency access is still required.
             </p>
           </div>
           <button (click)="loadPatients()" [disabled]="loadingPatients"
@@ -280,12 +280,10 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <p class="m-0" [class]="p.active ? 'font-bold text-accent-700' : 'font-semibold text-red-600'">
               {{ p.active
                 ? (p.source === 'BREAK_GLASS' ? 'Emergency access'
-                  : p.source === 'REFERRAL' ? 'Referred to your hospital'
                   : 'Access active')
-                : 'Access expired or revoked' }}
+                : (p.source === 'REFERRAL' ? 'Referral received; access not granted' : 'Access expired or revoked') }}
             </p>
             <p *ngIf="p.expires_at" class="m-0 text-xs text-muted">until {{ p.expires_at | date:'medium' }}</p>
-            <p *ngIf="!p.expires_at && p.active" class="m-0 text-xs text-muted">transfer of care</p>
           </div>
         </div>
         <div *ngIf="patients.length === 0 && !loadingPatients" class="card p-10 text-center">
@@ -298,7 +296,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       <div *ngIf="tab === 'find'" class="animate-fade-in">
         <div class="card mb-4 p-6">
           <h2 class="text-xl font-bold text-slate-900 mb-1">Find Patient</h2>
-          <p class="mb-4 m-0 text-sm text-muted">Enter a Health ID. Permission is checked live on-chain before anything opens.</p>
+          <p class="mb-4 m-0 text-sm text-muted">Enter a Health ID. Your individual access is checked before any history is shown.</p>
           <div class="flex flex-wrap gap-3">
             <input [(ngModel)]="healthId" placeholder="Health ID"
                    class="min-w-50 flex-1 rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm" />
@@ -392,9 +390,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   ? 'Request patient consent, or use break-glass only for an emergency.'
                   : (emergencyAccess
                     ? 'Temporary emergency access — expires after one hour.'
-                    : (referralAccess
-                      ? 'Transfer of care — an accepted referral to your hospital opens these records.'
-                      : 'Patient consent verified on-chain.')) }}
+                    : 'Your individual patient access was verified on-chain.') }}
               </span>
             </div>
           </div>
@@ -413,12 +409,12 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <p class="m-0 text-sm font-semibold text-red-900">Emergency access reason</p>
             <p class="mb-0 mt-1 text-sm text-red-800">{{ emergencyReason }}</p>
           </div>
-          <div *ngIf="referralAccess && referralContext" class="card border border-indigo-200 bg-indigo-50 p-4">
-            <p class="m-0 text-sm font-semibold text-indigo-900">Referred to your hospital — transfer of care</p>
+          <div *ngIf="referralContext" class="card border border-indigo-200 bg-indigo-50 p-4">
+            <p class="m-0 text-sm font-semibold text-indigo-900">Referral context</p>
             <p class="mb-0 mt-1 text-sm text-indigo-800">
               <span *ngIf="referralContext.from_doctor">Dr. {{ referralContext.from_doctor }} ({{ referralContext.from_hospital || 'another hospital' }})</span>
               <span *ngIf="!referralContext.from_doctor">{{ referralContext.from_hospital || 'Another hospital' }}</span>
-              referred this patient to your hospital.
+              referred this patient to your hospital. The patient must still grant you access to their records.
               <span *ngIf="referralContext.reason">Reason: {{ referralContext.reason }}.</span>
               <span *ngIf="referralContext.accepted_at">Accepted {{ referralContext.accepted_at | date:'medium' }}.</span>
             </p>
@@ -916,8 +912,8 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <p class="text-sm font-semibold text-slate-900 mb-1">3. Collaborate Across Hospitals</p>
                 <p class="text-sm text-slate-600">
-                  Refer patients to specialists at other hospitals. Accept incoming referrals and access
-                  verified medical histories with proper consent.
+                  Refer patients to specialists at other hospitals. Accepting a referral does not grant
+                  record access; request patient consent or use break-glass only in an emergency.
                 </p>
               </div>
             </div>
@@ -1259,8 +1255,8 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       await this.refreshIncoming();
       await this.loadReferralsSent();
       if (action === 'ACCEPTED' && r.patient_health_id) {
-        // Transfer of care: the accepted referral now opens this patient's
-        // records to every doctor at this hospital. Jump straight in.
+        // Show referral context, then let the access check direct the doctor
+        // to request patient consent or use break-glass for an emergency.
         this.healthId = r.patient_health_id;
         this.setTab('find');
         await this.viewRecord();

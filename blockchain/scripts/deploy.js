@@ -2,6 +2,11 @@
 // Usage: npx hardhat run scripts/deploy.js --network sepolia
 const hre = require("hardhat");
 const fs = require("fs");
+const {
+  ensureFacilityRole,
+  getFacilityAddress,
+  readBackendEnv,
+} = require("./facility-role");
 
 async function main() {
   console.log("Deploying AfyaTrust to Sepolia...");
@@ -14,26 +19,25 @@ async function main() {
   console.log("\nAfyaTrust deployed to:", address);
   console.log("View on Etherscan: https://sepolia.etherscan.io/address/" + address);
 
-  // Save the address for the backend .env
+  // Save the address before role setup so a partial deployment remains discoverable.
   fs.writeFileSync(
     "./contract-address.txt",
     `CONTRACT_ADDRESS=${address}\n`
   );
-  console.log("\nSaved to contract-address.txt. Add it to backend/.env:");
+  console.log("\nSaved to contract-address.txt. Update backend/.env:");
   console.log(`CONTRACT_ADDRESS=${address}`);
 
-  // Warn if other config files still point at an older deployment.
-  try {
-    const backendEnv = fs.readFileSync("../backend/.env", "utf8");
-    const current = backendEnv.match(/^CONTRACT_ADDRESS=(0x[0-9a-fA-F]+)$/m);
-    if (current && current[1].toLowerCase() !== address.toLowerCase()) {
-      console.log(
-        "\n⚠️  backend/.env still points to " + current[1] +
-        "\n   Update it (and frontend/src/environments/*.ts) to the NEW address above!"
-      );
-    }
-  } catch {
-    /* backend/.env not present — nothing to check */
+  const backendEnv = readBackendEnv();
+  const facilityAddress = getFacilityAddress(hre.ethers, backendEnv);
+  await ensureFacilityRole(hre, afyaTrust, facilityAddress);
+
+  if (
+    backendEnv.CONTRACT_ADDRESS &&
+    backendEnv.CONTRACT_ADDRESS.toLowerCase() !== address.toLowerCase()
+  ) {
+    console.log(
+      "\n⚠️  backend/.env still points to a different deployment. Update it to the address above."
+    );
   }
 }
 

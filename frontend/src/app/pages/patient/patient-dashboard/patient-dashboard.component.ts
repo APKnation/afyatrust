@@ -1025,6 +1025,30 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </div>
             </div>
 
+            <!-- Doctors recorded in the patient's care history -->
+            <section *ngIf="healthSummary" class="card p-5">
+              <h3 class="mb-2 text-lg font-bold">Doctors in your care history</h3>
+              <p class="mb-4 text-sm text-muted">
+                Doctors shown here are named on a measurement or a medical record, grouped by hospital.
+              </p>
+              <div *ngIf="healthSummary.care_team.length" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <article *ngFor="let doctor of healthSummary.care_team" class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <h4 class="font-semibold text-slate-900">{{ doctor.name }}</h4>
+                  <p class="mt-1 text-sm text-slate-600">{{ doctor.hospital }}</p>
+                  <p class="mt-2 text-xs text-muted">
+                    <span *ngIf="doctor.measurements">{{ doctor.measurements }} measurement{{ doctor.measurements === 1 ? '' : 's' }}</span>
+                    <span *ngIf="doctor.measurements && doctor.treatment_records + doctor.other_records"> · </span>
+                    <span *ngIf="doctor.treatment_records">{{ doctor.treatment_records }} treatment record{{ doctor.treatment_records === 1 ? '' : 's' }}</span>
+                    <span *ngIf="doctor.treatment_records && doctor.other_records"> · </span>
+                    <span *ngIf="doctor.other_records">{{ doctor.other_records }} other medical record{{ doctor.other_records === 1 ? '' : 's' }}</span>
+                  </p>
+                </article>
+              </div>
+              <p *ngIf="!healthSummary.care_team.length" class="text-sm text-muted italic">
+                No doctors have been named on your measurements or medical records yet.
+              </p>
+            </section>
+
             <!-- Overall counts -->
             <div *ngIf="healthSummary" class="card">
               <h3 class="mb-4 text-lg font-bold">Your history at a glance</h3>
@@ -1457,6 +1481,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     diagnoses: { type: string; count: number }[];
     medicines: { detail: string; count: number }[];
     measurements: { kind: string; count: number; latest_value: number; latest_unit: string; latest_date: string; latest_doctor: string; latest_hospital: string }[];
+    care_team: { name: string; hospital: string; measurements: number; treatment_records: number; other_records: number; latest_date: string }[];
     hospital_visits: { facility: string; count: number }[];
     total_records: number;
     total_measurements: number;
@@ -1480,6 +1505,53 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     }
     const records = this.data.records || [];
     const measurements = this.data.measurements || [];
+    const careTeam = new Map<string, {
+      name: string;
+      hospital: string;
+      measurements: number;
+      treatment_records: number;
+      other_records: number;
+      latest_date: string;
+    }>();
+    const addCareEntry = (name: string, hospital: string, type: 'measurement' | 'treatment' | 'record', date: string) => {
+      const normalizedName = name.trim();
+      if (!normalizedName) return;
+      const facility = hospital.trim() || 'Hospital not recorded';
+      const key = `${normalizedName.toLocaleLowerCase()}|${facility.toLocaleLowerCase()}`;
+      const entry = careTeam.get(key) ?? {
+        name: normalizedName,
+        hospital: facility,
+        measurements: 0,
+        treatment_records: 0,
+        other_records: 0,
+        latest_date: '',
+      };
+      if (type === 'measurement') entry.measurements += 1;
+      else if (type === 'treatment') entry.treatment_records += 1;
+      else entry.other_records += 1;
+      if (date > entry.latest_date) entry.latest_date = date;
+      careTeam.set(key, entry);
+    };
+
+    for (const measurement of measurements) {
+      addCareEntry(measurement.doctor || '', measurement.hospital || '', 'measurement', measurement.date ?? measurement.created_at ?? '');
+    }
+
+    const clinicianKeys = new Set(['doctor', 'doctor_name', 'physician', 'physician_name', 'provider', 'provider_name', 'treated_by']);
+    for (const record of records) {
+      if (!record.data || typeof record.data !== 'object' || Array.isArray(record.data)) continue;
+      for (const [key, value] of Object.entries(record.data)) {
+        if (!clinicianKeys.has(key.toLowerCase())) continue;
+        const doctorName = typeof value === 'string'
+          ? value
+          : value && typeof value === 'object' && !Array.isArray(value)
+            ? String(value.full_name || value.name || value.doctor_name || '')
+            : '';
+        const recordType = record.type.toLowerCase();
+        const isTreatment = ['treatment', 'prescription', 'medication', 'procedure'].some(term => recordType.includes(term));
+        addCareEntry(doctorName, record.facility || '', isTreatment ? 'treatment' : 'record', record.date || '');
+      }
+    }
 
     // Diagnoses / record types frequency
     const typeCounter: Record<string, number> = {};
@@ -1554,6 +1626,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       diagnoses,
       medicines,
       measurements: measurementsSummary,
+      care_team: [...careTeam.values()].sort((a, b) => b.latest_date.localeCompare(a.latest_date)),
       hospital_visits: hospitalVisits,
       total_records: records.length,
       total_measurements: measurements.length,

@@ -343,9 +343,11 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   <ng-container *ngIf="!selectedDoctor">Select a doctor above</ng-container>
                 </p>
               </div>
-              <button (click)="grantAccess()" [disabled]="busy" class="btn-primary w-full sm:w-auto">
-                {{ busy ? 'Granting Access...' : 'Grant Access' }}
-              </button>
+              <div class="mt-5 flex justify-end">
+                <button type="button" (click)="grantAccess()" [disabled]="busy" class="btn-primary w-full sm:w-auto">
+                  {{ busy ? 'Granting Access...' : 'Grant Access' }}
+                </button>
+              </div>
             </div>
             <div class="card">
               <p class="text-sm text-slate-600">
@@ -1229,7 +1231,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   tab: 'dashboard' | 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'how-it-works' = 'dashboard';
   tabs = [
     { id: 'dashboard', label: 'Dashboard' },
-    { id: 'records', label: 'Records' },
+    { id: 'records', label: 'History' },
     { id: 'measurements', label: 'Measurements' },
     { id: 'referrals', label: 'Referrals' },
     { id: 'permissions', label: 'Permissions' },
@@ -1654,10 +1656,10 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   }
 
   /** Record the tx of an on-chain action and surface it in the banner. */
-  private showLastTx(label: string, tx_hash?: string) {
+  private showLastTx(label: string, tx_hash?: string, pending = false) {
     const h = (tx_hash || '').trim();
     if (!h) return;
-    this.lastTx = { label, tx_hash: h, pending: this.isPendingTx(h) };
+    this.lastTx = { label, tx_hash: h, pending: pending || this.isPendingTx(h) };
     // Keep the on-chain story fresh right after a real transaction.
     if (this.tab === 'activity') void this.loadStory();
   }
@@ -1864,11 +1866,11 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     try {
       const doctorLabel = this.selectedDoctor?.full_name || this.grant.doctor_name || this.grant.doctor_license;
       const res: any = await this.api.grantAccess(this.grant);
-      this.showLastTx(`Access granted to Dr. ${doctorLabel}`, res?.tx_hash);
+      this.showLastTx(`Access granted to Dr. ${doctorLabel}`, res?.tx_hash, res?.pending);
       this.grant = { doctor_license: '', doctor_name: '', doctor_wallet: '', days: 7 };
       this.selectedDoctor = null;
       this.doctorQuery = '';
-      await this.reload();
+      void this.reload();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
     } finally {
@@ -1882,8 +1884,8 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.syncView();
     try {
       const res: any = await this.api.approveRequest(req.id);
-      this.showLastTx(`Access granted to Dr. ${req.doctor_name} for 7 days`, res?.tx_hash);
-      await this.reload();
+      this.showLastTx(`Access granted to Dr. ${req.doctor_name} for 7 days`, res?.tx_hash, res?.pending);
+      void this.reload();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
     } finally {

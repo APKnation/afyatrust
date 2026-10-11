@@ -77,6 +77,11 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 [class]="tab === 'exchange' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
           Data Exchange
         </button>
+        <button (click)="setTab('history'); loadFacilityRecords()"
+                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
+                [class]="tab === 'history' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
+          History
+        </button>
         <button (click)="setTab('records'); loadFacilityRecords()"
                 class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
                 [class]="tab === 'records' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
@@ -341,6 +346,43 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             endpoint appear here. Another hospital can fetch the exchange URL to
             verify the record without accessing the clinical data directly.
           </p>
+        </div>
+      </div>
+
+      <!-- ================= FACILITY HISTORY ================= -->
+      <div *ngIf="tab === 'history'" class="animate-fade-in">
+        <div class="card mb-4 p-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 class="text-xl font-bold text-slate-900 mb-1">Hospital history</h2>
+              <p class="m-0 text-sm text-muted">Records added by {{ hospitalName || 'this hospital' }}.</p>
+            </div>
+            <button (click)="loadFacilityRecords()" [disabled]="loadingRecords" class="btn-secondary">
+              {{ loadingRecords ? 'Refreshing…' : 'Refresh history' }}
+            </button>
+          </div>
+        </div>
+        <div *ngIf="loadingRecords && facilityRecords.length === 0" class="card p-6 text-sm text-muted">
+          Loading hospital history…
+        </div>
+        <div *ngFor="let r of facilityRecords" class="card mb-3 p-4">
+          <div class="mb-2 flex flex-wrap items-center gap-3">
+            <span class="font-bold text-ink">{{ r.patient_name }}</span>
+            <span class="text-xs text-muted">Health ID: {{ r.health_id }}</span>
+            <span class="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-bold text-primary-900">{{ r.record_type }}</span>
+            <span *ngIf="r.verified" class="btn-primary">Verified</span>
+            <span *ngIf="!r.verified" class="rounded-full bg-primary-200 px-2.5 py-0.5 text-xs font-semibold text-primary-900">Pending verification</span>
+            <span class="ml-auto text-xs text-muted">{{ r.created_at | date:'medium' }}</span>
+          </div>
+          <dl class="grid gap-2 sm:grid-cols-2">
+            <div *ngFor="let item of entries(r.record_data)" class="text-sm">
+              <dt class="inline font-semibold text-ink">{{ item.key }}: </dt>
+              <dd class="inline text-slate-700">{{ item.value }}</dd>
+            </div>
+          </dl>
+        </div>
+        <div *ngIf="facilityRecords.length === 0 && !loadingRecords" class="card p-8 text-center">
+          <p class="m-0 text-muted">No hospital history is available yet.</p>
         </div>
       </div>
 
@@ -617,7 +659,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
   `,
 })
 export class HospitalDashboardComponent implements OnInit {
-  tab: 'incoming' | 'outgoing' | 'exchange' | 'records' | 'blockchain' | 'how-it-works' = 'incoming';
+  tab: 'incoming' | 'outgoing' | 'exchange' | 'history' | 'records' | 'blockchain' | 'how-it-works' = 'incoming';
 
   // --- incoming / outgoing referral filters ---
   filter = 'PENDING';
@@ -690,7 +732,7 @@ export class HospitalDashboardComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  setTab(t: 'incoming' | 'outgoing' | 'exchange' | 'records' | 'blockchain' | 'how-it-works') {
+  setTab(t: 'incoming' | 'outgoing' | 'exchange' | 'history' | 'records' | 'blockchain' | 'how-it-works') {
     this.tab = t;
     this.syncView();
   }

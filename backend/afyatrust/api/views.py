@@ -33,6 +33,7 @@ from .blockchain import (
     ensure_gas,
     facility_address,
     send_transaction,
+    send_transaction_pending,
     send_transaction_async,
 )
 from .blockchain import w3
@@ -547,7 +548,7 @@ def grant_access(request):
             patient.health_id, checksum_address(patient.wallet_address),
             checksum_address(doctor_wallet), days
         )
-        tx_hash = send_transaction(tx, patient_key)
+        tx_hash = send_transaction_pending(tx, patient_key)
     except Exception as e:
         tx_hash = f"PENDING: {e}"
 
@@ -569,6 +570,7 @@ def grant_access(request):
         "status": "success",
         "message": f"Access granted to {doctor_name or doctor_wallet} for {days} days",
         "tx_hash": tx_hash,
+        "pending": tx_hash.startswith("0x"),
     })
 
 
@@ -1093,7 +1095,7 @@ def approve_request(request, request_id):
             patient.health_id, checksum_address(patient.wallet_address),
             checksum_address(req.doctor_wallet), 7
         )
-        tx_hash = send_transaction(tx, patient_key)
+        tx_hash = send_transaction_pending(tx, patient_key)
     except Exception as e:
         tx_hash = f"PENDING: {e}"
 
@@ -1113,7 +1115,7 @@ def approve_request(request, request_id):
     req.responded_at = timezone.now()
     req.save()
 
-    return Response({"status": "approved", "tx_hash": tx_hash})
+    return Response({"status": "approved", "tx_hash": tx_hash, "pending": tx_hash.startswith("0x")})
 
 
 @api_view(["POST"])

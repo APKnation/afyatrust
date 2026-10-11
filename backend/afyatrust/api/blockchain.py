@@ -155,13 +155,7 @@ def _eip1559_fees() -> dict:
     }
 
 
-def send_transaction(function_call, signer_private_key: str = "") -> str:
-    """Sign and send a transaction.
-
-    Defaults to the facility wallet (facility actions). Pass a patient's
-    decrypted custodial key to sign as the patient (grants/revokes), because
-    the contract attributes those permissions to the patient wallet itself.
-    """
+def _broadcast_transaction(function_call, signer_private_key: str = "", nonce_block: str = "latest"):
     key = signer_private_key or FACILITY_PRIVATE_KEY
     if not key or key.startswith("0x..."):
         raise RuntimeError("Signer private key is not configured in backend/.env")
@@ -177,16 +171,26 @@ def send_transaction(function_call, signer_private_key: str = "") -> str:
     
     tx = function_call.build_transaction({
         "from": account.address,
-        "nonce": w3.eth.get_transaction_count(account.address),
+        "nonce": w3.eth.get_transaction_count(account.address, nonce_block),
         "gas": gas_limit,
         **_eip1559_fees(),
     })
 
     signed = w3.eth.account.sign_transaction(tx, key)
-    tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
-    receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+    return w3.eth.send_raw_transaction(signed.raw_transaction)
 
+
+def send_transaction(function_call, signer_private_key: str = "") -> str:
+    """Sign, send, and wait for a transaction to be mined."""
+    tx_hash = _broadcast_transaction(function_call, signer_private_key)
+    receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     return "0x" + receipt.transactionHash.hex()
+
+
+def send_transaction_pending(function_call, signer_private_key: str = "") -> str:
+    """Send a transaction and return its hash without waiting for mining."""
+    tx_hash = _broadcast_transaction(function_call, signer_private_key, nonce_block="pending")
+    return "0x" + tx_hash.hex()
 
 
 def send_transaction_async(function_call, signer_private_key: str = "") -> None:

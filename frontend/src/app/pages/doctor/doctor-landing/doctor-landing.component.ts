@@ -634,10 +634,12 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                      class="px-3 py-2.5 text-sm" />
             </label>
           </div>
-          <button (click)="addMeasurement()" [disabled]="busyMeas"
-                  class="btn-primary">
-            {{ busyMeas ? 'Saving…' : 'Record measurement' }}
-          </button>
+          <div class="mt-5 flex justify-end">
+            <button (click)="addMeasurement()" [disabled]="busyMeas"
+                    class="btn-primary w-full sm:w-auto">
+              {{ busyMeas ? 'Saving…' : 'Record measurement' }}
+            </button>
+          </div>
           <p *ngIf="measMsg" class="mb-0 mt-2 text-sm"
              [class]="measOk ? 'text-accent-700' : (measPending ? 'text-amber-800' : 'text-red-600')">
             {{ measMsg }}
@@ -991,7 +993,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   tabs = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'patients', label: 'My Patients' },
-    { id: 'find', label: 'Find Patient' },
+    { id: 'find', label: 'Patient History' },
     { id: 'measurements', label: 'Measurements' },
     { id: 'referrals', label: 'Referrals' },
     { id: 'requests', label: 'My Requests' },

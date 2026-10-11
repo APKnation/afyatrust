@@ -381,8 +381,8 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <!-- Access status -->
             <div class="mt-4 flex flex-wrap items-center gap-3">
               <span class="rounded-full px-3 py-1 text-xs font-bold"
-                    [class."bg-accent-500 text-white"]="!denied"
-                    [class."bg-red-500 text-white"]="denied">
+                    [class.bg-accent-500]="!denied" [class.text-white]="!denied"
+                    [class.bg-red-500]="denied" [class.text-white]="denied">
                 {{ denied ? 'No access permission' : 'Access granted' }}
               </span>
               <span class="text-xs text-muted">

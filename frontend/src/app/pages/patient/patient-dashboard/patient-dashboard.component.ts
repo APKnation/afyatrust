@@ -448,7 +448,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Pending operations</p>
-                  <p class="text-2xl font-bold" [class."text-red-600"]="walletActivity.pendingOperations > 0">{{ walletActivity.pendingOperations }}</p>
+                  <p class="text-2xl font-bold" [class.text-red-600]="walletActivity.pendingOperations > 0">{{ walletActivity.pendingOperations }}</p>
                   <p class="text-xs text-muted">access requests waiting for your answer</p>
                 </div>
               </dl>
@@ -485,7 +485,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Expiring soon</p>
-                  <p class="text-2xl font-bold" [class."text-amber-600"]="walletGrants.expiringSoon > 0">{{ walletGrants.expiringSoon }}</p>
+                  <p class="text-2xl font-bold" [class.text-amber-600]="walletGrants.expiringSoon > 0">{{ walletGrants.expiringSoon }}</p>
                   <p class="text-xs text-muted">expire within 7 days</p>
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -547,7 +547,9 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 Update your name and phone. These changes take effect immediately.
               </p>
 
-              <div *ngIf="editMsg" class="mb-4 rounded-lg border p-3 text-sm" [class."text-accent-900 bg-accent-50 border-accent-200"]="editOk" [class."text-red-700 bg-red-50 border-red-200"]="!editOk">
+              <div *ngIf="editMsg" class="mb-4 rounded-lg border p-3 text-sm"
+                   [class.text-accent-900]="editOk" [class.bg-accent-50]="editOk" [class.border-accent-200]="editOk"
+                   [class.text-red-700]="!editOk" [class.bg-red-50]="!editOk" [class.border-red-200]="!editOk">
                 {{ editMsg }}
               </div>
 
@@ -596,12 +598,12 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Pending requests</p>
-                  <p class="text-2xl font-bold" [class."text-red-600"]="grantSummary.pendingCount > 0">{{ grantSummary.pendingCount }}</p>
+                  <p class="text-2xl font-bold" [class.text-red-600]="grantSummary.pendingCount > 0">{{ grantSummary.pendingCount }}</p>
                   <p class="text-xs text-muted">waiting for your answer</p>
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Expiring soon</p>
-                  <p class="text-2xl font-bold" [class."text-amber-600"]="grantSummary.expiringSoon > 0">{{ grantSummary.expiringSoon }}</p>
+                  <p class="text-2xl font-bold" [class.text-amber-600]="grantSummary.expiringSoon > 0">{{ grantSummary.expiringSoon }}</p>
                   <p class="text-xs text-muted">expire within 7 days</p>
                 </div>
               </dl>
@@ -690,9 +692,9 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                     </div>
                   </div>
                   <span class="rounded-full px-3 py-1 text-xs font-bold"
-                        [class."bg-accent-500 text-white"]="r.status === 'ACCEPTED'"
-                        [class."bg-red-500 text-white"]="r.status === 'DECLINED'"
-                        [class."bg-primary-300 text-ink"]="r.status === 'PENDING'">
+                        [class.bg-accent-500]="r.status === 'ACCEPTED'" [class.text-white]="r.status === 'ACCEPTED'"
+                        [class.bg-red-500]="r.status === 'DECLINED'" [class.text-white]="r.status === 'DECLINED'"
+                        [class.bg-primary-300]="r.status === 'PENDING'" [class.text-ink]="r.status === 'PENDING'">
                     {{ r.status }}
                   </span>
                 </div>
@@ -763,8 +765,8 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                         <span class="text-slate-900">{{ rec.record_hash | slice:0:32 }}…</span>
                       </div>
                       <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                        <span class="font-semibold" [class."text-accent-700"]="rec.verified"
-                              [class."text-muted"]="!rec.verified">
+                        <span class="font-semibold" [class.text-accent-700]="rec.verified"
+                              [class.text-muted]="!rec.verified">
                           {{ rec.verified ? 'On-chain verified ✓' : 'Pending' }}
                         </span>
                         <span *ngIf="rec.metadata_uri" class="text-muted">

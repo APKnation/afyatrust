@@ -24,10 +24,10 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <!-- Hero header -->
         <div class="card">
-          <div class="bg-gradient-to-r from-primary-500 to-primary-600 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center justify-between gap-4 bg-slate-900 px-6 py-4">
             <div>
               <h1 class="text-2xl font-bold text-white sm:text-3xl">Hospital Dashboard</h1>
-              <p class="text-primary-100 mt-1">{{ hospitalName || 'Hospital' }} • {{ auth.fullName }}</p>
+              <p class="mt-1 text-slate-300">{{ hospitalName || 'Hospital' }} • {{ auth.fullName }}</p>
             </div>
             <button (click)="logoutAndRedirect()" class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold rounded-xl transition-colors">
               Sign Out
@@ -609,7 +609,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     <footer class="border-t border-gray-200 mt-12 bg-white">
       <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
         <div class="flex items-center gap-2">
-          <strong class="font-heading text-ink">AfyaTrust</strong>
+          <strong class="brand-wordmark text-ink">AfyaTrust</strong>
         </div>
         <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
         <div class="flex gap-5">

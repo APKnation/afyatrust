@@ -19,7 +19,7 @@ import { AuthService } from '../../services/auth.service';
     <nav class="absolute top-0 left-0 right-0 z-50 px-6 py-5 lg:px-12">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <a routerLink="/" class="text-2xl font-bold text-slate-900 tracking-tight cursor-pointer">Afya<span class="text-primary-500">Trust</span></a>
+          <a routerLink="/" class="brand-wordmark text-2xl text-slate-900 no-underline">Afya<span class="text-primary-700">Trust</span></a>
         </div>
         <div class="hidden md:flex items-center gap-4">
           <a routerLink="/" class="text-slate-500 hover:text-slate-900 font-medium transition-colors">Back to Home</a>
@@ -48,8 +48,8 @@ import { AuthService } from '../../services/auth.service';
       <div class="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 pt-28 pb-12 overflow-y-auto">
         <div class="max-w-[440px] w-full mx-auto">
           <div class="mb-10">
-            <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Join AfyaTrust</h1>
-            <p class="text-slate-500 text-base leading-relaxed">Your health records, kept safe. You decide who sees them, always.</p>
+            <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Create your account</h1>
+            <p class="text-slate-500 text-base leading-relaxed">Set up your health record and choose who can access it.</p>
           </div>
 
           <div *ngIf="error" class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-3">
@@ -59,17 +59,17 @@ import { AuthService } from '../../services/auth.service';
           <form (ngSubmit)="register()" #form="ngForm" class="flex flex-col gap-5">
 
             <div class="space-y-1.5">
-              <label class="text-sm font-semibold text-slate-700">Full Name</label>
+              <label class="text-sm font-semibold text-slate-700">Full name</label>
               <input type="text" name="full_name" [(ngModel)]="model.full_name" required
                      class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
-                     placeholder="John Doe" />
+                     placeholder="Enter your full name" />
             </div>
 
             <div class="space-y-1.5">
               <label class="text-sm font-semibold text-slate-700">Health ID</label>
               <input type="text" name="health_id" [(ngModel)]="model.health_id" required
                      class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
-                     placeholder="e.g. 123456789" />
+                     placeholder="Enter your Health ID" />
             </div>
 
             <div class="space-y-1.5">
@@ -85,41 +85,41 @@ import { AuthService } from '../../services/auth.service';
 
             <div class="space-y-1.5">
               <label class="text-sm font-semibold text-slate-700 flex items-center justify-between">
-                <span>Phone Number</span>
+                <span>Phone number</span>
                 <span class="text-xs text-slate-400 font-normal">Optional</span>
               </label>
               <input type="text" name="phone" [(ngModel)]="model.phone"
                      class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
-                     placeholder="+255 700 000 000" />
+                     placeholder="Enter your phone number" />
             </div>
 
             <div class="grid grid-cols-2 gap-4">
               <div class="space-y-1.5">
-                <label class="text-sm font-semibold text-slate-700">PIN (4 digits)</label>
+                <label class="text-sm font-semibold text-slate-700">Create a 4-digit PIN</label>
                 <input type="password" name="pin" [(ngModel)]="model.pin" required
                        minlength="4" maxlength="4" pattern="[0-9]*" inputmode="numeric"
                        class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 text-center font-mono text-xl tracking-[0.5em] outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
-                       placeholder="••••" />
+                       placeholder="Create your PIN" />
               </div>
               <div class="space-y-1.5">
-                <label class="text-sm font-semibold text-slate-700">Confirm PIN</label>
+                <label class="text-sm font-semibold text-slate-700">Confirm your PIN</label>
                 <input type="password" name="pin2" [(ngModel)]="model.pin2" required
                        minlength="4" maxlength="4" pattern="[0-9]*" inputmode="numeric"
                        class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 text-center font-mono text-xl tracking-[0.5em] outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
-                       placeholder="••••" />
+                       placeholder="Re-enter your PIN" />
               </div>
             </div>
 
             <button type="submit"
                     [disabled]="loading || !model.full_name || !model.health_id || !model.facility_id || model.pin.length !== 4"
                     class="btn-primary w-full py-4 mt-4 text-base rounded-xl shadow-lg shadow-primary-500/25">
-              {{ loading ? 'Generating Wallet & Registering…' : 'Complete Registration' }}
+              {{ loading ? 'Creating your account…' : 'Create account' }}
             </button>
           </form>
 
           <p class="mt-8 text-center text-slate-500 font-medium">
-            Already registered?
-            <a routerLink="/login" class="font-bold text-primary-600 hover:text-primary-700 transition-colors ml-1">Log in here</a>
+            Already have an account?
+            <a routerLink="/login" class="font-bold text-primary-600 hover:text-primary-700 transition-colors ml-1">Sign in</a>
           </p>
         </div>
       </div>
@@ -135,18 +135,18 @@ import { AuthService } from '../../services/auth.service';
 
         <!-- Glassmorphism card -->
         <div class="relative z-10 max-w-lg w-full text-center px-10 py-14 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl">
-          <h2 class="text-4xl font-bold text-white mb-6 leading-[1.15] tracking-tight">Your health.<br/>Your privacy.</h2>
-          <p class="text-lg text-slate-300 font-light leading-relaxed mb-10">AfyaTrust gives you peace of mind knowing your medical information is always safe, private, and accessible only to people you trust.</p>
+          <h2 class="text-4xl font-bold text-white mb-6 leading-[1.15] tracking-tight">Your records.<br/>Your choice.</h2>
+          <p class="text-lg text-slate-300 font-light leading-relaxed mb-10">Keep your health information private and in your control.</p>
 
           <div class="flex flex-col gap-3 text-left">
             <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-              <span class="text-slate-300 text-sm">You choose who can see your records</span>
+              <span class="text-slate-300 text-sm">Approve access requests</span>
             </div>
             <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-              <span class="text-slate-300 text-sm">Revoke access at any time, instantly</span>
+              <span class="text-slate-300 text-sm">Revoke access whenever you choose</span>
             </div>
             <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-              <span class="text-slate-300 text-sm">Your doctor sees exactly what you allow</span>
+              <span class="text-slate-300 text-sm">Review every record view</span>
             </div>
           </div>
         </div>

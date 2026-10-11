@@ -20,7 +20,7 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
     <nav class="absolute top-0 left-0 right-0 z-50 px-6 py-5 lg:px-12">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <a routerLink="/" class="text-2xl font-bold text-slate-900 tracking-tight cursor-pointer">Afya<span class="text-primary-500">Trust</span></a>
+          <a routerLink="/" class="brand-wordmark text-2xl text-slate-900 no-underline">Afya<span class="text-primary-700">Trust</span></a>
         </div>
         <div class="hidden md:flex items-center gap-4">
           <a routerLink="/" class="text-slate-500 hover:text-slate-900 font-medium transition-colors">Back to Home</a>
@@ -47,8 +47,8 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
       <div class="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 pt-24 pb-12 overflow-y-auto">
         <div class="max-w-[420px] w-full mx-auto">
           <div class="mb-10">
-            <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Welcome back</h1>
-            <p class="text-slate-500 text-lg">Your health records are safe and waiting for you.</p>
+            <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Sign in to AfyaTrust</h1>
+            <p class="text-slate-500 text-lg">View your records and manage access.</p>
           </div>
           
           <div *ngIf="error" class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-3 animate-fade-in">
@@ -57,28 +57,28 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
 
           <form (ngSubmit)="login()" #form="ngForm" class="flex flex-col gap-5">
             <div class="space-y-1.5">
-              <label class="text-sm font-semibold text-slate-700">Health ID or License</label>
+              <label class="text-sm font-semibold text-slate-700">Health ID or medical license</label>
               <input type="text" name="identity" [(ngModel)]="identity" required autocomplete="username" 
                      class="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all" 
-                     placeholder="Enter your ID" />
+                     placeholder="Enter your Health ID or license" />
             </div>
 
             <div class="space-y-1.5">
-              <label class="text-sm font-semibold text-slate-700">Secure PIN</label>
+              <label class="text-sm font-semibold text-slate-700">4-digit PIN</label>
               <input type="password" name="secret" [(ngModel)]="secret" required autocomplete="current-password" 
                      class="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all tracking-widest font-mono text-lg" 
-                     placeholder="••••" />
+                     placeholder="Enter your PIN" />
             </div>
 
             <button type="submit" [disabled]="loading || !identity || !secret" 
                     class="btn-primary w-full py-4 mt-4 text-lg rounded-xl shadow-lg shadow-primary-500/25">
-              {{ loading ? 'Authenticating…' : 'Log into your account' }}
+              {{ loading ? 'Signing in…' : 'Sign in securely' }}
             </button>
           </form>
 
           <p class="mt-8 text-center text-slate-500 font-medium">
-            Don't have an account? 
-            <a routerLink="/register" class="font-bold text-primary-600 hover:text-primary-700 transition-colors ml-1">Register here</a>
+            New to AfyaTrust?
+            <a routerLink="/register" class="font-bold text-primary-600 hover:text-primary-700 transition-colors ml-1">Create an account</a>
           </p>
         </div>
       </div>
@@ -93,18 +93,18 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
         
         <!-- Glassmorphism overlay card -->
         <div class="relative z-10 max-w-lg w-full text-center px-10 py-16 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl">
-          <h2 class="text-4xl font-bold text-white mb-6 leading-[1.15] tracking-tight">Trusted by patients.<br/>Trusted by doctors.</h2>
-          <p class="text-lg text-slate-300 font-light leading-relaxed mb-10">AfyaTrust keeps your medical history private and secure. Only you decide who gets to see it — and you can change that decision at any time.</p>
+          <h2 class="text-4xl font-bold text-white mb-6 leading-[1.15] tracking-tight">Your health.<br/>Your choice.</h2>
+          <p class="text-lg text-slate-300 font-light leading-relaxed mb-10">Private records. Access on your terms.</p>
 
           <div class="flex flex-col gap-3 text-left">
             <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-              <span class="text-slate-300 text-sm">Your records are never shared without your approval</span>
+              <span class="text-slate-300 text-sm">You approve every request</span>
             </div>
             <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-              <span class="text-slate-300 text-sm">See exactly who viewed your information and when</span>
+              <span class="text-slate-300 text-sm">See who accessed your records</span>
             </div>
             <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-              <span class="text-slate-300 text-sm">Seamless referrals between hospitals you trust</span>
+              <span class="text-slate-300 text-sm">Revoke access at any time</span>
             </div>
           </div>
         </div>

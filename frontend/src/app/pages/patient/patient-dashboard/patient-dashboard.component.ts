@@ -913,9 +913,9 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           </div>
 
           <!-- HEALTH SUMMARY -->
-          <div *ngIf="tab === 'health-summary'" class="space-y-6 animate-fade-in">
+          <div *ngIf="tab === 'dashboard'" class="space-y-6 animate-fade-in">
             <div>
-              <h1 class="text-2xl font-bold text-slate-900 mb-2">Health Summary</h1>
+              <h1 class="text-2xl font-bold text-slate-900 mb-2">Dashboard</h1>
               <p class="text-slate-600">
                 A quick overview of your medical history across all hospitals — your most-
                 used medicines, most frequent measurements, common diagnoses, and which
@@ -1102,7 +1102,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     <footer class="border-t border-gray-200 mt-12 bg-white">
       <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
         <div class="flex items-center gap-2">
-          <strong class="font-heading text-ink">AfyaTrust</strong>
+          <strong class="brand-wordmark text-ink">AfyaTrust</strong>
         </div>
         <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
         <div class="flex gap-5">
@@ -1184,8 +1184,9 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
 })
 export class PatientDashboardComponent implements OnInit, OnDestroy {
-  tab: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'health-summary' | 'how-it-works' = 'records';
+  tab: 'dashboard' | 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'how-it-works' = 'dashboard';
   tabs = [
+    { id: 'dashboard', label: 'Dashboard' },
     { id: 'records', label: 'Records' },
     { id: 'measurements', label: 'Measurements' },
     { id: 'referrals', label: 'Referrals' },
@@ -1195,7 +1196,6 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     { id: 'wallet', label: 'Wallet' },
     { id: 'profile', label: 'Profile' },
     { id: 'referral-security', label: 'Referral Security' },
-    { id: 'health-summary', label: 'Health Summary' },
     { id: 'how-it-works', label: 'How it works' },
   ] as const;
 
@@ -1245,7 +1245,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  setTab(id: 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'health-summary' | 'how-it-works') {
+  setTab(id: 'dashboard' | 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'how-it-works') {
     this.tab = id;
     if (id === 'activity') {
       void this.loadStory();
@@ -1258,9 +1258,6 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     }
     if (id === 'referral-security') {
       void this.loadReferralSecurity();
-    }
-    if (id === 'health-summary') {
-      this.syncView();
     }
     this.syncView();
   }
@@ -1690,6 +1687,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       try {
         const fresh = await this.api.myRecords();
         this.data = fresh;
+        this.computeHealthSummary();
         this.errorMsg = '';
         changed = true;
       } catch {
@@ -1728,6 +1726,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       // arrives instead of waiting on the (non-critical) request list.
       const data = await this.api.myRecords();
       this.data = data;
+      this.computeHealthSummary();
     } catch (e: any) {
       // 401 = token expired: log the user out so the login page handles it
       if (e?.status === 401) {

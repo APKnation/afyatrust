@@ -5,8 +5,7 @@ import { AuthService } from '../../../services/auth.service';
 
 /**
  * Role-aware responsive navbar.
- * Clean typographic design to match the landing page: serif wordmark with a
- * brand dot, underline-accent links, no decorative glyphs. Desktop (≥md)
+ * Clean typographic design with a brand dot and understated navigation. Desktop (≥md)
  * shows inline links; mobile gets a hamburger dropdown (two thin bars).
  */
 @Component({
@@ -17,7 +16,7 @@ import { AuthService } from '../../../services/auth.service';
       <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-3.5">
         <!-- Brand -->
         <a
-          class="flex shrink-0 items-baseline gap-1.5 text-xl font-heading text-ink no-underline sm:text-[22px]"
+          class="brand-wordmark flex shrink-0 items-baseline gap-1.5 text-xl text-ink no-underline sm:text-[22px]"
           routerLink="/"
         >
           <strong>AfyaTrust</strong>
@@ -46,7 +45,7 @@ import { AuthService } from '../../../services/auth.service';
             <div *ngIf="auth.isPatient" class="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-surface px-4 py-2 shadow-card">
               <span class="text-sm font-bold text-ink">{{ auth.healthId }}</span>
               <span class="h-4 w-px bg-gray-200" aria-hidden="true"></span>
-              <a routerLink="/account" class="text-sm font-semibold text-accent-700 no-underline hover:underline">Account</a>
+              <a routerLink="/account" class="text-sm font-medium text-primary-700 no-underline hover:underline">Account</a>
               <button (click)="signOut()"
                       class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
             </div>
@@ -54,9 +53,9 @@ import { AuthService } from '../../../services/auth.service';
             <!-- Doctor chip -->
             <div *ngIf="auth.isDoctor" class="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-surface px-4 py-2 shadow-card">
               <span class="text-sm font-bold text-ink">Dr. {{ auth.fullName }}</span>
-              <span class="rounded-full bg-accent-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-accent-800">Verified</span>
+              <span class="rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-primary-800">Verified</span>
               <span class="h-4 w-px bg-gray-200" aria-hidden="true"></span>
-              <a routerLink="/account" class="text-sm font-semibold text-accent-700 no-underline hover:underline">Account</a>
+              <a routerLink="/account" class="text-sm font-medium text-primary-700 no-underline hover:underline">Account</a>
               <button (click)="signOut()"
                       class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
             </div>
@@ -65,7 +64,7 @@ import { AuthService } from '../../../services/auth.service';
             <div *ngIf="auth.isStaff" class="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-surface px-4 py-2 shadow-card">
               <span class="text-sm font-bold text-ink">{{ auth.fullName }}</span>
               <span class="h-4 w-px bg-gray-200" aria-hidden="true"></span>
-              <a routerLink="/account" class="text-sm font-semibold text-accent-700 no-underline hover:underline">Account</a>
+              <a routerLink="/account" class="text-sm font-medium text-primary-700 no-underline hover:underline">Account</a>
               <button (click)="signOut()"
                       class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
             </div>
@@ -73,9 +72,9 @@ import { AuthService } from '../../../services/auth.service';
             <!-- Visitor CTAs -->
             <ng-container *ngIf="!auth.isAuthenticated()">
               <a routerLink="/login"
-                 class="rounded-lg bg-primary-500 px-4 py-2 text-sm font-bold text-ink no-underline transition-colors hover:bg-primary-400">Sign in</a>
+                 class="rounded-md px-4 py-2 text-sm font-medium text-ink no-underline transition-colors hover:bg-slate-50">Sign in</a>
               <a routerLink="/register"
-                 class="rounded-lg bg-accent-500 px-4 py-2 text-sm font-bold text-white no-underline transition-colors hover:bg-accent-600">Register</a>
+                 class="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-ink no-underline transition-colors hover:bg-primary-600">Register</a>
             </ng-container>
           </div>
         </div>
@@ -83,7 +82,7 @@ import { AuthService } from '../../../services/auth.service';
         <!-- Mobile: compact session + hamburger -->
         <div class="flex items-center gap-2 md:hidden">
           <span *ngIf="auth.isPatient" class="text-xs font-bold text-ink">{{ auth.healthId }}</span>
-          <span *ngIf="auth.isDoctor" class="rounded-full bg-accent-100 px-2 py-0.5 text-[11px] font-bold uppercase text-accent-800">Verified</span>
+          <span *ngIf="auth.isDoctor" class="rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-medium uppercase text-primary-800">Verified</span>
           <button (click)="menuOpen = !menuOpen"
                   aria-label="Toggle menu"
                   [attr.aria-expanded]="menuOpen"
@@ -111,14 +110,14 @@ import { AuthService } from '../../../services/auth.service';
            class="block px-1 py-3 text-base font-semibold text-ink no-underline">Referral Desk</a>
 
         <a *ngIf="auth.isAuthenticated()" routerLink="/account" (click)="menuOpen = false"
-           class="mt-2 block rounded-lg px-4 py-3 text-center font-semibold text-accent-700 no-underline hover:underline">Account settings</a>
+           class="mt-2 block rounded-md px-4 py-3 text-center font-medium text-primary-700 no-underline hover:underline">Account settings</a>
         <button *ngIf="auth.isAuthenticated()" (click)="signOut()"
                 class="mt-2 w-full cursor-pointer rounded-lg bg-ink px-4 py-3 font-semibold text-white">Sign out</button>
         <ng-container *ngIf="!auth.isAuthenticated()">
           <a routerLink="/login" (click)="menuOpen = false"
-             class="mt-2 block rounded-lg bg-primary-500 px-4 py-3 text-center font-bold text-ink no-underline">Sign in</a>
+             class="mt-2 block rounded-md px-4 py-3 text-center font-medium text-ink no-underline hover:bg-slate-50">Sign in</a>
           <a routerLink="/register" (click)="menuOpen = false"
-             class="mt-2 block rounded-lg bg-accent-500 px-4 py-3 text-center font-bold text-white no-underline">Register</a>
+             class="mt-2 block rounded-md bg-primary-500 px-4 py-3 text-center font-medium text-ink no-underline hover:bg-primary-600">Register</a>
         </ng-container>
       </div>
     </nav>

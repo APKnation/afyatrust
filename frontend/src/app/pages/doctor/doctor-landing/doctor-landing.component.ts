@@ -972,7 +972,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     <footer class="border-t border-gray-200 mt-12 bg-white">
       <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
         <div class="flex items-center gap-2">
-          <strong class="font-heading text-ink">AfyaTrust</strong>
+          <strong class="brand-wordmark text-ink">AfyaTrust</strong>
         </div>
         <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
         <div class="flex gap-5">

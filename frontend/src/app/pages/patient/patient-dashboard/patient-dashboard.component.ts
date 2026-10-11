@@ -56,8 +56,13 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 </div>
                 <div class="flex-1 min-w-0">
                   <p class="text-xs text-slate-500">Custodial Wallet</p>
-                  <code class="text-xs font-mono text-slate-700 truncate block">{{ data.wallet_address | slice:0:12 }}…</code>
+                  <code class="text-xs font-mono text-slate-700 truncate block">{{ walletVisible ? data.wallet_address : 'Hidden' }}</code>
                 </div>
+                <button type="button" (click)="walletVisible = !walletVisible"
+                        class="text-xs font-semibold text-primary-700 hover:underline"
+                        [attr.aria-expanded]="walletVisible">
+                  {{ walletVisible ? 'Hide wallet' : 'View wallet' }}
+                </button>
               </div>
             </div>
 
@@ -397,13 +402,21 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   </div>
                   <div>
                     <p class="text-xs text-slate-500">Wallet address (checksummed)</p>
-                    <p class="text-sm font-mono font-semibold text-slate-900 break-all">{{ walletActivity.wallet_address }}</p>
+                    <p *ngIf="walletVisible" class="text-sm font-mono font-semibold text-slate-900 break-all">{{ walletActivity.wallet_address }}</p>
+                    <p *ngIf="!walletVisible" class="text-sm text-slate-500">Hidden</p>
                   </div>
                 </div>
-                <button (click)="copyWalletAddress()"
+                <div class="flex flex-wrap gap-2">
+                  <button type="button" (click)="walletVisible = !walletVisible"
+                          class="flex-shrink-0 px-4 py-2 border border-slate-300 text-slate-700 text-sm font-semibold rounded-xl hover:bg-white transition-colors"
+                          [attr.aria-expanded]="walletVisible">
+                    {{ walletVisible ? 'Hide wallet' : 'View wallet' }}
+                  </button>
+                  <button *ngIf="walletVisible" type="button" (click)="copyWalletAddress()"
                         class="flex-shrink-0 self-start px-4 py-2 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">
-                  Copy address
-                </button>
+                    Copy address
+                  </button>
+                </div>
               </div>
 
               <div class="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
@@ -511,8 +524,16 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   <p class="text-sm text-slate-900">{{ profileInfo.phone || '—' }}</p>
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Wallet address</p>
-                  <p class="text-xs font-mono text-slate-900 break-all">{{ profileInfo.wallet_address }}</p>
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Wallet address</p>
+                    <button type="button" (click)="walletVisible = !walletVisible"
+                            class="text-xs font-semibold text-primary-700 hover:underline"
+                            [attr.aria-expanded]="walletVisible">
+                      {{ walletVisible ? 'Hide wallet' : 'View wallet' }}
+                    </button>
+                  </div>
+                  <p *ngIf="walletVisible" class="text-xs font-mono text-slate-900 break-all">{{ profileInfo.wallet_address }}</p>
+                  <p *ngIf="!walletVisible" class="text-xs text-slate-500">Hidden</p>
                 </div>
               </dl>
             </div>
@@ -824,9 +845,9 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           <!-- HOW IT WORKS -->
           <div *ngIf="tab === 'how-it-works'" class="space-y-6 animate-fade-in">
             <div class="card p-6">
-              <h1 class="text-2xl font-bold text-slate-900 mb-2">How AfyaTrust Works</h1>
+              <h1 class="text-2xl font-bold text-slate-900 mb-2">How it works</h1>
               <p class="text-slate-600">
-                AfyaTrust gives you complete control over your medical records using blockchain technology.
+                You stay in control of who can access your medical records.
               </p>
             </div>
 
@@ -1125,12 +1146,9 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     <!-- FOOTER -->
     <footer class="border-t border-gray-200 mt-12 bg-white">
       <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
-        <div class="flex items-center gap-2">
-          <strong class="brand-wordmark text-ink">AfyaTrust</strong>
-        </div>
         <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
         <div class="flex gap-5">
-          <span class="text-muted">&copy; 2024 AfyaTrust</span>
+          <span class="text-muted">&copy; 2024</span>
         </div>
       </div>
     </footer>
@@ -1296,6 +1314,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     lastActivityAt: number | null;
     pendingOperations: number;
   } | null = null;
+  walletVisible = false;
 
   get diagnosisChartData(): RecordChartPoint[] {
     return (this.healthSummary?.diagnoses ?? []).map((item) => ({ label: item.type, value: item.count }));

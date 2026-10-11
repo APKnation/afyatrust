@@ -47,7 +47,7 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
       <div class="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 pt-24 pb-12 overflow-y-auto">
         <div class="max-w-[420px] w-full mx-auto">
           <div class="mb-10">
-            <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Sign in to AfyaTrust</h1>
+            <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Sign in</h1>
             <p class="text-slate-500 text-lg">View your records and manage access.</p>
           </div>
           
@@ -77,7 +77,7 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
           </form>
 
           <p class="mt-8 text-center text-slate-500 font-medium">
-            New to AfyaTrust?
+            Need an account?
             <a routerLink="/register" class="font-bold text-primary-600 hover:text-primary-700 transition-colors ml-1">Create an account</a>
           </p>
         </div>

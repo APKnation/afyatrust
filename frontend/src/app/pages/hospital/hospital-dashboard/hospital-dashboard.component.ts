@@ -550,7 +550,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       <!-- ================= HOW IT WORKS ================= -->
       <div *ngIf="tab === 'how-it-works'" class="animate-fade-in">
         <div class="card p-6">
-          <h2 class="text-xl font-bold text-slate-900 mb-1">How AfyaTrust Works</h2>
+          <h2 class="text-xl font-bold text-slate-900 mb-1">How it works</h2>
           <p class="text-sm text-muted">
             Guide for hospital staff on managing referrals and securing patient data.
           </p>
@@ -608,12 +608,9 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     <!-- FOOTER -->
     <footer class="border-t border-gray-200 mt-12 bg-white">
       <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
-        <div class="flex items-center gap-2">
-          <strong class="brand-wordmark text-ink">AfyaTrust</strong>
-        </div>
         <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
         <div class="flex gap-5">
-          <span class="text-muted">&copy; 2024 AfyaTrust</span>
+          <span class="text-muted">&copy; 2024</span>
         </div>
       </div>
     </footer>

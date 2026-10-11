@@ -102,9 +102,15 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Custodial Wallet Address</p>
-            <div class="flex items-center gap-2">
-              <code class="flex-1 text-xs font-mono break-all text-slate-800">{{ walletAddress }}</code>
-              <button (click)="doctorCopyWallet()"
+            <div class="flex flex-wrap items-center gap-2">
+              <code *ngIf="walletVisible" class="flex-1 text-xs font-mono break-all text-slate-800">{{ walletAddress }}</code>
+              <span *ngIf="!walletVisible" class="flex-1 text-xs text-slate-500">Hidden</span>
+              <button type="button" (click)="walletVisible = !walletVisible"
+                      class="flex-shrink-0 px-3 py-1.5 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors"
+                      [attr.aria-expanded]="walletVisible">
+                {{ walletVisible ? 'Hide wallet' : 'View wallet' }}
+              </button>
+              <button *ngIf="walletVisible" type="button" (click)="doctorCopyWallet()"
                       class="flex-shrink-0 px-3 py-1.5 bg-primary-500 text-white text-xs font-semibold rounded-lg hover:bg-primary-600 transition-colors shadow-sm">
                 Copy
               </button>
@@ -882,7 +888,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       <!-- ================= HOW IT WORKS ================= -->
       <div *ngIf="tab === 'how-it-works'" class="animate-fade-in">
         <div class="card p-6">
-          <h2 class="text-xl font-bold text-slate-900 mb-1">How AfyaTrust Works</h2>
+          <h2 class="text-xl font-bold text-slate-900 mb-1">How it works</h2>
           <p class="text-sm text-muted">
             A guide for healthcare providers on using the platform securely and effectively.
           </p>
@@ -960,7 +966,8 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
             <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
               <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Wallet Address</p>
-              <p class="text-xs font-mono text-slate-900 break-all">{{ walletAddress }}</p>
+              <p *ngIf="walletVisible" class="text-xs font-mono text-slate-900 break-all">{{ walletAddress }}</p>
+              <p *ngIf="!walletVisible" class="text-xs text-slate-500">Hidden</p>
             </div>
           </div>
         </div>
@@ -971,12 +978,9 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     <!-- FOOTER -->
     <footer class="border-t border-gray-200 mt-12 bg-white">
       <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
-        <div class="flex items-center gap-2">
-          <strong class="brand-wordmark text-ink">AfyaTrust</strong>
-        </div>
         <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
         <div class="flex gap-5">
-          <span class="text-muted">&copy; 2024 AfyaTrust</span>
+          <span class="text-muted">&copy; 2024</span>
         </div>
       </div>
     </footer>
@@ -1003,6 +1007,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   hospitalName = '';
   myHospitalCode = '';
   walletAddress = '';
+  walletVisible = false;
 
   // patients
   patients: AssignedPatient[] = [];

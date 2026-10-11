@@ -267,14 +267,14 @@ import { AuthService } from '../../services/auth.service';
 
           <!-- Description (right) -->
           <div>
-            <span class="eyebrow">Why AfyaTrust</span>
+            <span class="eyebrow">Why it matters</span>
             <h2 class="mt-4 text-[28px] font-bold sm:text-4xl">
               One record, every facility — without giving up control
             </h2>
             <p class="mt-4 text-muted">
               Paper records can be hard to find when you visit another facility.
-              AfyaTrust helps your care team find the records held by your
-              facility, while you stay informed about who views them.
+              Your care team can find the records held by your facility, while
+              you stay informed about who views them.
             </p>
             <ul class="mt-6 flex flex-col gap-3">
               <li class="flex items-start gap-3">
@@ -404,9 +404,6 @@ import { AuthService } from '../../services/auth.service';
     <!-- ================= FOOTER ================= -->
     <footer class="border-t border-gray-200">
       <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
-        <div class="flex items-center gap-2">
-          <strong class="brand-wordmark text-ink">AfyaTrust</strong>
-        </div>
         <p class="m-0 text-center">UDOM · Built by Atanasi Patrick Kafuka</p>
         <div class="flex gap-5">
           <a *ngIf="!auth.isAuthenticated()" routerLink="/login" class="text-accent-700 no-underline hover:underline">Sign in</a>

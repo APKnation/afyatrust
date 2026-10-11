@@ -46,8 +46,13 @@ import { AuthService } from '../../services/auth.service';
             </div>
             <div class="flex flex-wrap items-center justify-between gap-3">
               <span class="text-xs text-muted uppercase tracking-wide">Wallet address</span>
-              <span class="text-xs font-mono text-ink break-all">{{ profile?.wallet_address }}</span>
+              <button type="button" (click)="walletVisible = !walletVisible"
+                      class="text-xs font-semibold text-primary-700 hover:underline"
+                      [attr.aria-expanded]="walletVisible">
+                {{ walletVisible ? 'Hide wallet' : 'View wallet' }}
+              </button>
             </div>
+            <div *ngIf="walletVisible" class="text-xs font-mono text-ink break-all">{{ profile?.wallet_address }}</div>
             <div class="flex flex-wrap items-center justify-between gap-3">
               <span class="text-xs text-muted uppercase tracking-wide">Role</span>
               <span class="text-sm font-semibold text-ink">{{ roleLabel }}</span>
@@ -158,6 +163,7 @@ import { AuthService } from '../../services/auth.service';
   `,
 })
 export class AccountComponent implements OnInit {
+  walletVisible = false;
   current = '';
   next = '';
   confirm = '';

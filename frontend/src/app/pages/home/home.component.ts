@@ -63,9 +63,9 @@ import { AuthService } from '../../services/auth.service';
     <!-- ================= HERO ================= -->
     <section class="relative isolate overflow-hidden">
       <picture>
-        <source media="(max-width: 767px)" srcset="matibabu-mobile.jpg" />
+        <source media="(max-width: 767px)" srcset="picha1.jpg" />
         <img
-          src="matibabu-hero.jpg"
+          src="picha1.jpg"
           alt="Health workers attending to a patient"
           class="absolute inset-0 -z-10 h-full w-full object-cover"
           fetchpriority="high"
@@ -258,7 +258,7 @@ import { AuthService } from '../../services/auth.service';
           <!-- Image (left) -->
           <div class="overflow-hidden rounded-xl shadow-card">
             <img
-              src="matibabu.jpg"
+              src="picha.jpg"
               alt="A clinician reviewing a patient's digital health record"
               class="h-64 w-full object-cover sm:h-80 lg:h-[420px]"
               loading="lazy"
@@ -337,7 +337,7 @@ import { AuthService } from '../../services/auth.service';
           <!-- Image (right) -->
           <div class="overflow-hidden rounded-xl shadow-card">
             <img
-              src="matibabu-hero.jpg"
+              src="hospital.jpg"
               alt="Health workers attending to a patient at a facility"
               class="h-64 w-full object-cover sm:h-80 lg:h-[420px]"
               loading="lazy"

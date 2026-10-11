@@ -3,7 +3,7 @@ import { NgIf, NgFor, DatePipe, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
-  AccessRequest, ApiService, AssignedPatient, HospitalOption, MeasurementItem, PatientRecord, ReferralItem,
+  AccessRequest, ApiService, AssignedPatient, DoctorDashboard, HospitalOption, MeasurementItem, PatientRecord, ReferralItem,
   BlockchainEvent,
 } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
@@ -13,6 +13,8 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
  * Doctor workspace (PIN-login, JWT-identified).
  * Clean typographic design matching the landing page — no decorative glyphs.
  * - My Patients: everyone who granted this doctor access, with liveness.
+ * - Dashboard: practice-wide stats and charts — every doctor at every
+ *   hospital sees the same overview, scoped to their own patients.
  * - Patient detail: records, measurements (add new), referral to another
  *   hospital via a dropdown, plus the full access-request / break-glass flow.
  */
@@ -165,6 +167,87 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         </div>
       </div>
 
+      <!-- ================= DASHBOARD (overview + charts) ================= -->
+      <div *ngIf="tab === 'dashboard'" class="animate-fade-in">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 mb-1">Practice Dashboard</h2>
+            <p class="m-0 text-sm text-muted">
+              Overview of your work across all hospitals you operate in. Every doctor
+              sees the same panels, scoped to their own patients and actions.
+            </p>
+          </div>
+          <button (click)="loadDashboard()" [disabled]="loadingDashboard"
+                  class="btn-secondary">
+            Refresh
+          </button>
+        </div>
+
+        <!-- STAT CARDS -->
+        <div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div class="card p-5">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Total patients</p>
+            <p class="text-3xl font-bold text-ink">{{ dashboard?.total_patients ?? 0 }}</p>
+            <p class="m-0 mt-1 text-xs text-muted">{{ dashboard?.active_patients ?? 0 }} with active access</p>
+          </div>
+          <div class="card p-5">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Measurements taken</p>
+            <p class="text-3xl font-bold text-ink">{{ dashboard?.total_measurements ?? 0 }}</p>
+            <p class="m-0 mt-1 text-xs text-muted">clinical readings you recorded</p>
+          </div>
+          <div class="card p-5">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Actions</p>
+            <p class="text-3xl font-bold text-ink">{{ dashboard?.total_actions ?? 0 }}</p>
+            <p class="m-0 mt-1 text-xs text-muted">requests, measurements, referrals, break-glass</p>
+          </div>
+          <div class="card p-5">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Referrals</p>
+            <p class="text-3xl font-bold text-ink">{{ dashboard?.referrals?.sent ?? 0 }}</p>
+            <p class="m-0 mt-1 text-xs text-muted">{{ dashboard?.referrals?.incoming_pending ?? 0 }} incoming awaiting response</p>
+          </div>
+        </div>
+
+        <!-- CHARTS -->
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <app-record-chart
+            title="Which diseases exist more (rate)"
+            description="Share of your patients whose records mention each condition."
+            [data]="diseaseChartData"
+            emptyMessage="No diagnosis entries in your patients' records yet." />
+          <app-record-chart
+            title="Measurements by type"
+            description="Readings you recorded, grouped by measurement kind."
+            [data]="measurementKindChartData"
+            emptyMessage="No measurements recorded yet." />
+          <app-record-chart
+            title="Referral activity"
+            description="Referrals you sent by status, plus incoming ones awaiting a response."
+            [data]="referralChartData"
+            emptyMessage="No referrals yet." />
+          <app-record-chart
+            title="Access requests"
+            description="Your requests to view patient records and how patients answered."
+            [data]="requestChartData"
+            emptyMessage="No access requests yet." />
+        </div>
+
+        <!-- Secondary numbers -->
+        <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Break-glass uses</p>
+            <p class="text-xl font-bold text-ink">{{ dashboard?.break_glass_uses ?? 0 }}</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Referrals sent (pending)</p>
+            <p class="text-xl font-bold text-ink">{{ dashboard?.referrals?.sent_pending ?? 0 }}</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Incoming referrals</p>
+            <p class="text-xl font-bold text-ink">{{ dashboard?.referrals?.incoming_pending ?? 0 }}</p>
+          </div>
+        </div>
+      </div>
+
       <!-- ================= MY PATIENTS ================= -->
       <div *ngIf="tab === 'patients'" class="animate-fade-in">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -190,10 +273,13 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           <div class="text-right text-sm">
             <p class="m-0" [class]="p.active ? 'font-bold text-accent-700' : 'font-semibold text-red-600'">
               {{ p.active
-                ? (p.source === 'BREAK_GLASS' ? 'Emergency access' : 'Access active')
+                ? (p.source === 'BREAK_GLASS' ? 'Emergency access'
+                  : p.source === 'REFERRAL' ? 'Referred to your hospital'
+                  : 'Access active')
                 : 'Access expired or revoked' }}
             </p>
-            <p class="m-0 text-xs text-muted">until {{ p.expires_at | date:'medium' }}</p>
+            <p *ngIf="p.expires_at" class="m-0 text-xs text-muted">until {{ p.expires_at | date:'medium' }}</p>
+            <p *ngIf="!p.expires_at && p.active" class="m-0 text-xs text-muted">transfer of care</p>
           </div>
         </div>
         <div *ngIf="patients.length === 0 && !loadingPatients" class="card p-10 text-center">
@@ -300,7 +386,9 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   ? 'Request patient consent, or use break-glass only for an emergency.'
                   : (emergencyAccess
                     ? 'Temporary emergency access — expires after one hour.'
-                    : 'Patient consent verified on-chain.') }}
+                    : (referralAccess
+                      ? 'Transfer of care — an accepted referral to your hospital opens these records.'
+                      : 'Patient consent verified on-chain.')) }}
               </span>
             </div>
           </div>
@@ -318,6 +406,16 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           <div *ngIf="emergencyAccess && emergencyReason" class="card border border-red-200 bg-red-50 p-4">
             <p class="m-0 text-sm font-semibold text-red-900">Emergency access reason</p>
             <p class="mb-0 mt-1 text-sm text-red-800">{{ emergencyReason }}</p>
+          </div>
+          <div *ngIf="referralAccess && referralContext" class="card border border-indigo-200 bg-indigo-50 p-4">
+            <p class="m-0 text-sm font-semibold text-indigo-900">Referred to your hospital — transfer of care</p>
+            <p class="mb-0 mt-1 text-sm text-indigo-800">
+              <span *ngIf="referralContext.from_doctor">Dr. {{ referralContext.from_doctor }} ({{ referralContext.from_hospital || 'another hospital' }})</span>
+              <span *ngIf="!referralContext.from_doctor">{{ referralContext.from_hospital || 'Another hospital' }}</span>
+              referred this patient to your hospital.
+              <span *ngIf="referralContext.reason">Reason: {{ referralContext.reason }}.</span>
+              <span *ngIf="referralContext.accepted_at">Accepted {{ referralContext.accepted_at | date:'medium' }}.</span>
+            </p>
           </div>
           <div *ngIf="chainVerificationUnavailable" class="card border-2 border-red-400 bg-red-50 p-4">
             <p class="m-0 font-bold text-red-900">Blockchain unavailable — emergency history is unverified</p>
@@ -885,8 +983,9 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
   `,
 })
 export class DoctorLandingComponent implements OnDestroy, OnInit {
-  tab: 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' | 'how-it-works' | 'profile' = 'patients';
+  tab: 'dashboard' | 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' | 'how-it-works' | 'profile' = 'dashboard';
   tabs = [
+    { id: 'dashboard', label: 'Dashboard' },
     { id: 'patients', label: 'My Patients' },
     { id: 'find', label: 'Find Patient' },
     { id: 'measurements', label: 'Measurements' },
@@ -908,6 +1007,41 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   // patients
   patients: AssignedPatient[] = [];
   loadingPatients = false;
+
+  // dashboard overview
+  dashboard: DoctorDashboard | null = null;
+  loadingDashboard = false;
+  get diseaseChartData(): RecordChartPoint[] {
+    return (this.dashboard?.diseases ?? []).map((d) => ({
+      label: `${d.name} (${d.rate}% of patients)`,
+      value: d.count,
+    }));
+  }
+  get measurementKindChartData(): RecordChartPoint[] {
+    return (this.dashboard?.measurements_by_kind ?? []).map((m) => ({
+      label: m.kind,
+      value: m.count,
+    }));
+  }
+  get referralChartData(): RecordChartPoint[] {
+    const r = this.dashboard?.referrals;
+    if (!r) return [];
+    return [
+      { label: 'Sent — pending', value: r.sent_pending },
+      { label: 'Sent — accepted', value: r.sent_accepted },
+      { label: 'Sent — declined', value: r.sent_declined },
+      { label: 'Incoming — pending', value: r.incoming_pending },
+    ].filter((p) => p.value > 0);
+  }
+  get requestChartData(): RecordChartPoint[] {
+    const a = this.dashboard?.access_requests;
+    if (!a) return [];
+    return [
+      { label: 'Awaiting patient', value: a.pending },
+      { label: 'Approved', value: a.approved },
+      { label: 'Rejected', value: a.rejected },
+    ].filter((p) => p.value > 0);
+  }
 
   // find patient
   healthId = '';
@@ -941,6 +1075,13 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   integrityIssues: { record_hash: string | null; facility_id: string; record_type: string; reason: string }[] = [];
   emergencyAccess = false;
   emergencyReason = '';
+  referralAccess = false;
+  referralContext: {
+    from_hospital: string;
+    from_doctor: string;
+    reason: string;
+    accepted_at: string | null;
+  } | null = null;
   chainVerificationUnavailable = false;
   denied = false;
   requestSent = false;
@@ -1007,9 +1148,10 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.cdr.detectChanges();
   }
 
-  setTab(id: 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' | 'how-it-works' | 'profile') {
+  setTab(id: 'dashboard' | 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' | 'how-it-works' | 'profile') {
     this.tab = id;
     this.sidebarOpen = false; // close the mobile drawer after navigating
+    if (id === 'dashboard') void this.loadDashboard();
     if (id === 'requests') void this.loadMyRequests();
     if (id === 'transactions') void this.loadTransactions();
     this.syncView();
@@ -1036,6 +1178,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.hospitals = await this.api.hospitals().catch(() => [] as HospitalOption[]);
     this.syncView();
 
+    await this.loadDashboard();
     await this.loadPatients();
     await this.loadReferralsSent();
     await this.loadMyRequests();
@@ -1108,6 +1251,13 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       await this.api.respondReferral(r.id, action);
       await this.refreshIncoming();
       await this.loadReferralsSent();
+      if (action === 'ACCEPTED' && r.patient_health_id) {
+        // Transfer of care: the accepted referral now opens this patient's
+        // records to every doctor at this hospital. Jump straight in.
+        this.healthId = r.patient_health_id;
+        this.setTab('find');
+        await this.viewRecord();
+      }
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
     } finally {
@@ -1129,6 +1279,19 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
   setUnit() {
     this.meas.unit = this.unitsFor(this.meas.kind);
+  }
+
+  async loadDashboard() {
+    this.loadingDashboard = true;
+    this.syncView();
+    try {
+      this.dashboard = await this.api.doctorDashboard();
+    } catch {
+      this.dashboard = null; // offline or endpoint unreachable
+    } finally {
+      this.loadingDashboard = false;
+      this.syncView();
+    }
   }
 
   async loadPatients() {
@@ -1163,6 +1326,8 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.integrityIssues = [];
     this.emergencyAccess = false;
     this.emergencyReason = '';
+    this.referralAccess = false;
+    this.referralContext = null;
     this.chainVerificationUnavailable = false;
     this.viewedName = '';
     this.viewedHealthId = '';
@@ -1178,6 +1343,8 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       this.integrityIssues = res.integrity_issues || [];
       this.emergencyAccess = !!res.emergency_access;
       this.emergencyReason = res.emergency_reason || '';
+      this.referralAccess = !!res.referral_access;
+      this.referralContext = res.referral_context || null;
       this.chainVerificationUnavailable = !!res.chain_verification_unavailable;
       this.resChainChecked = res.chain_checked ?? true;
     } catch (e: any) {

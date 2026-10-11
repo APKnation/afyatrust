@@ -73,7 +73,15 @@ def _patient_from_request(request):
 
 
 def _doctor_can_view_patient(doctor, patient):
-    """Require a live chain grant or a live, explicitly marked emergency grant."""
+    """Require a live chain grant, a live emergency grant, or an accepted
+    referral TO this doctor's hospital (transfer of care for this patient).
+
+    The referral rule is what makes the Hospital A → Hospital B handoff
+    work: the referring doctor at A initiates it, the receiving hospital
+    accepts, and then ANY approved doctor at B — a different doctor than the
+    one who referred — can open and treat the same patient. The rule is
+    identical for every doctor at every hospital.
+    """
     allowed, chain_ok = cached_has_access(
         patient.health_id, doctor.wallet_address
     )
@@ -86,7 +94,15 @@ def _doctor_can_view_patient(doctor, patient):
         active=True,
         expires_at__gt=timezone.now(),
     ).exists()
-    return emergency, chain_ok
+    if emergency:
+        return True, chain_ok
+    if doctor.hospital and Referral.objects.filter(
+        patient=patient,
+        to_hospital=doctor.hospital,
+        status="ACCEPTED",
+    ).exists():
+        return True, chain_ok
+    return False, chain_ok
 
 
 def _audit(patient, events):
@@ -733,6 +749,18 @@ def doctor_view_record(request, health_id):
         expires_at__gt=timezone.now(),
     ).first()
 
+    # Referral transfer of care: an accepted referral to this doctor's
+    # hospital is the access basis only when the doctor has no personal
+    # grant of their own (a personal on-chain grant takes precedence).
+    personal_grant, _ = cached_has_access(health_id, wallet)
+    referral_grant = None
+    if not emergency_grant and not personal_grant and doctor.hospital:
+        referral_grant = Referral.objects.filter(
+            patient=patient,
+            to_hospital=doctor.hospital,
+            status="ACCEPTED",
+        ).order_by("-responded_at").first()
+
     # Fetch the record pointers so payloads can be checked against immutable
     # anchors before they are released.
     chain_records = []
@@ -928,6 +956,13 @@ def doctor_view_record(request, health_id):
         "chain_checked": chain_ok,
         "emergency_access": bool(emergency_grant),
         "emergency_reason": emergency_grant.reason if emergency_grant else "",
+        "referral_access": bool(referral_grant),
+        "referral_context": ({
+            "from_hospital": referral_grant.from_hospital.name if referral_grant and referral_grant.from_hospital else "",
+            "from_doctor": referral_grant.from_doctor.full_name if referral_grant and referral_grant.from_doctor else "",
+            "reason": referral_grant.reason if referral_grant else "",
+            "accepted_at": referral_grant.responded_at if referral_grant else None,
+        } if referral_grant else None),
         "chain_verification_unavailable": chain_verification_unavailable,
         "records": final_records,
         "measurements": measurements,
@@ -1111,8 +1146,10 @@ def doctor_patients(request):
 
     grants = AccessGrant.objects.filter(doctor=doctor).select_related("patient")
     items = []
+    listed = set()
     for g in grants:
         active, _chain_ok = _doctor_can_view_patient(doctor, g.patient)
+        listed.add(g.patient_id)
         items.append({
             "health_id": g.patient.health_id,
             "full_name": g.patient.full_name,
@@ -1121,7 +1158,154 @@ def doctor_patients(request):
             "active": active,
             "source": g.source or ("grant" if g.active else "expired"),
         })
+
+    # Transfer of care: patients referred TO this doctor's hospital and
+    # accepted — every approved doctor there treats them like own patients.
+    if doctor.hospital:
+        referral_qs = Referral.objects.filter(
+            to_hospital=doctor.hospital, status="ACCEPTED"
+        ).select_related("patient").order_by("-responded_at")
+        for r in referral_qs:
+            if r.patient_id in listed:
+                continue
+            listed.add(r.patient_id)
+            items.append({
+                "health_id": r.patient.health_id,
+                "full_name": r.patient.full_name,
+                "granted_at": r.responded_at or r.created_at,
+                "expires_at": None,  # transfer of care has no expiry
+                "active": True,
+                "source": "REFERRAL",
+            })
     return Response(items)
+
+
+def _flatten_values(value):
+    if value is None or value == "":
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return [item for child in value for item in _flatten_values(child)]
+    if isinstance(value, dict):
+        return [json.dumps(value, sort_keys=True)]
+    return [str(value).strip()]
+
+
+def _record_diagnoses(record):
+    """Diagnosis/disease labels stored on one medical record's payload."""
+    labels = set()
+    for key, value in (record.record_data or {}).items():
+        normalized_key = str(key).strip().lower()
+        if any(term in normalized_key for term in ("diagnos", "disease", "condition", "illness")):
+            labels.update(label for label in _flatten_values(value) if label)
+    return labels
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def doctor_dashboard(request):
+    """Aggregate practice overview for the logged-in doctor.
+
+    Identical for every approved doctor at every hospital — everything is
+    scoped to the doctor's own JWT identity (their patients, their recorded
+    measurements, their referrals), never to a facility-wide account.
+    """
+    from collections import Counter
+
+    doctor = _doctor_from_request(request)
+    if not doctor:
+        return Response({"error": "Doctor not found"}, status=403)
+
+    grants = AccessGrant.objects.filter(doctor=doctor).select_related("patient")
+    patient_ids = {g.patient_id for g in grants}
+    active_patient_ids = {
+        g.patient_id for g in grants
+        if g.active and g.expires_at and g.expires_at > timezone.now()
+    }
+
+    # Transfer of care: patients referred TO this doctor's hospital and
+    # accepted also count toward the practice overview.
+    if doctor.hospital:
+        referral_patient_ids = set(
+            Referral.objects.filter(
+                to_hospital=doctor.hospital, status="ACCEPTED"
+            ).values_list("patient_id", flat=True)
+        )
+        patient_ids |= referral_patient_ids
+        active_patient_ids |= referral_patient_ids
+
+    measurements = Measurement.objects.filter(doctor=doctor)
+    meas_counter = Counter(measurements.values_list("kind", flat=True))
+    total_measurements = sum(meas_counter.values())
+
+    referrals_sent = Referral.objects.filter(from_doctor=doctor)
+    incoming_pending = (
+        Referral.objects.filter(to_hospital=doctor.hospital, status="PENDING").count()
+        if doctor.hospital else 0
+    )
+
+    access_requests = AccessRequest.objects.filter(doctor=doctor)
+    req_statuses = Counter(access_requests.values_list("status", flat=True))
+    break_glass_uses = AccessGrant.objects.filter(
+        doctor=doctor, source="BREAK_GLASS"
+    ).count()
+
+    # Which diseases appear most among this doctor's patients, as a rate:
+    # the share (%) of their patients whose records mention each condition.
+    disease_patients: dict[str, dict] = {}
+    patient_records = MedicalRecord.objects.filter(
+        patient_id__in=patient_ids
+    ).only("patient_id", "record_data")
+    for record in patient_records:
+        for label in _record_diagnoses(record):
+            entry = disease_patients.setdefault(
+                label.casefold(), {"label": label, "patients": set()}
+            )
+            entry["patients"].add(record.patient_id)
+    total_patients = len(patient_ids)
+    diseases = sorted(
+        (
+            {
+                "name": entry["label"],
+                "count": len(entry["patients"]),
+                "rate": round(len(entry["patients"]) * 100 / total_patients, 1)
+                if total_patients else 0.0,
+            }
+            for entry in disease_patients.values()
+        ),
+        key=lambda d: d["count"],
+        reverse=True,
+    )[:10]
+
+    return Response({
+        "total_patients": total_patients,
+        "active_patients": len(active_patient_ids),
+        "total_measurements": total_measurements,
+        "total_actions": (
+            sum(req_statuses.values())
+            + break_glass_uses
+            + total_measurements
+            + referrals_sent.count()
+        ),
+        "break_glass_uses": break_glass_uses,
+        "access_requests": {
+            "total": sum(req_statuses.values()),
+            "pending": req_statuses.get("PENDING", 0),
+            "approved": req_statuses.get("APPROVED", 0),
+            "rejected": req_statuses.get("REJECTED", 0),
+        },
+        "referrals": {
+            "sent": referrals_sent.count(),
+            "sent_pending": referrals_sent.filter(status="PENDING").count(),
+            "sent_accepted": referrals_sent.filter(status="ACCEPTED").count(),
+            "sent_declined": referrals_sent.filter(status="DECLINED").count(),
+            "incoming_pending": incoming_pending,
+        },
+        "measurements_by_kind": [
+            {"kind": kind, "count": count}
+            for kind, count in meas_counter.most_common(10)
+        ],
+        "diseases": diseases,
+    })
 
 
 @api_view(["POST"])
@@ -1440,6 +1624,16 @@ def _create_referral(doctor, request):
     to_hospital = Hospital.objects.filter(code__iexact=to_code).first()
     if not to_hospital:
         return Response({"error": "Target hospital not found"}, status=404)
+
+    # A referral is a transfer of care, so only the treating doctor may
+    # initiate it: they must already have access to this patient (chain
+    # grant, emergency grant, or an accepted referral to their hospital).
+    allowed, _chain_ok = _doctor_can_view_patient(doctor, patient)
+    if not allowed:
+        return Response(
+            {"error": "You can only refer a patient you have access to"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     ref = Referral.objects.create(
         patient=patient,

@@ -136,6 +136,30 @@ export interface ReferralIntegrityReport {
   mismatch_count: number;
 }
 
+/** Aggregate overview of the logged-in doctor's practice (all hospitals). */
+export interface DoctorDashboard {
+  total_patients: number;
+  active_patients: number;
+  total_measurements: number;
+  total_actions: number;
+  break_glass_uses: number;
+  access_requests: {
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+  };
+  referrals: {
+    sent: number;
+    sent_pending: number;
+    sent_accepted: number;
+    sent_declined: number;
+    incoming_pending: number;
+  };
+  measurements_by_kind: { kind: string; count: number }[];
+  diseases: { name: string; count: number; rate: number }[];
+}
+
 export interface AssignedPatient {
   health_id: string;
   full_name: string;
@@ -419,6 +443,12 @@ export class ApiService {
   /** This doctor's access requests with patient responses (approve/reject). */
   doctorPendingRequests(): Promise<AccessRequest[]> {
     return this.request<AccessRequest[]>('GET', '/doctor/pending-requests/');
+  }
+
+  /** Aggregate dashboard stats for the logged-in doctor (patients,
+   * measurements, actions, referrals, disease rates). */
+  doctorDashboard(): Promise<DoctorDashboard> {
+    return this.request<DoctorDashboard>('GET', '/doctor/dashboard/');
   }
 
   addMeasurement(payload: { health_id: string; kind: string; value: number; unit: string; notes?: string }) {

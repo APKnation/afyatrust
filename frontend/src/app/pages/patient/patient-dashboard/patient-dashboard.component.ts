@@ -1544,8 +1544,8 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
         if (!clinicianKeys.has(key.toLowerCase())) continue;
         const doctorName = typeof value === 'string'
           ? value
-          : value && typeof value === 'object' && !Array.isArray(value)
-            ? String(value.full_name || value.name || value.doctor_name || '')
+          : value && typeof value === 'object' && !Array.isArray(value) && ('full_name' in value || 'name' in value || 'doctor_name' in value)
+            ? String(('full_name' in value && value.full_name) || ('name' in value && value.name) || ('doctor_name' in value && value.doctor_name) || '')
             : '';
         const recordType = record.type.toLowerCase();
         const isTreatment = ['treatment', 'prescription', 'medication', 'procedure'].some(term => recordType.includes(term));

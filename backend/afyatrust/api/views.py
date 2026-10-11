@@ -1598,10 +1598,9 @@ def _patient_health_summary(patient: Patient, records=None, measurements=None) -
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def list_hospitals(request):
-    """Hospital list (code + name only). Requires a session so the site
-    does not leak which facilities exist in the network."""
+    """Public hospital list used to populate patient registration."""
     return Response([
         {"code": h.code, "name": h.name, "region": h.region}
         for h in Hospital.objects.all().order_by("name")

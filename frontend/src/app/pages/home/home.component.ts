@@ -85,11 +85,11 @@ import { AuthService } from '../../services/auth.service';
 
         <!-- Role-aware subline -->
         <p *ngIf="auth.isPatient" class="mt-5 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
-          Welcome back, <strong>{{ auth.fullName }}</strong> — your records and
+          Welcome back, <strong>{{ auth.fullName }}</strong>. Your records and
           permissions are one tap away.
         </p>
         <p *ngIf="auth.isDoctor" class="mt-5 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">
-          Welcome back, <strong>Dr. {{ auth.fullName }}</strong> — your patients and
+          Welcome back, <strong>Dr. {{ auth.fullName }}</strong>. Your patients and
           measurements are one tap away.
         </p>
         <p *ngIf="!auth.isAuthenticated()" class="mt-5 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg">

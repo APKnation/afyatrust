@@ -152,6 +152,14 @@ import { AuthService } from '../../services/auth.service';
         </div>
       </div>
     </div>
+
+    <footer class="border-t border-slate-200 bg-white">
+      <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-6 py-6 text-sm text-slate-500 sm:flex-row">
+        <a routerLink="/" class="brand-wordmark text-lg text-slate-900 no-underline">Afya<span class="text-primary-700">Trust</span></a>
+        <p class="m-0 text-center">Your health, your choice.</p>
+        <a routerLink="/login" class="font-medium text-primary-700 hover:underline">Sign in</a>
+      </div>
+    </footer>
   `,
 })
 export class RegisterComponent implements OnInit {
@@ -180,7 +188,7 @@ export class RegisterComponent implements OnInit {
     try {
       this.hospitals = await this.api.hospitals();
     } catch (e: any) {
-      this.error = e?.error?.error || e?.message || 'Could not load hospitals.';
+      this.error = e?.error?.error || e?.error?.detail || 'Could not load hospitals. Please try again.';
     } finally {
       this.cdr.detectChanges();
     }

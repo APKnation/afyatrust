@@ -2646,6 +2646,8 @@ def patient_dashboard(request, health_id):
     return Response(dashboard_data)
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def patient_activity_story(request, health_id):
     """One unified, human-readable timeline of everything that happened to
     this patient's data on-chain — who did what, when, verified by tx.
@@ -2679,7 +2681,11 @@ def patient_activity_story(request, health_id):
     try:
         trail = contract.functions.getAuditTrail(health_id).call()
     except Exception:
-        trail = []
+        logger.exception("Could not load access history for patient %s", health_id)
+        return Response(
+            {"error": "Access history is temporarily unavailable. Please try again."},
+            status=503,
+        )
 
     # 2) Raw event logs — supply tx hashes per (action, actor, timestamp).
     events_by_key: dict = {}

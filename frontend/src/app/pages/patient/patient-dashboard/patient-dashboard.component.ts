@@ -946,6 +946,44 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </p>
             </div>
 
+            <section class="card p-5" aria-labelledby="access-history-heading">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 id="access-history-heading" class="text-lg font-bold text-slate-900">Who viewed your records</h2>
+                  <p class="mt-1 text-sm text-slate-600">
+                    Recent recorded views, with the person, facility, and time. You can see this here without opening a block explorer.
+                  </p>
+                </div>
+                <button type="button" (click)="setTab('activity')" class="btn-secondary shrink-0">
+                  Full access history
+                </button>
+              </div>
+
+              <p *ngIf="storyLoading && story.length === 0" class="mt-4 text-sm text-slate-600" role="status">
+                Loading access history…
+              </p>
+              <div *ngIf="storyError" class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert">
+                <p>{{ storyError }}</p>
+                <button type="button" (click)="loadStory()" class="mt-2 font-semibold underline">Try again</button>
+              </div>
+
+              <div *ngIf="!storyError && accessEvents.length" class="mt-4 divide-y divide-slate-200">
+                <article *ngFor="let event of accessEvents | slice:0:5" class="flex flex-wrap items-start justify-between gap-2 py-3 first:pt-0 last:pb-0">
+                  <div>
+                    <p class="font-semibold text-slate-900">{{ event.who || (event.wallet | slice:0:18) }}</p>
+                    <p class="text-sm text-slate-600">
+                      <span *ngIf="event.facility">Facility {{ event.facility }}</span>
+                      <span *ngIf="event.role"> · {{ event.role }}</span>
+                    </p>
+                  </div>
+                  <time class="text-sm text-slate-600">{{ event.timestamp * 1000 | date:'medium' }}</time>
+                </article>
+              </div>
+              <p *ngIf="!storyLoading && !storyError && accessEvents.length === 0" class="mt-4 text-sm text-slate-600">
+                No recorded record views are available yet. New views will appear here when they are recorded.
+              </p>
+            </section>
+
             <div *ngIf="healthSummary" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <app-record-chart
                 title="Recorded conditions and record types"
@@ -1099,11 +1137,19 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           <!-- ACTIVITY -->
           <div *ngIf="tab === 'activity'" class="space-y-6 animate-fade-in">
             <div>
-              <h1 class="text-2xl font-bold text-slate-900 mb-2">Blockchain Activity</h1>
+              <h1 class="text-2xl font-bold text-slate-900 mb-2">Access History</h1>
               <p class="text-slate-600 leading-relaxed">
-                Complete, transparent timeline of all actions on your health data — verified on the Sepolia blockchain.
+                See recorded views, permission changes, and other security activity for your health data here in your dashboard.
               </p>
-              <p class="text-sm text-slate-500 mt-2">{{ story.length }} on-chain event(s) • Newest first</p>
+              <p class="text-sm text-slate-500 mt-2">{{ story.length }} event(s) • Newest first</p>
+            </div>
+
+            <div *ngIf="storyLoading && story.length === 0" class="card text-sm text-slate-600" role="status">
+              Loading access history…
+            </div>
+            <div *ngIf="storyError" class="card border-amber-200 bg-amber-50 text-sm text-amber-900" role="alert">
+              <p>{{ storyError }}</p>
+              <button type="button" (click)="loadStory()" class="mt-2 font-semibold underline">Try again</button>
             </div>
 
             <div class="relative">
@@ -1134,7 +1180,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </div>
             </div>
 
-            <div *ngIf="story.length === 0" class="card">
+            <div *ngIf="!storyLoading && !storyError && story.length === 0" class="card">
               <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
               </div>
               <h3 class="text-lg font-bold text-slate-900 mb-2">No Activity Yet</h3>
@@ -1236,7 +1282,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     { id: 'referrals', label: 'Referrals' },
     { id: 'permissions', label: 'Permissions' },
     { id: 'requests', label: 'Requests' },
-    { id: 'activity', label: 'Activity' },
+    { id: 'activity', label: 'Access History' },
     { id: 'wallet', label: 'Wallet' },
     { id: 'profile', label: 'Profile' },
     { id: 'referral-security', label: 'Referral Security' },
@@ -1246,6 +1292,8 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   data: PatientData | null = null;
   requests: AccessRequest[] = [];
   story: ActivityStoryItem[] = [];
+  storyLoading = false;
+  storyError = '';
   loading = false;
   busy = false;
   errorMsg = '';
@@ -1291,7 +1339,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   setTab(id: 'dashboard' | 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'how-it-works') {
     this.tab = id;
-    if (id === 'activity') {
+    if (id === 'activity' || id === 'dashboard') {
       void this.loadStory();
     }
     if (id === 'wallet') {
@@ -1745,7 +1793,10 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   /** Load the unified on-chain activity story (who did what, when). */
   private async loadStory() {
-    if (!this.data?.health_id) return;
+    if (!this.data?.health_id || this.storyLoading) return;
+    this.storyLoading = true;
+    this.storyError = '';
+    this.syncView();
     try {
       const res = await this.api.patientActivityStory(this.data.health_id);
       this.story = res.story;
@@ -1755,9 +1806,15 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       }
     } catch (e: any) {
       console.error('Failed to load activity story:', e);
-      this.story = [];
+      this.storyError = e?.error?.error || e?.message || 'Could not load access history. Please try again.';
+    } finally {
+      this.storyLoading = false;
+      this.syncView();
     }
-    this.syncView();
+  }
+
+  get accessEvents(): ActivityStoryItem[] {
+    return this.story.filter((event) => event.event === 'RecordViewed');
   }
 
   /**
@@ -1768,8 +1825,8 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   private startPolling() {
     this.pollTimer = setInterval(async () => {
       let changed = false;
-      // Keep the Etherscan story live while the patient watches it.
-      if (this.tab === 'activity') void this.loadStory();
+      // Keep the dashboard access preview and full history fresh.
+      if (this.tab === 'activity' || this.tab === 'dashboard') void this.loadStory();
       try {
         this.requests = await this.api.myRequests();
         this.syncNotifications();
@@ -1821,6 +1878,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       const data = await this.api.myRecords();
       this.data = data;
       this.computeHealthSummary();
+      void this.loadStory();
     } catch (e: any) {
       // 401 = token expired: log the user out so the login page handles it
       if (e?.status === 401) {

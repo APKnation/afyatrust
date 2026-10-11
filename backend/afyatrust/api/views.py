@@ -2395,6 +2395,90 @@ def _who(args: dict) -> str:
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+def patient_dashboard(request, health_id):
+    """Comprehensive patient dashboard aggregating all data for a patient.
+    
+    Returns a unified view showing:
+    - Patient profile
+    - Total records and breakdown by type
+    - Measurements summary (pie chart data)
+    - Referrals (outgoing/incoming)
+    - Access grants/revocations
+    - Blockchain activity summary
+    - Patient journey (Hospital A → Hospital B flow)
+    """
+    from django.contrib.auth.models import User
+    
+    # Get patient
+    patient = Patient.objects.filter(health_id=health_id).first()
+    if not patient:
+        return Response({"error": "Patient not found"}, status=404)
+    
+    # Build dashboard data
+    dashboard_data = {
+        "patient": {
+            "id": patient.id,
+            "health_id": patient.health_id,
+            "full_name": patient.full_name,
+            "phone": patient.phone,
+            "pin_hash": patient.pin_hash,
+            "wallet_address": patient.wallet_address,
+            "hospital": patient.hospital,
+            "registration_date": patient.created_at.isoformat() if patient.created_at else None,
+        },
+        
+        # Records summary
+        "records": {
+            "total": patient.records.count(),
+            "by_type": _summarize_records(patient.records),
+            "latest": patient.records.order_by("-created_at").first() if patient.records.exists() else None,
+        },
+        
+        # Measurements summary (for pie chart)
+        "measurements": {
+            "total": patient.measurements.count(),
+            "by_kind": _summarize_measurements(patient.measurements),
+            "latest": patient.measurements.order_by("-created_at").first() if patient.measurements.exists() else None,
+        },
+        
+        # Referrals
+        "referrals": {
+            "outgoing": Referral.objects.filter(
+                patient=patient, 
+                from_doctor__isnull=False
+            ).count(),
+            "incoming": Referral.objects.filter(
+                patient=patient, 
+                to_hospital=patient.hospital
+            ).count(),
+            "summary": _summarize_referrals(patient, Referral),
+        },
+        
+        # Access grants
+        "access": {
+            "active_grants": AccessGrant.objects.filter(
+                patient=patient, 
+                doctor__isnull=False
+            ).count(),
+            "active_revokes": AccessGrant.objects.filter(
+                patient=patient, 
+                active=True
+            ).count(),
+        },
+        
+        # Blockchain activity
+        "blockchain": {
+            "total_transactions": _count_blockchain_transactions(patient),
+            "recent_events": _get_recent_blockchain_events(patient, limit=10),
+        },
+        
+        # Patient journey (Hospital A → Hospital B flow)
+        "journey": _get_journey(patient),
+    }
+    
+    return Response(dashboard_data)
+
+
 def patient_activity_story(request, health_id):
     """One unified, human-readable timeline of everything that happened to
     this patient's data on-chain — who did what, when, verified by tx.

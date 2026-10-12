@@ -541,40 +541,54 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
               </div>
             </div>
 
-            <div class="card">
-              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <label class="flex flex-col gap-2 relative">
-                  <span class="text-sm font-semibold text-slate-700">Doctor</span>
-                  <input [(ngModel)]="doctorQuery" (ngModelChange)="onDoctorQueryChanged()" (focus)="showSuggestions = true" (blur)="showSuggestions = false" placeholder="Type doctor's name or license..." class="px-4 py-3 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-shadow" />
-                  <ul *ngIf="showSuggestions && doctors.length" class="rounded-xl border border-slate-200 bg-white max-h-56 overflow-auto shadow-xl absolute z-50 w-full top-[105%]">
-                    <li *ngFor="let d of doctors" (mousedown)="selectDoctor(d)" class="flex cursor-pointer items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0">
-                      <div>
-                        <p class="font-semibold text-slate-900">{{ d.full_name }}</p>
-                        <p class="text-xs text-slate-500">{{ d.license_no }} • {{ d.facility_id }}</p>
-                      </div>
+            <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="grant-access-title">
+              <div class="mb-5 border-b border-slate-100 pb-4">
+                <h2 id="grant-access-title" class="m-0 text-lg font-semibold text-slate-900">Choose access details</h2>
+                <p class="mb-0 mt-1 text-sm text-slate-600">Only the doctor you select can view your records for the time you choose.</p>
+              </div>
+
+              <div class="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_220px] md:items-start">
+                <div class="relative flex flex-col gap-2">
+                  <label for="permission-doctor" class="text-sm font-semibold text-slate-800">Find a doctor</label>
+                  <input id="permission-doctor" [(ngModel)]="doctorQuery" (ngModelChange)="onDoctorQueryChanged()" (focus)="showSuggestions = true" (blur)="showSuggestions = false"
+                         autocomplete="off" aria-describedby="doctor-search-help" [attr.aria-expanded]="showSuggestions && doctors.length > 0" aria-controls="doctor-suggestions"
+                         placeholder="Search by name or licence number"
+                         class="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15" />
+                  <p id="doctor-search-help" class="m-0 text-xs text-slate-500">Choose a doctor from the results to confirm their identity.</p>
+                  <ul *ngIf="showSuggestions && doctors.length" id="doctor-suggestions" role="listbox" aria-label="Matching doctors" class="absolute top-[calc(100%+3.5rem)] z-50 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                    <li *ngFor="let d of doctors" role="option" [attr.aria-selected]="selectedDoctor?.license_no === d.license_no" (mousedown)="selectDoctor(d)" class="cursor-pointer border-b border-slate-100 px-4 py-3 last:border-0 hover:bg-slate-50">
+                      <p class="m-0 font-semibold text-slate-900">{{ d.full_name }}</p>
+                      <p class="m-0 mt-0.5 text-xs text-slate-600">Licence {{ d.license_no }} · {{ d.facility_id }}</p>
                     </li>
                   </ul>
-                  <p *ngIf="showSuggestions && !doctorLoading && doctors.length === 0" class="text-xs text-slate-500">No doctors found</p>
-                  <p *ngIf="doctorLoading" class="text-xs text-slate-500">Searching...</p>
-                </label>
-                <label class="flex flex-col gap-2">
-                  <span class="text-sm font-semibold text-slate-700">Access Duration (Days)</span>
-                  <input type="number" [(ngModel)]="grant.days" min="1" max="90" class="px-4 py-3 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition-shadow" />
-                </label>
+                  <p *ngIf="showSuggestions && !doctorLoading && doctors.length === 0" class="m-0 text-sm text-slate-600" role="status">No doctors found. Check the name or licence number and try again.</p>
+                  <p *ngIf="doctorLoading" class="m-0 text-sm text-slate-600" role="status">Searching for doctors…</p>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <label for="permission-days" class="text-sm font-semibold text-slate-800">How many days?</label>
+                  <div class="relative">
+                    <input id="permission-days" type="number" [(ngModel)]="grant.days" min="1" max="90" aria-describedby="permission-days-help"
+                           class="min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 pr-14 text-sm text-slate-900 outline-none transition focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15" />
+                    <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">days</span>
+                  </div>
+                  <p id="permission-days-help" class="m-0 text-xs text-slate-500">Choose from 1 to 90 days. You can revoke access sooner.</p>
+                </div>
               </div>
-              <div class="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <p class="text-sm text-slate-600">
-                  <span class="font-semibold text-slate-700">Granting access to:</span>
-                  <ng-container *ngIf="selectedDoctor">{{ selectedDoctor.full_name }} ({{ selectedDoctor.license_no }})</ng-container>
-                  <ng-container *ngIf="!selectedDoctor">Select a doctor above</ng-container>
-                </p>
-              </div>
-              <div class="mt-5 flex justify-end">
-                <button type="button" (click)="grantAccess()" [disabled]="busy" class="btn-primary w-full sm:w-auto">
-                  {{ busy ? 'Granting Access...' : 'Grant Access' }}
+
+              <div class="mt-5 flex flex-col gap-4 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <div aria-live="polite">
+                  <p class="m-0 text-xs font-medium uppercase tracking-wide text-slate-500">Access will be given to</p>
+                  <p class="m-0 mt-1 text-sm font-semibold text-slate-900">
+                    <ng-container *ngIf="selectedDoctor">{{ selectedDoctor.full_name }} <span class="font-normal text-slate-600">· Licence {{ selectedDoctor.license_no }}</span></ng-container>
+                    <span *ngIf="!selectedDoctor" class="font-normal text-slate-600">Select a doctor from the search results</span>
+                  </p>
+                </div>
+                <button type="button" (click)="grantAccess()" [disabled]="busy || !selectedDoctor || grant.days < 1 || grant.days > 90" class="btn-primary min-h-11 w-full sm:w-auto">
+                  {{ busy ? 'Granting access…' : 'Confirm access' }}
                 </button>
               </div>
-            </div>
+            </section>
 
             <!-- ACTIVE ROUTINE DOCTOR PERMISSIONS -->
             <div *ngIf="walletGrants?.active_grants?.length" class="card border border-primary-200 bg-white">
@@ -609,11 +623,6 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
               </div>
             </div>
 
-            <div class="card">
-              <p class="text-sm text-slate-600">
-                <span class="font-semibold text-slate-700">Note:</span> Access ends after the period you selected. Changes to access appear in your activity history.
-              </p>
-            </div>
           </div>          <!-- REQUESTS -->
           <div *ngIf="tab === 'requests'" class="space-y-6 animate-fade-in">
             <div>

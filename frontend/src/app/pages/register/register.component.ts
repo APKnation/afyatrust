@@ -49,33 +49,32 @@ import { AuthService } from '../../services/auth.service';
         <div class="max-w-[440px] w-full mx-auto">
           <div class="mb-10">
             <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Create your account</h1>
-            <p class="text-slate-500 text-base leading-relaxed">Set up your health record and choose who can access it.</p>
           </div>
 
           <div *ngIf="error" class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-3">
             <span>{{ error }}</span>
           </div>
 
-          <form (ngSubmit)="register()" #form="ngForm" class="flex flex-col gap-5">
+          <form (ngSubmit)="register()" #form="ngForm" class="flex flex-col gap-3">
 
             <div class="space-y-1.5">
               <label class="text-sm font-semibold text-slate-700">Full name</label>
               <input type="text" name="full_name" [(ngModel)]="model.full_name" required
-                     class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
+                     class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
                      placeholder="Enter your full name" />
             </div>
 
             <div class="space-y-1.5">
               <label class="text-sm font-semibold text-slate-700">Health ID</label>
               <input type="text" name="health_id" [(ngModel)]="model.health_id" required
-                     class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
+                     class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
                      placeholder="Enter your Health ID" />
             </div>
 
             <div class="space-y-1.5">
               <label class="text-sm font-semibold text-slate-700">Registering hospital</label>
               <select name="facility_id" [(ngModel)]="model.facility_id" required
-                      class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all">
+                      class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-slate-900 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all">
                 <option value="" disabled selected>Select your hospital</option>
                 <option *ngFor="let hospital of hospitals" [value]="hospital.code">
                   {{ hospital.name }} ({{ hospital.code }})
@@ -89,24 +88,32 @@ import { AuthService } from '../../services/auth.service';
                 <span class="text-xs text-slate-400 font-normal">Optional</span>
               </label>
               <input type="text" name="phone" [(ngModel)]="model.phone"
-                     class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
+                     class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
                      placeholder="Enter your phone number" />
             </div>
 
-            <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-3">
               <div class="space-y-1.5">
-                <label class="text-sm font-semibold text-slate-700">Create a 4-digit PIN</label>
-                <input type="password" name="pin" [(ngModel)]="model.pin" required
+                <label for="register-pin" class="text-sm font-semibold text-slate-700">Create a 4-digit PIN</label>
+                <input id="register-pin" type="password" name="pin" [(ngModel)]="model.pin" required
                        minlength="4" maxlength="4" pattern="[0-9]*" inputmode="numeric"
-                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 text-center font-mono text-xl tracking-[0.5em] outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
+                       autocomplete="new-password"
+                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-slate-900 text-center font-mono text-xl tracking-[0.5em] outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
                        placeholder="Create your PIN" />
               </div>
               <div class="space-y-1.5">
-                <label class="text-sm font-semibold text-slate-700">Confirm your PIN</label>
-                <input type="password" name="pin2" [(ngModel)]="model.pin2" required
+                <label for="register-pin-confirm" class="text-sm font-semibold text-slate-700">Re-enter your 4-digit PIN</label>
+                <input id="register-pin-confirm" type="password" name="pin2" [(ngModel)]="model.pin2" required
                        minlength="4" maxlength="4" pattern="[0-9]*" inputmode="numeric"
-                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 text-center font-mono text-xl tracking-[0.5em] outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
-                       placeholder="Re-enter your PIN" />
+                       autocomplete="new-password" aria-describedby="pin-confirm-feedback"
+                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-slate-900 text-center font-mono text-xl tracking-[0.5em] outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
+                       placeholder="Confirm password" />
+                <p *ngIf="model.pin2 && model.pin !== model.pin2" id="pin-confirm-feedback" class="m-0 text-sm text-red-700" role="alert">
+                  The PINs do not match yet. Check both entries.
+                </p>
+                <p *ngIf="model.pin2 && model.pin === model.pin2" id="pin-confirm-feedback" class="m-0 text-sm text-slate-600">
+                  PINs match.
+                </p>
               </div>
             </div>
 

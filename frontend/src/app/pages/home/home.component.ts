@@ -111,11 +111,11 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
             </ng-container>
             <ng-template #visitorCtas>
               <a routerLink="/register"
-                 class="inline-flex min-h-11 items-center px-1 text-center text-sm font-semibold text-white underline decoration-white/60 underline-offset-4 transition-colors hover:text-[#8dc63f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
+                 class="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#008254] px-4 py-2 text-center text-sm font-semibold text-white no-underline transition-colors hover:bg-[#006642] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white sm:w-44">
                 Get Started
               </a>
               <a routerLink="/login"
-                 class="inline-flex min-h-11 items-center px-1 text-center text-sm font-medium text-white underline underline-offset-4 transition-colors hover:text-[#8dc63f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
+                 class="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#008254] px-4 py-2 text-center text-sm font-semibold text-white no-underline transition-colors hover:bg-[#006642] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white sm:w-44">
                 Sign in
               </a>
             </ng-template>

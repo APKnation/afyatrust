@@ -625,34 +625,45 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
 
           </div>          <!-- REQUESTS -->
           <div *ngIf="tab === 'requests'" class="space-y-6 animate-fade-in">
-            <div>
-              <h1 class="text-2xl font-bold text-slate-900 mb-2">Access Requests</h1>
-              <p class="text-slate-600">Review doctors requesting access to your medical records. Approving gives access for 7 days.</p>
-            </div>
-            <div *ngFor="let req of requests" class="card">
-              <div class="flex flex-wrap items-start justify-between gap-4">
-                <div class="space-y-3">
+            <header class="border-b border-slate-200 pb-5">
+              <p class="m-0 text-xs font-semibold uppercase tracking-wide text-slate-500">Your choice</p>
+              <h1 class="mb-2 mt-1 text-2xl font-bold text-slate-900">Access requests</h1>
+              <p class="m-0 max-w-2xl text-sm leading-6 text-slate-600">Review each doctor's request before deciding. If you approve, they can view your records for 7 days. You can remove access sooner from Permissions.</p>
+            </header>
+
+            <div *ngFor="let req of requests" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div class="flex flex-col gap-4 p-5 sm:p-6">
+                <div class="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <h3 class="font-bold text-slate-900 text-lg">Dr. {{ req.doctor_name }}</h3>
-                    <p class="text-sm text-slate-500">Facility: {{ req.facility_id }}</p>
+                    <h2 class="m-0 text-lg font-semibold text-slate-900">Dr. {{ req.doctor_name }}</h2>
+                    <p class="mb-0 mt-1 text-sm text-slate-600">{{ req.facility_id }}</p>
                   </div>
-                  <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                    <p class="text-sm text-slate-700 italic">"{{ req.reason }}"</p>
-                  </div>
-                  <p class="text-xs text-slate-500">Requested {{ req.created_at | date:'medium' }}</p>
+                  <p class="m-0 text-sm text-slate-500">Requested {{ req.created_at | date:'medium' }}</p>
                 </div>
-                <div class="flex gap-2">
-                  <button (click)="approve(req)" class="btn-accent w-full sm:w-auto">Approve</button>
-                  <button (click)="reject(req)" class="btn-secondary !border-red-500 !text-red-600 hover:!bg-red-50 w-full sm:w-auto">Reject</button>
+
+                <div>
+                  <h3 class="m-0 text-sm font-semibold text-slate-800">Reason for the request</h3>
+                  <p class="mb-0 mt-1 whitespace-pre-line text-sm leading-6 text-slate-700">{{ req.reason || 'No reason was provided.' }}</p>
+                </div>
+
+                <div class="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p class="m-0 text-sm text-slate-600">Your decision controls whether this doctor can view your records.</p>
+                  <div class="flex flex-col gap-2 sm:flex-row">
+                    <button type="button" (click)="approve(req)" [disabled]="busyRequest === req.id" class="btn-primary min-h-11 w-full sm:w-auto">
+                      {{ busyRequest === req.id ? 'Processing…' : 'Approve for 7 days' }}
+                    </button>
+                    <button type="button" (click)="reject(req)" [disabled]="busyRequest === req.id" class="min-h-11 w-full rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
+                      Decline
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-            <div *ngIf="requests.length === 0" class="card">
-              <div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              </div>
-              <h3 class="text-lg font-bold text-slate-900 mb-2">No Pending Requests</h3>
-              <p class="text-slate-600">You're all caught up!</p>
-            </div>
+
+            <section *ngIf="requests.length === 0" class="rounded-xl border border-slate-200 bg-white p-6 sm:p-8" aria-live="polite">
+              <h2 class="m-0 text-lg font-semibold text-slate-900">No requests need your decision</h2>
+              <p class="mb-0 mt-2 max-w-2xl text-sm leading-6 text-slate-600">When a doctor asks to view your records, the request will appear here with their facility and reason. You can review it before choosing to approve or decline.</p>
+            </section>
           </div>
           <!-- CUSTODIAL WALLET -->
           <section *ngIf="tab === 'wallet' && walletActivity" class="space-y-6 animate-fade-in" aria-labelledby="wallet-title">

@@ -3601,3 +3601,194 @@ def hospital_blockchain_summary(request):
         "summary": summary,
         "total_transactions": sum(summary.values()),
     })
+
+
+# ============ PATIENT INTEGRITY VERIFICATION ============
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def patient_verify_integrity(request):
+    """On-demand integrity verification for a patient's own data.
+
+    For every medical record and measurement owned by the requesting patient:
+      1. Re-computes the SHA-256 hash of the current DB payload.
+      2. Compares it against the stored ``record_hash`` (detects DB-level tampering).
+      3. Tries to compare both against the on-chain hash from the smart contract
+         (detects if the stored hash itself was also altered in the DB).
+
+    Returns a per-item status:
+      VERIFIED          — payload hash matches stored hash AND on-chain hash
+      TAMPERED_PAYLOAD  — payload re-hash ≠ stored record_hash (DB data silently changed)
+      CHAIN_MISMATCH    — stored record_hash ≠ on-chain hash (DB hash was altered)
+      UNANCHORED        — no on-chain tx yet (record is pending or was never sent)
+      CHAIN_UNAVAILABLE — blockchain node unreachable (DB check only)
+    """
+    patient = _patient_from_request(request)
+    if not patient:
+        return Response({"error": "Patient not found"}, status=404)
+
+    # ------------------------------------------------------------------
+    # 1. Try to pull all on-chain records once (one RPC call, cached)
+    # ------------------------------------------------------------------
+    chain_available = True
+    chain_records_raw = []   # list of (record_hash_bytes, facility_id_str, …)
+    try:
+        chain_records_raw = contract.functions.getRecords(patient.health_id).call()
+    except Exception:
+        logger.warning("Blockchain unavailable for integrity check — %s", patient.health_id)
+        chain_available = False
+
+    # Build a set of lower-cased hashes that exist on-chain for O(1) lookup
+    chain_hashes: set[str] = set()
+    if chain_available:
+        for cr in chain_records_raw:
+            h = str(cr[0]).lower()
+            if h:
+                chain_hashes.add(h)
+
+    def _classify_record(stored_hash: str, recomputed_hash: str, tx_hash: str) -> dict:
+        """Return integrity classification dict for a single item."""
+        has_tx = bool(tx_hash) and not tx_hash.startswith("PENDING")
+        payload_ok = stored_hash.lower() == recomputed_hash.lower()
+
+        if not payload_ok:
+            # The actual data in the DB no longer hashes to the stored value —
+            # someone silently modified the clinical payload.
+            return {
+                "status": "TAMPERED_PAYLOAD",
+                "severity": "critical",
+                "payload_hash_matches": False,
+                "on_chain_hash_matches": None,  # irrelevant when payload is already wrong
+                "chain_checked": chain_available,
+                "description": (
+                    "⚠️ DATA INTEGRITY VIOLATION: The clinical payload stored in the "
+                    "database no longer produces the original SHA-256 hash. "
+                    "This record was modified AFTER it was anchored on-chain."
+                ),
+            }
+
+        if not has_tx:
+            return {
+                "status": "UNANCHORED",
+                "severity": "warning",
+                "payload_hash_matches": True,
+                "on_chain_hash_matches": None,
+                "chain_checked": chain_available,
+                "description": "Record data is internally consistent but has not yet been anchored on the blockchain.",
+            }
+
+        if not chain_available:
+            return {
+                "status": "CHAIN_UNAVAILABLE",
+                "severity": "info",
+                "payload_hash_matches": True,
+                "on_chain_hash_matches": None,
+                "chain_checked": False,
+                "description": "Payload hash is internally consistent. Blockchain node unreachable — on-chain comparison skipped.",
+            }
+
+        # Payload hash matches stored hash; now check against chain
+        on_chain_ok = stored_hash.lower() in chain_hashes
+        if not on_chain_ok:
+            # The DB hash was swapped — either the record_hash field was
+            # directly edited, or the record belongs to a different patient.
+            return {
+                "status": "CHAIN_MISMATCH",
+                "severity": "critical",
+                "payload_hash_matches": True,
+                "on_chain_hash_matches": False,
+                "chain_checked": True,
+                "description": (
+                    "⚠️ BLOCKCHAIN MISMATCH: The hash stored in the database does NOT "
+                    "appear in the on-chain registry for this patient. "
+                    "The record_hash field may have been tampered with, or the record "
+                    "was never successfully anchored."
+                ),
+            }
+
+        return {
+            "status": "VERIFIED",
+            "severity": "ok",
+            "payload_hash_matches": True,
+            "on_chain_hash_matches": True,
+            "chain_checked": True,
+            "description": "✅ Integrity confirmed: payload hash matches stored hash and on-chain registry.",
+        }
+
+    # ------------------------------------------------------------------
+    # 2. Verify medical records
+    # ------------------------------------------------------------------
+    record_results = []
+    for r in patient.records.all():
+        recomputed = _record_payload_hash(r.record_data)
+        cls = _classify_record(
+            stored_hash=r.record_hash or "",
+            recomputed_hash=recomputed,
+            tx_hash=r.tx_hash or "",
+        )
+        record_results.append({
+            "id": r.id,
+            "type": "record",
+            "record_type": r.record_type,
+            "facility_name": r.facility_name or r.facility_id,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "stored_hash": r.record_hash,
+            "recomputed_hash": recomputed,
+            "tx_hash": r.tx_hash if r.tx_hash and not r.tx_hash.startswith("PENDING") else None,
+            "etherscan_url": (
+                "https://sepolia.etherscan.io/tx/%s" % r.tx_hash
+                if r.tx_hash and not r.tx_hash.startswith("PENDING") else None
+            ),
+            **cls,
+        })
+
+    # ------------------------------------------------------------------
+    # 3. Verify measurements
+    # ------------------------------------------------------------------
+    measurement_results = []
+    for m in patient.measurements.select_related("doctor", "hospital").all():
+        recomputed = _record_payload_hash(_measurement_payload(m))
+        cls = _classify_record(
+            stored_hash=m.record_hash or "",
+            recomputed_hash=recomputed,
+            tx_hash=m.tx_hash or "",
+        )
+        measurement_results.append({
+            "id": m.id,
+            "type": "measurement",
+            "kind": m.kind,
+            "value": m.value,
+            "unit": m.unit or "",
+            "doctor": m.doctor.full_name if m.doctor else "Unknown clinician",
+            "facility_name": m.hospital.name if m.hospital else (m.facility_id or ""),
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+            "stored_hash": m.record_hash,
+            "recomputed_hash": recomputed,
+            "tx_hash": m.tx_hash if m.tx_hash and not m.tx_hash.startswith("PENDING") else None,
+            "etherscan_url": (
+                "https://sepolia.etherscan.io/tx/%s" % m.tx_hash
+                if m.tx_hash and not m.tx_hash.startswith("PENDING") else None
+            ),
+            **cls,
+        })
+
+    all_items = record_results + measurement_results
+    tampered_count = sum(1 for i in all_items if i["status"] in ("TAMPERED_PAYLOAD", "CHAIN_MISMATCH"))
+    verified_count = sum(1 for i in all_items if i["status"] == "VERIFIED")
+    unanchored_count = sum(1 for i in all_items if i["status"] == "UNANCHORED")
+
+    return Response({
+        "health_id": patient.health_id,
+        "chain_available": chain_available,
+        "summary": {
+            "total": len(all_items),
+            "verified": verified_count,
+            "tampered": tampered_count,
+            "unanchored": unanchored_count,
+            "chain_unavailable": sum(1 for i in all_items if i["status"] == "CHAIN_UNAVAILABLE"),
+        },
+        "integrity_ok": tampered_count == 0,
+        "records": record_results,
+        "measurements": measurement_results,
+        "checked_at": timezone.now().isoformat(),
+    })

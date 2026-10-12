@@ -30,6 +30,7 @@ urlpatterns = [
     path("patient/revoke-emergency/", views.revoke_emergency_access),
     path("patient/approve-request/<int:request_id>/", views.approve_request),
     path("patient/reject-request/<int:request_id>/", views.reject_request),
+    path("patient/verify-integrity/", views.patient_verify_integrity),
 
     # Hospital staff (JWT required; admin-created accounts)
     path("staff/referrals/", views.hospital_referrals),

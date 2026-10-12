@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { NgIf, NgFor, SlicePipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { ApiService, PatientData, AccessRequest, DoctorOption, ActivityStoryItem, EmergencyAccessItem, ActiveGrantItem } from '../../../services/api.service';
+import { ApiService, PatientData, AccessRequest, DoctorOption, ActivityStoryItem, EmergencyAccessItem, ActiveGrantItem, IntegrityCheckResult, IntegrityReport } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 import { RecordChartComponent, RecordChartPoint } from '../../../components/shared/record-chart/record-chart.component';
 
@@ -178,103 +178,329 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         </div>
       </div>
 
-          <!-- RECORDS -->
+          <!-- RECORDS (Longitudinal Care Journey across all hospitals) -->
           <div *ngIf="tab === 'records'" class="space-y-6 animate-fade-in">
-            <div>
-              <h1 class="text-2xl font-bold text-slate-900 mb-2">My Medical History</h1>
-              <p class="text-slate-600 leading-relaxed">
-                SHA-256 hashes are stored on-chain for verifiability. Clinical data remains securely at the originating facility.
-              </p>
+            <!-- Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2.5">
+                  <span>Longitudinal Medical History & Care Journey</span>
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                    Multi-Hospital Chain
+                  </span>
+                </h1>
+                <p class="text-sm text-slate-500 mt-1 max-w-3xl leading-relaxed">
+                  Your complete healthcare story from where you began to where you were referred. Track every clinical measurement, diagnosis, and treatment with the responsible doctor, measured results, and the cryptographic proof anchored on Ethereum Sepolia.
+                </p>
+              </div>
             </div>
 
-            <div *ngFor="let rec of data.records" class="card">
-              <div class="p-6">
-                <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
-                  <div class="flex flex-wrap items-center gap-3">
-                    <div class="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
+            <!-- HOSPITAL CARE JOURNEY (Where care started to where it ended) -->
+            <div *ngIf="careJourneyFacilities.length > 0" class="card bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl shadow-xl border border-indigo-900/50">
+              <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                  </div>
+                  <div>
+                    <h2 class="text-sm font-bold text-white uppercase tracking-wider">Hospital Care Progression (Origin &rarr; Transfers)</h2>
+                    <p class="text-xs text-indigo-300">Continuous inter-hospital health record anchored across facilities</p>
+                  </div>
+                </div>
+                <span class="text-xs font-mono font-medium text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                  {{ careJourneyFacilities.length }} Facility Stops
+                </span>
+              </div>
+
+              <!-- Stepper Chain -->
+              <div class="flex flex-col sm:flex-row sm:items-center gap-3 overflow-x-auto pb-2 pt-1">
+                <div *ngFor="let fac of careJourneyFacilities; let i = index; let last = last" class="flex items-center gap-3 flex-shrink-0">
+                  <div class="flex items-center gap-3 bg-slate-900/90 border border-indigo-500/30 rounded-xl px-4 py-3 min-w-[200px]">
+                    <div class="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                      {{ i + 1 }}
                     </div>
                     <div>
-                      <h3 class="font-bold text-slate-900 text-lg">{{ rec.facility }}</h3>
-                      <p class="text-sm text-slate-500">{{ rec.date | date:'medium' }}</p>
+                      <p class="text-xs text-indigo-300 font-medium">
+                        {{ i === 0 ? 'Initial Facility' : (last ? 'Current / Latest' : 'Transfer Facility') }}
+                      </p>
+                      <p class="text-sm font-bold text-white capitalize truncate max-w-[160px]">{{ fac.name }}</p>
+                      <p *ngIf="fac.doctor" class="text-[11px] text-slate-400 truncate max-w-[160px]">Dr. {{ fac.doctor }}</p>
                     </div>
                   </div>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <span class="px-3 py-1 bg-primary-100 text-primary-700 text-xs font-semibold rounded-full">{{ rec.type }}</span>
-                    <span *ngIf="rec.verified" class="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full flex items-center gap-1">
-                      On-chain Verified
-                    </span>
-                    <span *ngIf="!rec.verified" class="px-3 py-1 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">Pending</span>
-                  </div>
-                </div>
-
-                <div *ngIf="rec.source_uri" class="mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <p class="text-xs text-slate-500 mb-1">Source Document</p>
-                  <a [href]="rec.source_uri" target="_blank" rel="noopener" class="text-sm text-primary-600 hover:text-primary-700 hover:underline break-all inline-flex items-center gap-1">
-                    {{ rec.source_uri }}
-                  </a>
-                </div>
-
-                <div class="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200">
-                  <div *ngFor="let item of entries(rec.data)" class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-2.5 border-b border-slate-200 last:border-b-0">
-                    <span class="sm:w-48 text-sm font-semibold text-slate-700 capitalize">{{ item.key }}</span>
-                    <span class="text-sm text-slate-900 break-words">{{ item.value }}</span>
-                  </div>
-                </div>
-
-                <div class="mt-4 flex flex-wrap items-center gap-3 pt-4 border-t border-slate-200">
-                  <div class="flex items-center gap-2">
-                    <span class="text-xs font-semibold text-slate-600">Record Hash:</span>
-                    <code class="text-xs font-mono bg-slate-100 px-2 py-1 rounded-lg text-slate-700">{{ rec.hash | slice:0:36 }}…</code>
-                  </div>
-                  <a *ngIf="rec.tx_hash && !rec.tx_hash.startsWith('PENDING')" [href]="'https://sepolia.etherscan.io/tx/' + rec.tx_hash" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-300 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-50 transition-colors">
-                    Verify Tx (Etherscan)
-                  </a>
+                  <svg *ngIf="!last" class="w-5 h-5 text-indigo-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                  </svg>
                 </div>
               </div>
             </div>
 
-            <div *ngIf="data.records.length === 0" class="card">
-              <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <!-- 4 Summary Stat Cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Care Events</p>
+                <p class="text-2xl font-extrabold text-slate-900">{{ allMedicalHistoryItemsRaw.length }}</p>
+                <p class="text-xs text-slate-500 mt-0.5">Clinical encounters recorded</p>
               </div>
-              <h3 class="text-lg font-bold text-slate-900 mb-2">No Records Yet</h3>
-              <p class="text-slate-600">Records will appear here when a healthcare facility adds them to your profile.</p>
+              <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Facilities Visited</p>
+                <p class="text-2xl font-extrabold text-indigo-600">{{ totalCareFacilitiesCount }}</p>
+                <p class="text-xs text-slate-500 mt-0.5">Hospitals in your care journey</p>
+              </div>
+              <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Doctors Engaged</p>
+                <p class="text-2xl font-extrabold text-teal-600">{{ totalDoctorsEngagedCount }}</p>
+                <p class="text-xs text-slate-500 mt-0.5">Attending physicians & staff</p>
+              </div>
+              <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Blockchain Anchors</p>
+                <p class="text-2xl font-extrabold text-emerald-600">{{ onChainVerifiedEventsCount }}</p>
+                <p class="text-xs text-slate-500 mt-0.5">Sealed on Ethereum Sepolia</p>
+              </div>
+            </div>
+
+            <!-- Filter Buttons -->
+            <div class="flex items-center gap-2 overflow-x-auto pb-1">
+              <button type="button" (click)="setHistoryFilter('all')"
+                      class="px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      [class]="historyFilter === 'all' ? 'bg-primary-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'">
+                All Events ({{ allMedicalHistoryItemsCount('all') }})
+              </button>
+              <button type="button" (click)="setHistoryFilter('measurements')"
+                      class="px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      [class]="historyFilter === 'measurements' ? 'bg-primary-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'">
+                Clinical Measurements ({{ allMedicalHistoryItemsCount('measurements') }})
+              </button>
+              <button type="button" (click)="setHistoryFilter('records')"
+                      class="px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      [class]="historyFilter === 'records' ? 'bg-primary-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'">
+                Diagnoses & Lab Records ({{ allMedicalHistoryItemsCount('records') }})
+              </button>
+              <button type="button" (click)="setHistoryFilter('hospitals')"
+                      class="px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      [class]="historyFilter === 'hospitals' ? 'bg-primary-600 text-white shadow-sm' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'">
+                Hospital Referrals ({{ allMedicalHistoryItemsCount('hospitals') }})
+              </button>
+            </div>
+
+            <!-- List of Medical Care Events -->
+            <div *ngIf="filteredMedicalHistoryItems.length > 0" class="space-y-4">
+              <div *ngFor="let item of filteredMedicalHistoryItems" class="card hover:shadow-md transition-shadow duration-200">
+                <!-- Top Row: Category Pill, Hospital Badge, Date -->
+                <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                  <div class="flex items-center gap-2">
+                    <span class="px-2.5 py-1 text-xs font-bold rounded-lg uppercase tracking-wide"
+                          [class]="item.category === 'measurement' ? 'bg-teal-50 text-teal-700 border border-teal-200' : (item.category === 'record' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-violet-50 text-violet-700 border border-violet-200')">
+                      {{ item.categoryLabel }}
+                    </span>
+                    <span class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 capitalize">
+                      <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                      {{ item.facility }}
+                    </span>
+                  </div>
+                  <span class="text-xs text-slate-500 font-medium">
+                    {{ item.date ? (item.date | date:'medium') : 'Date recorded' }}
+                  </span>
+                </div>
+
+                <!-- Middle Row: Responsible Doctor & What Was Measured / Found -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
+                  <!-- Responsible Doctor Box -->
+                  <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-start gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                      </svg>
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Responsible Clinician</p>
+                      <p class="text-sm font-bold text-slate-900 truncate">{{ item.doctor }}</p>
+                      <p *ngIf="item.doctorLicense" class="text-xs text-slate-500">License: {{ item.doctorLicense }}</p>
+                      <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 mt-1">
+                        <svg class="w-3 h-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                        Consent Authorized
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- What Was Done & Result Box -->
+                  <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">What Was Measured & Result</p>
+                    
+                    <!-- If Measurement -->
+                    <div *ngIf="item.category === 'measurement'">
+                      <p class="text-xs font-semibold text-slate-700">{{ item.title }}</p>
+                      <p class="text-2xl font-black text-slate-900 mt-0.5">
+                        {{ item.value }} <span class="text-sm font-semibold text-slate-500">{{ item.unit }}</span>
+                      </p>
+                      <p *ngIf="item.notes" class="text-xs text-slate-600 mt-1 italic">{{ item.notes }}</p>
+                    </div>
+
+                    <!-- If Record -->
+                    <div *ngIf="item.category === 'record'">
+                      <p class="text-sm font-bold text-slate-900">{{ item.title }}</p>
+                      <div *ngIf="item.data" class="mt-1 space-y-1">
+                        <div *ngFor="let entry of entries(item.data)" class="text-xs flex gap-2">
+                          <span class="font-semibold text-slate-600 capitalize">{{ entry.key }}:</span>
+                          <span class="text-slate-900">{{ entry.value }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- If Referral -->
+                    <div *ngIf="item.category === 'referral'">
+                      <p class="text-sm font-bold text-slate-900">{{ item.title }}</p>
+                      <p *ngIf="item.notes" class="text-xs text-slate-600 mt-1"><span class="font-semibold">Reason:</span> {{ item.notes }}</p>
+                      <span class="inline-block mt-1 text-[11px] font-bold uppercase px-2 py-0.5 rounded"
+                            [class]="item.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
+                        {{ item.status }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bottom Web3 Security Bar: HOW BLOCKCHAIN APPLIES HERE -->
+                <div class="mt-3 p-4 bg-slate-900 text-white rounded-xl border border-indigo-500/20">
+                  <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <div class="flex items-center gap-2">
+                      <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                      </svg>
+                      <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">How Blockchain Applies Here</span>
+                    </div>
+                    <span class="text-[11px] font-mono text-indigo-300">Ethereum Sepolia Proof</span>
+                  </div>
+
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-0.5">SHA-256 Record Hash (Integrity Fingerprint)</p>
+                      <div class="flex items-center gap-1.5">
+                        <code *ngIf="item.hash" class="font-mono text-emerald-300 bg-slate-950 px-2 py-1 rounded border border-slate-800 text-[11px] truncate select-all flex-1">
+                          {{ item.hash }}
+                        </code>
+                        <span *ngIf="!item.hash" class="text-slate-500 italic text-[11px]">Anchoring pending</span>
+                        <button *ngIf="item.hash" type="button" (click)="copyHash(item.hash)"
+                                class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold border border-slate-700 flex-shrink-0 cursor-pointer">
+                          {{ copiedHash === item.hash ? 'Copied!' : 'Copy' }}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-0.5">On-Chain Transaction & Verification</p>
+                      <div class="flex items-center gap-2">
+                        <a *ngIf="item.tx_hash && !item.tx_hash.startsWith('PENDING')"
+                           [href]="'https://sepolia.etherscan.io/tx/' + item.tx_hash"
+                           target="_blank" rel="noopener"
+                           class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px] transition-colors">
+                          <span>Verify Tx on Etherscan</span>
+                          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                        </a>
+                        <span *ngIf="!item.tx_hash || item.tx_hash.startsWith('PENDING')" class="text-amber-400 text-[11px] italic">
+                          Tx confirmation queued
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p class="text-[11px] text-slate-400 mt-2.5 pt-2 border-t border-slate-800/80 leading-relaxed">
+                    <span class="text-slate-300 font-semibold">Decentralized Trust:</span> Clinical notes stay securely in the hospital database off-chain. Only this cryptographic SHA-256 hash lives on Ethereum Sepolia. If any party modifies this reading in the hospital database, the hash check fails immediately.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Empty State -->
+            <div *ngIf="filteredMedicalHistoryItems.length === 0" class="card py-12 text-center">
+              <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              </div>
+              <h3 class="text-lg font-bold text-slate-900 mb-1">No Care Events Found</h3>
+              <p class="text-sm text-slate-500 max-w-sm mx-auto">No clinical records match the selected filter. Try selecting "All Events" to view all medical history.</p>
             </div>
           </div>
 
-          <!-- MEASUREMENTS -->
+          <!-- MEASUREMENTS (Clinical Vitals with Blockchain Verification) -->
           <div *ngIf="tab === 'measurements'" class="space-y-6 animate-fade-in">
-            <div>
-              <h1 class="text-2xl font-bold text-slate-900 mb-2">My Measurements</h1>
-              <p class="text-slate-600">Clinical readings recorded by your healthcare providers.</p>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                  <span>Clinical Measurements & Vitals</span>
+                  <span class="text-xs px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-700 font-semibold border border-teal-200">
+                    {{ data?.measurements?.length || 0 }} Readings
+                  </span>
+                </h1>
+                <p class="text-slate-600 text-sm mt-1">
+                  Clinical vital signs recorded by authorized attending doctors. Every reading is cryptographically anchored on Ethereum Sepolia.
+                </p>
+              </div>
             </div>
-            <div class="card">
+
+            <div class="card p-0 overflow-hidden">
               <div class="overflow-x-auto">
-                <table *ngIf="data?.measurements?.length" class="w-full">
+                <table *ngIf="data?.measurements?.length" class="w-full text-left text-sm">
                   <thead>
-                    <tr class="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
-                      <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Date</th>
-                      <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Type</th>
-                      <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Value</th>
-                      <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Doctor</th>
-                      <th class="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Hospital</th>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      <th class="px-5 py-3.5">Date & Time</th>
+                      <th class="px-5 py-3.5">Measurement</th>
+                      <th class="px-5 py-3.5">Result</th>
+                      <th class="px-5 py-3.5">Doctor Responsible</th>
+                      <th class="px-5 py-3.5">Hospital</th>
+                      <th class="px-5 py-3.5">Blockchain Proof</th>
                     </tr>
                   </thead>
-                  <tbody class="divide-y divide-slate-200">
-                    <tr *ngFor="let m of data.measurements" class="hover:bg-slate-50/80 transition-colors group">
-                      <td class="px-6 py-4 text-sm text-slate-900">{{ m.date | date:'short' }}</td>
-                      <td class="px-6 py-4 text-sm font-semibold text-slate-900">{{ m.kind }}</td>
-                      <td class="px-6 py-4 text-sm text-slate-900">{{ m.value }} <span class="text-slate-500">{{ m.unit }}</span></td>
-                      <td class="px-6 py-4 text-sm text-slate-600">{{ m.doctor || '—' }}</td>
-                      <td class="px-6 py-4 text-sm text-slate-600">{{ m.hospital || '—' }}</td>
+                  <tbody class="divide-y divide-slate-100">
+                    <tr *ngFor="let m of data.measurements" class="hover:bg-slate-50/70 transition-colors">
+                      <td class="px-5 py-4 whitespace-nowrap text-slate-700 font-medium">
+                        {{ m.date | date:'short' }}
+                      </td>
+                      <td class="px-5 py-4 whitespace-nowrap">
+                        <span class="font-bold text-slate-900">{{ m.kind }}</span>
+                        <p *ngIf="m.notes" class="text-xs text-slate-500 italic mt-0.5 max-w-xs truncate">{{ m.notes }}</p>
+                      </td>
+                      <td class="px-5 py-4 whitespace-nowrap">
+                        <span class="text-base font-extrabold text-slate-900">{{ m.value }}</span>
+                        <span class="text-xs font-semibold text-slate-500 ml-1">{{ m.unit }}</span>
+                      </td>
+                      <td class="px-5 py-4 whitespace-nowrap">
+                        <div class="flex items-center gap-1.5">
+                          <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                          <span class="font-semibold text-slate-800">{{ m.doctor || 'Attending Physician' }}</span>
+                        </div>
+                        <span *ngIf="m.doctor_license" class="text-[11px] text-slate-400 block pl-5">Lic: {{ m.doctor_license }}</span>
+                      </td>
+                      <td class="px-5 py-4 whitespace-nowrap text-slate-700 capitalize font-medium">
+                        {{ m.hospital || 'Hospital Facility' }}
+                      </td>
+                      <td class="px-5 py-4 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                          <a *ngIf="m.tx_hash && !m.tx_hash.startsWith('PENDING')"
+                             [href]="'https://sepolia.etherscan.io/tx/' + m.tx_hash"
+                             target="_blank" rel="noopener"
+                             class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-colors">
+                            <span>Verified Tx</span>
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                          </a>
+                          <span *ngIf="!m.tx_hash || m.tx_hash.startsWith('PENDING')" class="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                            Queued
+                          </span>
+                          <button *ngIf="m.record_hash" type="button" (click)="copyHash(m.record_hash)"
+                                  class="text-xs text-slate-500 hover:text-slate-800 underline font-mono cursor-pointer" title="Copy SHA-256 Hash">
+                            Hash
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   </tbody>
                 </table>
               </div>
+
               <div *ngIf="!data.measurements.length" class="p-12 text-center">
                 <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg class="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                 </div>
-                <h3 class="text-lg font-bold text-slate-900 mb-2">No Measurements Yet</h3>
-                <p class="text-slate-600">Measurements will appear when recorded by your provider.</p>
+                <h3 class="text-lg font-bold text-slate-900 mb-1">No Measurements Yet</h3>
+                <p class="text-sm text-slate-500">Clinical measurements recorded by doctors will appear here with cryptographic integrity proofs.</p>
               </div>
             </div>
           </div>
@@ -1331,42 +1557,65 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </div>
             </div>
 
-            <section class="card p-5" aria-labelledby="access-history-heading">
-              <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 id="access-history-heading" class="text-lg font-bold text-slate-900">Who viewed your records</h2>
-                  <p class="mt-1 text-sm text-slate-600">
-                    Recent recorded views, with the person, facility, and time. You can see this here without opening a block explorer.
-                  </p>
+            <!-- AUDIT LOGS CALLOUT CARD -->
+            <section class="rounded-2xl overflow-hidden border border-indigo-100 shadow-md">
+              <!-- Gradient header -->
+              <div class="bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-4 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-xl">📋</span>
+                  <h2 class="text-white font-bold text-base">Audit Logs &amp; Access Activity</h2>
                 </div>
-                <button type="button" (click)="setTab('activity')" class="btn-secondary shrink-0">
-                  Full access history
+                <button type="button" (click)="setTab('activity')"
+                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-indigo-700 text-xs font-bold hover:bg-indigo-50 transition-colors shadow-sm">
+                  View all logs
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                 </button>
               </div>
+              <div class="bg-white px-5 py-4">
+                <p class="text-sm text-slate-600 mb-3">Every doctor who views your records, every permission grant or revocation, and every emergency break-glass event is permanently recorded here with blockchain proof.</p>
 
-              <p *ngIf="storyLoading && story.length === 0" class="mt-4 text-sm text-slate-600" role="status">
-                Loading access history…
-              </p>
-              <div *ngIf="storyError" class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert">
-                <p>{{ storyError }}</p>
-                <button type="button" (click)="loadStory()" class="mt-2 font-semibold underline">Try again</button>
-              </div>
-
-              <div *ngIf="!storyError && accessEvents.length" class="mt-4 divide-y divide-slate-200">
-                <article *ngFor="let event of accessEvents | slice:0:5" class="flex flex-wrap items-start justify-between gap-2 py-3 first:pt-0 last:pb-0">
-                  <div>
-                    <p class="font-semibold text-slate-900">{{ event.who || (event.wallet | slice:0:18) }}</p>
-                    <p class="text-sm text-slate-600">
-                      <span *ngIf="event.facility">Facility {{ event.facility }}</span>
-                      <span *ngIf="event.role"> · {{ event.role }}</span>
-                    </p>
+                <!-- Quick stats -->
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                  <div class="bg-indigo-50 rounded-xl p-3 text-center">
+                    <p class="text-lg font-extrabold text-indigo-700">{{ story.length }}</p>
+                    <p class="text-xs text-indigo-500 mt-0.5">Total Events</p>
                   </div>
-                  <time class="text-sm text-slate-600">{{ event.timestamp * 1000 | date:'medium' }}</time>
-                </article>
+                  <div class="bg-blue-50 rounded-xl p-3 text-center">
+                    <p class="text-lg font-extrabold text-blue-700">{{ accessEvents.length }}</p>
+                    <p class="text-xs text-blue-500 mt-0.5">Doctor Views</p>
+                  </div>
+                  <div class="bg-red-50 rounded-xl p-3 text-center">
+                    <p class="text-lg font-extrabold text-red-600">{{ breakGlassCount }}</p>
+                    <p class="text-xs text-red-400 mt-0.5">Break-Glass</p>
+                  </div>
+                </div>
+
+                <!-- Recent events preview -->
+                <p *ngIf="storyLoading && story.length === 0" class="text-sm text-slate-500" role="status">Loading events…</p>
+                <div *ngIf="!storyError && story.length > 0" class="divide-y divide-slate-100">
+                  <div *ngFor="let event of story | slice:0:4" class="flex items-start gap-3 py-2.5 first:pt-0">
+                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0 mt-0.5" [class]="storyDot(event)">{{ event.icon }}</div>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm text-slate-800 font-semibold truncate">{{ event.who || (event.wallet | slice:0:20) }}</p>
+                      <p class="text-xs text-slate-500 truncate">{{ event.verb }}</p>
+                      <p class="text-xs text-slate-400">{{ event.timestamp * 1000 | date:'medium' }}</p>
+                    </div>
+                    <a *ngIf="event.etherscan_url" [href]="event.etherscan_url" target="_blank" rel="noopener"
+                       class="flex-shrink-0 text-xs text-indigo-600 hover:underline font-semibold">⛓ Proof</a>
+                  </div>
+                </div>
+                <p *ngIf="!storyLoading && !storyError && story.length === 0" class="text-sm text-slate-500">
+                  No events yet. They appear when a doctor accesses your records.
+                </p>
+                <div *ngIf="storyError" class="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                  {{ storyError }} — <button type="button" (click)="loadStory()" class="underline font-semibold">Retry</button>
+                </div>
+
+                <button type="button" (click)="setTab('activity')"
+                        class="mt-4 w-full py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors">
+                  Open Audit Logs &amp; Activity →
+                </button>
               </div>
-              <p *ngIf="!storyLoading && !storyError && accessEvents.length === 0" class="mt-4 text-sm text-slate-600">
-                No recorded record views are available yet. New views will appear here when they are recorded.
-              </p>
             </section>
 
             <div *ngIf="healthSummary" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -1519,21 +1768,75 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
           </div>
 
-          <!-- ACTIVITY -->
+          <!-- AUDIT LOGS & ACTIVITY -->
           <div *ngIf="tab === 'activity'" class="space-y-6 animate-fade-in">
-            <!-- HEADER -->
-            <div class="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h1 class="text-2xl font-bold text-slate-900 mb-2">Access History</h1>
-                <p class="text-slate-600 leading-relaxed">
-                  Every view, permission change, and security event for your health data.
-                </p>
-                <p class="text-sm text-slate-500 mt-1">{{ story.length }} event(s) &nbsp;&bull;&nbsp; Newest first</p>
+
+            <!-- PAGE HEADER -->
+            <div class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-6 text-white shadow-xl">
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div class="flex items-center gap-2 mb-2">
+                    <span class="text-2xl">📋</span>
+                    <h1 class="text-2xl font-extrabold tracking-tight">Audit Logs &amp; Access Activity</h1>
+                  </div>
+                  <p class="text-indigo-100 leading-relaxed max-w-xl">
+                    Every doctor view, permission grant or revocation, clinical measurement, and emergency break-glass event is permanently recorded here — with immutable blockchain proof on the Sepolia network.
+                  </p>
+                  <p class="text-indigo-200 text-sm mt-2">{{ story.length }} event(s) logged &nbsp;&bull;&nbsp; Newest first</p>
+                </div>
+                <button (click)="loadStory()" [disabled]="storyLoading"
+                        class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-sm font-semibold transition-colors disabled:opacity-50 border border-white/30">
+                  <svg class="w-4 h-4" [class.animate-spin]="storyLoading" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  Refresh
+                </button>
               </div>
-              <button (click)="loadStory()" [disabled]="storyLoading"
-                      class="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50">
-                <svg class="w-4 h-4" [class.animate-spin]="storyLoading" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                Refresh
+
+              <!-- STAT PILLS -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
+                <div class="bg-white/15 rounded-xl p-3 text-center">
+                  <p class="text-xl font-extrabold">{{ story.length }}</p>
+                  <p class="text-xs text-indigo-200 mt-0.5">Total Events</p>
+                </div>
+                <div class="bg-white/15 rounded-xl p-3 text-center">
+                  <p class="text-xl font-extrabold">{{ recordViewedCount }}</p>
+                  <p class="text-xs text-indigo-200 mt-0.5">Doctor Views</p>
+                </div>
+                <div class="bg-white/15 rounded-xl p-3 text-center">
+                  <p class="text-xl font-extrabold">{{ breakGlassCount }}</p>
+                  <p class="text-xs text-indigo-200 mt-0.5">Break-Glass</p>
+                </div>
+                <div class="bg-white/15 rounded-xl p-3 text-center">
+                  <p class="text-xl font-extrabold">{{ onChainCount }}</p>
+                  <p class="text-xs text-indigo-200 mt-0.5">On-Chain Proofs</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- BLOCKCHAIN INFO BANNER -->
+            <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex items-start gap-3">
+              <svg class="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              <div class="text-sm">
+                <p class="font-semibold text-indigo-800">How Blockchain Applies Here</p>
+                <p class="text-indigo-700 mt-1">Doctors cannot read your data without your explicit approval or an emergency break-glass declaration. Every access is hashed and anchored on the <span class="font-semibold">Sepolia</span> testnet — making tampering cryptographically detectable. Click <em>Verify on Etherscan</em> on any event to inspect the raw transaction.</p>
+              </div>
+            </div>
+
+            <!-- FILTER PILLS -->
+            <div class="flex flex-wrap gap-2">
+              <button *ngFor="let f of [
+                {id:'all', label:'All Logs', icon:'🗂'},
+                {id:'views', label:'Doctor Views', icon:'👁'},
+                {id:'permissions', label:'Permissions & Grants', icon:'🔐'},
+                {id:'measurements', label:'Clinical Measurements', icon:'📊'},
+                {id:'emergency', label:'Emergency Break-Glass', icon:'🚨'}
+              ]"
+                (click)="storyFilter = f.id"
+                class="px-3 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 border"
+                [ngClass]="storyFilter === f.id
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'">
+                {{ f.icon }} {{ f.label }}
+                <span *ngIf="f.id !== 'all'" class="ml-1 text-xs opacity-75">({{ auditCategoryCount(f.id) }})</span>
               </button>
             </div>
 
@@ -1550,7 +1853,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </div>
             </div>
 
-            <!-- DB-ONLY MODE NOTICE (blockchain unreachable, but data still shown) -->
+            <!-- DB-ONLY MODE NOTICE -->
             <div *ngIf="storySource === 'db' && story.length > 0"
                  class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
               <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -1560,7 +1863,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </div>
             </div>
 
-            <!-- PERSISTENT ERROR (no data at all) -->
+            <!-- PERSISTENT ERROR -->
             <div *ngIf="storyError && story.length === 0"
                  class="flex flex-col items-center gap-3 p-8 bg-red-50 border border-red-100 rounded-2xl text-center">
               <svg class="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
@@ -1569,9 +1872,9 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
 
             <!-- TIMELINE -->
-            <div *ngIf="story.length > 0" class="relative">
-              <div class="absolute left-5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-slate-200 via-slate-200 to-transparent"></div>
-              <div *ngFor="let s of story" class="relative flex gap-4 mb-6">
+            <div *ngIf="auditFilteredStory.length > 0" class="relative">
+              <div class="absolute left-5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-indigo-200 via-slate-200 to-transparent"></div>
+              <div *ngFor="let s of auditFilteredStory" class="relative flex gap-4 mb-5">
                 <!-- DOT -->
                 <div class="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg shadow-md" [class]="storyDot(s)">
                   {{ s.icon }}
@@ -1580,6 +1883,21 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 <div class="flex-1 bg-white rounded-2xl shadow-sm border border-slate-100 p-5 hover:shadow-md transition-all duration-200">
                   <div class="flex flex-wrap items-start justify-between gap-3">
                     <div class="flex-1 min-w-0">
+                      <!-- Event type badge -->
+                      <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+                        <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border"
+                              [ngClass]="{
+                                'bg-red-50 text-red-700 border-red-200': s.event === 'BreakGlassUsed' || s.event === 'EmergencyAccessGranted',
+                                'bg-emerald-50 text-emerald-700 border-emerald-200': s.event === 'AccessGranted',
+                                'bg-orange-50 text-orange-700 border-orange-200': s.event === 'AccessRevoked',
+                                'bg-blue-50 text-blue-700 border-blue-200': s.event === 'RecordViewed',
+                                'bg-violet-50 text-violet-700 border-violet-200': s.event === 'MeasurementRecorded',
+                                'bg-indigo-50 text-indigo-700 border-indigo-200': s.event === 'ReferralAccepted',
+                                'bg-slate-50 text-slate-600 border-slate-200': !['BreakGlassUsed','EmergencyAccessGranted','AccessGranted','AccessRevoked','RecordViewed','MeasurementRecorded','ReferralAccepted'].includes(s.event)
+                              }">{{ s.event }}</span>
+                        <span *ngIf="s.role" class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{{ s.role }}</span>
+                        <span *ngIf="s['source'] === 'db'" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">DB-backed</span>
+                      </div>
                       <p class="text-slate-900 leading-relaxed">
                         <span class="font-bold">{{ s.who || (s.wallet | slice:0:18) }}</span>
                         <span> {{ s.verb }}</span>
@@ -1587,34 +1905,258 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                       <div class="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-500">
                         <span>{{ s.timestamp * 1000 | date:'medium' }}</span>
                         <span *ngIf="s.facility">&bull; {{ s.facility }}</span>
-                        <span *ngIf="s.role" class="px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 font-medium">{{ s.role }}</span>
-                        <!-- DB source badge -->
-                        <span *ngIf="s['source'] === 'db'" class="px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded border border-amber-100 font-medium">DB</span>
                       </div>
+                      <!-- TX hash preview -->
+                      <p *ngIf="s.transaction_hash" class="mt-2 font-mono text-[10px] text-slate-400 bg-slate-50 px-2 py-1 rounded-lg break-all">
+                        Tx: {{ s.transaction_hash }}
+                      </p>
                     </div>
                     <!-- ACTION BUTTON -->
-                    <a *ngIf="s.etherscan_url" [href]="s.etherscan_url" target="_blank" rel="noopener"
-                       class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg hover:bg-indigo-100 transition-colors">
-                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                      Verify on Etherscan
-                    </a>
-                    <span *ngIf="!s.etherscan_url"
-                          class="flex-shrink-0 text-xs text-slate-400 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100">
-                      No tx yet
-                    </span>
+                    <div class="flex flex-col gap-1.5">
+                      <a *ngIf="s.etherscan_url" [href]="s.etherscan_url" target="_blank" rel="noopener"
+                         class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                        Verify on Etherscan
+                      </a>
+                      <span *ngIf="!s.etherscan_url"
+                            class="flex-shrink-0 text-xs text-slate-400 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 text-center">
+                        Pending on-chain
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- EMPTY STATE (no events at all after load) -->
+            <!-- EMPTY AFTER FILTER -->
+            <div *ngIf="!storyLoading && !storyError && story.length > 0 && auditFilteredStory.length === 0"
+                 class="flex flex-col items-center justify-center py-12 bg-white rounded-2xl border border-dashed border-slate-200">
+              <div class="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center text-2xl mb-3">🔍</div>
+              <p class="text-slate-600 font-semibold">No events in this category</p>
+              <button (click)="storyFilter = 'all'" class="mt-2 text-sm text-indigo-600 hover:underline">Clear filter</button>
+            </div>
+
+            <!-- EMPTY STATE (no events at all) -->
             <div *ngIf="!storyLoading && !storyError && story.length === 0"
                  class="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
               <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">🔐</div>
               <h3 class="text-lg font-bold text-slate-900 mb-2">No Activity Yet</h3>
-              <p class="text-slate-500 text-sm text-center max-w-xs">Blockchain activity will appear here when records are accessed or permissions change.</p>
+              <p class="text-slate-500 text-sm text-center max-w-xs">Audit events will appear here the first time a doctor requests or is granted access to your records.</p>
             </div>
-          </div>
+
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <!-- DATA INTEGRITY VERIFICATION PANEL                          -->
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <div class="mt-4">
+              <!-- SECTION HEADER -->
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h2 class="text-lg font-extrabold text-slate-900 flex items-center gap-2">
+                    <span class="text-xl">🔬</span> Data Integrity Verification
+                  </h2>
+                  <p class="text-sm text-slate-500 mt-0.5">Prove your medical data has never been silently altered</p>
+                </div>
+                <button (click)="runIntegrityCheck()" [disabled]="integrityLoading"
+                        class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors disabled:opacity-60 shadow-md">
+                  <svg class="w-4 h-4" [class.animate-spin]="integrityLoading" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                  {{ integrityLoading ? 'Checking…' : 'Run Integrity Check' }}
+                </button>
+              </div>
+
+              <!-- HOW IT WORKS EXPLAINER (always visible) -->
+              <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-5">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2 mb-3">
+                  <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                  How tamper detection works
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-slate-600">
+                  <div class="flex gap-2.5">
+                    <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center flex-shrink-0 text-xs">1</div>
+                    <div>
+                      <p class="font-semibold text-slate-700">Payload Re-hash</p>
+                      <p class="mt-0.5">Re-computes <code class="bg-white px-1 rounded border border-slate-200 text-indigo-600">SHA-256</code> of the current database record. If the data was silently edited, this hash will differ from the original.</p>
+                    </div>
+                  </div>
+                  <div class="flex gap-2.5">
+                    <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center flex-shrink-0 text-xs">2</div>
+                    <div>
+                      <p class="font-semibold text-slate-700">DB Hash Comparison</p>
+                      <p class="mt-0.5">Compares re-computed hash against the <code class="bg-white px-1 rounded border border-slate-200 text-indigo-600">record_hash</code> field stored in the database at the time of anchoring.</p>
+                    </div>
+                  </div>
+                  <div class="flex gap-2.5">
+                    <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center flex-shrink-0 text-xs">3</div>
+                    <div>
+                      <p class="font-semibold text-slate-700">On-chain Cross-check</p>
+                      <p class="mt-0.5">Queries the <code class="bg-white px-1 rounded border border-slate-200 text-indigo-600">getRecords()</code> function on Sepolia to confirm the stored hash also exists in the immutable blockchain registry.</p>
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div *ngFor="let badge of [
+                    {status:'VERIFIED', icon:'✅', label:'Verified', desc:'Payload + chain match'},
+                    {status:'TAMPERED_PAYLOAD', icon:'🔴', label:'Tampered', desc:'DB data was altered'},
+                    {status:'CHAIN_MISMATCH', icon:'⚠️', label:'Chain Mismatch', desc:'Hash not found on-chain'},
+                    {status:'UNANCHORED', icon:'⏳', label:'Unanchored', desc:'Not yet on-chain'}
+                  ]" class="flex items-start gap-1.5 p-2 bg-white rounded-xl border border-slate-200">
+                    <span class="text-base flex-shrink-0">{{ badge.icon }}</span>
+                    <div>
+                      <p class="text-[11px] font-bold text-slate-700">{{ badge.label }}</p>
+                      <p class="text-[10px] text-slate-500">{{ badge.desc }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- LOADING STATE -->
+              <div *ngIf="integrityLoading" class="flex flex-col items-center py-12 gap-3">
+                <div class="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                <p class="text-sm text-slate-600 font-medium">Re-hashing records and cross-checking blockchain…</p>
+                <p class="text-xs text-slate-400">This may take a few seconds while we query the Sepolia network.</p>
+              </div>
+
+              <!-- ERROR -->
+              <div *ngIf="integrityError && !integrityLoading" class="p-4 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-700 flex items-center gap-3">
+                <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/></svg>
+                {{ integrityError }}
+              </div>
+
+              <!-- RESULTS -->
+              <div *ngIf="integrityReport && !integrityLoading">
+
+                <!-- TAMPER ALERT BANNER -->
+                <div *ngIf="!integrityReport.integrity_ok"
+                     class="mb-5 p-5 bg-red-600 text-white rounded-2xl shadow-xl flex items-start gap-4 animate-pulse">
+                  <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-2xl flex-shrink-0">🚨</div>
+                  <div>
+                    <h3 class="font-extrabold text-lg mb-1">DATA INTEGRITY VIOLATION DETECTED</h3>
+                    <p class="text-red-100 text-sm leading-relaxed">
+                      <strong>{{ integrityReport.summary.tampered }} record(s)</strong> no longer match their original blockchain hash.
+                      This means someone modified the clinical data in the database AFTER it was anchored on Sepolia.
+                      The records flagged in red below are the affected items.
+                    </p>
+                    <p class="text-red-200 text-xs mt-2">Checked at: {{ integrityReport.checked_at | date:'medium' }}</p>
+                  </div>
+                </div>
+
+                <!-- ALL CLEAR BANNER -->
+                <div *ngIf="integrityReport.integrity_ok"
+                     class="mb-5 p-5 bg-emerald-600 text-white rounded-2xl shadow-md flex items-start gap-4">
+                  <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-2xl flex-shrink-0">✅</div>
+                  <div>
+                    <h3 class="font-extrabold text-lg mb-1">All Records Verified — No Tampering Detected</h3>
+                    <p class="text-emerald-100 text-sm">
+                      <strong>{{ integrityReport.summary.verified }}</strong> of {{ integrityReport.summary.total }} items confirmed intact.
+                      Every clinical record and measurement matches its original SHA-256 hash anchored on Sepolia.
+                    </p>
+                    <p class="text-emerald-200 text-xs mt-2">Checked at: {{ integrityReport.checked_at | date:'medium' }}</p>
+                  </div>
+                </div>
+
+                <!-- SUMMARY STAT CARDS -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                  <div class="bg-white rounded-2xl border border-slate-200 p-4 text-center shadow-sm">
+                    <p class="text-2xl font-extrabold text-slate-800">{{ integrityReport.summary.total }}</p>
+                    <p class="text-xs text-slate-500 mt-1">Total Checked</p>
+                  </div>
+                  <div class="bg-emerald-50 rounded-2xl border border-emerald-200 p-4 text-center shadow-sm">
+                    <p class="text-2xl font-extrabold text-emerald-700">{{ integrityReport.summary.verified }}</p>
+                    <p class="text-xs text-emerald-600 mt-1">✅ Verified</p>
+                  </div>
+                  <div [ngClass]="integrityReport.summary.tampered > 0 ? 'bg-red-50 border-red-300 animate-pulse' : 'bg-slate-50 border-slate-200'"
+                       class="rounded-2xl border p-4 text-center shadow-sm">
+                    <p class="text-2xl font-extrabold" [ngClass]="integrityReport.summary.tampered > 0 ? 'text-red-700' : 'text-slate-400'">
+                      {{ integrityReport.summary.tampered }}
+                    </p>
+                    <p class="text-xs mt-1" [ngClass]="integrityReport.summary.tampered > 0 ? 'text-red-600' : 'text-slate-400'">🔴 Tampered</p>
+                  </div>
+                  <div class="bg-amber-50 rounded-2xl border border-amber-200 p-4 text-center shadow-sm">
+                    <p class="text-2xl font-extrabold text-amber-700">{{ integrityReport.summary.unanchored }}</p>
+                    <p class="text-xs text-amber-600 mt-1">⏳ Unanchored</p>
+                  </div>
+                </div>
+
+                <!-- CHAIN UNAVAILABLE NOTICE -->
+                <div *ngIf="!integrityReport.chain_available" class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-sm">
+                  <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  <p class="text-amber-800">Blockchain node unreachable. Only DB-level payload checks were performed. On-chain cross-verification skipped.</p>
+                </div>
+
+                <!-- PER-ITEM LIST (Records + Measurements combined) -->
+                <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">Per-record Detail</h3>
+                <div class="space-y-3">
+                  <div *ngFor="let item of integrityReport.records.concat(integrityReport.measurements)"
+                       class="bg-white rounded-2xl border p-4 shadow-sm"
+                       [ngClass]="item.severity === 'critical' ? 'border-red-300 bg-red-50' : item.severity === 'warning' ? 'border-amber-200' : 'border-slate-200'">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                      <div class="flex-1 min-w-0">
+                        <!-- Header row -->
+                        <div class="flex items-center gap-2 mb-1.5">
+                          <span class="text-base">{{ integrityBadgeIcon(item.status) }}</span>
+                          <span class="font-bold text-slate-900 text-sm">
+                            {{ item.type === 'record' ? (item.record_type || 'Medical Record') : (item.kind + ' ' + item.value + (item.unit || '')) }}
+                          </span>
+                          <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border"
+                                [ngClass]="integrityBadgeClass(item.status)">
+                            {{ item.status.replace('_', ' ') }}
+                          </span>
+                        </div>
+
+                        <!-- Metadata -->
+                        <div class="flex flex-wrap gap-2 text-xs text-slate-500 mb-2">
+                          <span>{{ item.facility_name }}</span>
+                          <span>·</span>
+                          <span>{{ item.type === 'measurement' && item.doctor ? ('Dr. ' + item.doctor) : '' }}</span>
+                          <span>·</span>
+                          <span>{{ item.created_at | date:'mediumDate' }}</span>
+                        </div>
+
+                        <!-- Description -->
+                        <p class="text-xs leading-relaxed"
+                           [ngClass]="item.severity === 'critical' ? 'text-red-700 font-semibold' : 'text-slate-600'">
+                          {{ item.description }}
+                        </p>
+
+                        <!-- Hash comparison (only show mismatch or on critical) -->
+                        <div *ngIf="item.severity === 'critical' || item.status !== 'VERIFIED'" class="mt-3 space-y-1.5">
+                          <div class="flex items-start gap-2">
+                            <span class="text-[10px] font-bold text-slate-500 w-24 flex-shrink-0 mt-0.5">STORED HASH</span>
+                            <code class="text-[10px] font-mono bg-slate-100 px-2 py-1 rounded break-all text-slate-600 flex-1">{{ item.stored_hash || '—' }}</code>
+                          </div>
+                          <div class="flex items-start gap-2">
+                            <span class="text-[10px] font-bold flex-shrink-0 w-24 mt-0.5"
+                                  [ngClass]="item.payload_hash_matches ? 'text-emerald-600' : 'text-red-600'">
+                              {{ item.payload_hash_matches ? 'RE-HASH ✓' : 'RE-HASH ✗' }}
+                            </span>
+                            <code class="text-[10px] font-mono px-2 py-1 rounded break-all flex-1"
+                                  [ngClass]="item.payload_hash_matches ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700 font-bold'">
+                              {{ item.recomputed_hash }}
+                            </code>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Actions -->
+                      <div class="flex flex-col gap-1.5 flex-shrink-0">
+                        <a *ngIf="item.etherscan_url" [href]="item.etherscan_url" target="_blank" rel="noopener"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                          Verify on Etherscan
+                        </a>
+                        <span class="text-[10px] text-slate-400 text-center">
+                          {{ item.chain_checked ? '⛓ Chain checked' : '⚡ DB only' }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div><!-- /integrityReport -->
+
+            </div><!-- /integrity panel -->
+
+          </div><!-- /tab === activity -->
+
         </main>
       </div>
     </div>
@@ -1758,13 +2300,13 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   tab: 'dashboard' | 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'how-it-works' = 'dashboard';
   tabs = [
     { id: 'dashboard', label: 'Dashboard' },
-    { id: 'records', label: 'History' },
+    { id: 'records', label: 'Medical History' },
     { id: 'measurements', label: 'Measurements' },
     { id: 'referrals', label: 'Referrals' },
     { id: 'permissions', label: 'Permissions' },
     { id: 'requests', label: 'Requests' },
-    { id: 'activity', label: 'Access History' },
-    { id: 'wallet', label: 'Wallet' },
+    { id: 'activity', label: 'Audit Logs & Activity' },
+    { id: 'wallet', label: 'Custodial Wallet' },
     { id: 'profile', label: 'Profile' },
     { id: 'referral-security', label: 'Referral Security' },
     { id: 'how-it-works', label: 'How it works' },
@@ -1780,6 +2322,13 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   busy = false;
   errorMsg = '';
   historyFilter: 'all' | 'records' | 'measurements' | 'hospitals' = 'all';
+  /** Filter pills for Audit Logs & Activity tab */
+  storyFilter: 'all' | 'views' | 'permissions' | 'measurements' | 'emergency' = 'all';
+
+  /** Integrity verification state */
+  integrityReport: IntegrityReport | null = null;
+  integrityLoading = false;
+  integrityError = '';
 
   /** Most recent on-chain action performed by this patient (grant/approve),
    * surfaced as a banner with a direct Etherscan link. */
@@ -1866,6 +2415,191 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   get hospitalChartData(): RecordChartPoint[] {
     return (this.healthSummary?.hospital_visits ?? []).map((item) => ({ label: item.facility, value: item.count }));
+  }
+
+  // --- Longitudinal Care Journey (From where care started to where it ended) ---
+  get careJourneyFacilities(): { name: string; firstVisit: string; count: number; role: string; doctor?: string }[] {
+    if (!this.data) return [];
+    const facilityMap = new Map<string, { firstVisit: string; count: number; role: string; doctor?: string }>();
+
+    // 1. Registered facility if any
+    if (this.data.hospital) {
+      facilityMap.set(this.data.hospital, {
+        firstVisit: this.data.records[0]?.date || (this.data['created_at'] || ''),
+        count: 1,
+        role: 'Origin Facility',
+      });
+    }
+
+    // 2. Records facilities
+    for (const r of this.data.records || []) {
+      if (!r.facility) continue;
+      const existing = facilityMap.get(r.facility);
+      if (existing) {
+        existing.count++;
+      } else {
+        facilityMap.set(r.facility, { firstVisit: r.date || '', count: 1, role: 'Treatment Facility' });
+      }
+    }
+
+    // 3. Measurements facilities
+    for (const m of this.data.measurements || []) {
+      if (!m.hospital) continue;
+      const existing = facilityMap.get(m.hospital);
+      if (existing) {
+        existing.count++;
+        if (m.doctor && !existing.doctor) existing.doctor = m.doctor;
+      } else {
+        facilityMap.set(m.hospital, { firstVisit: m.date || '', count: 1, role: 'Clinical Facility', doctor: m.doctor });
+      }
+    }
+
+    // 4. Referrals
+    for (const ref of this.data.referrals || []) {
+      if (ref.from_hospital && !facilityMap.has(ref.from_hospital)) {
+        facilityMap.set(ref.from_hospital, { firstVisit: ref.date || '', count: 1, role: 'Referring Facility', doctor: ref.from_doctor });
+      }
+      if (ref.to_hospital && !facilityMap.has(ref.to_hospital)) {
+        facilityMap.set(ref.to_hospital, { firstVisit: ref.date || '', count: 1, role: 'Receiving Facility' });
+      }
+    }
+
+    return Array.from(facilityMap.entries()).map(([name, info]) => ({
+      name,
+      firstVisit: info.firstVisit,
+      count: info.count,
+      role: info.role,
+      doctor: info.doctor,
+    }));
+  }
+
+  get totalCareFacilitiesCount(): number {
+    return this.careJourneyFacilities.length;
+  }
+
+  get totalDoctorsEngagedCount(): number {
+    if (!this.data) return 0;
+    const docs = new Set<string>();
+    for (const m of this.data.measurements || []) {
+      if (m.doctor) docs.add(m.doctor.toLowerCase());
+    }
+    for (const r of this.data.referrals || []) {
+      if (r.from_doctor) docs.add(r.from_doctor.toLowerCase());
+    }
+    return docs.size;
+  }
+
+  get onChainVerifiedEventsCount(): number {
+    return this.allMedicalHistoryItemsRaw.filter((i) => i.verified).length;
+  }
+
+  get allMedicalHistoryItemsRaw(): any[] {
+    if (!this.data) return [];
+    const items: any[] = [];
+
+    // Records
+    for (const r of this.data.records || []) {
+      const ts = r.date ? new Date(r.date).getTime() : 0;
+      items.push({
+        id: `rec-${r.id}`,
+        category: 'record',
+        categoryLabel: `Clinical Record (${r.type || 'General'})`,
+        title: r.type || 'Medical Record',
+        facility: r.facility || 'Healthcare Facility',
+        doctor: (r.data && (r.data['doctor'] || r.data['doctor_name'] || r.data['attending_physician'])) || 'Attending Physician',
+        date: r.date || '',
+        timestamp: ts,
+        data: r.data,
+        hash: r.hash,
+        tx_hash: r.tx_hash,
+        verified: !!r.verified || (!!r.tx_hash && !r.tx_hash.startsWith('PENDING')),
+        sourceUri: r.source_uri,
+      });
+    }
+
+    // Measurements
+    for (const m of this.data.measurements || []) {
+      const ts = m.date ? new Date(m.date).getTime() : 0;
+      items.push({
+        id: `meas-${m.id}`,
+        category: 'measurement',
+        categoryLabel: `Clinical Measurement`,
+        title: m.kind,
+        facility: m.hospital || m.facility_id || 'Clinical Facility',
+        doctor: m.doctor ? (m.doctor.startsWith('Dr.') ? m.doctor : `Dr. ${m.doctor}`) : 'Attending Clinician',
+        doctorLicense: m.doctor_license,
+        date: m.date || '',
+        timestamp: ts,
+        value: m.value,
+        unit: m.unit,
+        notes: m.notes,
+        hash: m.record_hash,
+        tx_hash: m.tx_hash,
+        verified: !!m.verified || (!!m.tx_hash && !m.tx_hash.startsWith('PENDING')),
+      });
+    }
+
+    // Referrals
+    for (const ref of this.data.referrals || []) {
+      const ts = ref.date ? new Date(ref.date).getTime() : 0;
+      items.push({
+        id: `ref-${ref.id}`,
+        category: 'referral',
+        categoryLabel: `Transfer of Care (Referral)`,
+        title: `Referral to ${ref.to_hospital}`,
+        facility: ref.from_hospital || 'Referring Facility',
+        doctor: ref.from_doctor ? (ref.from_doctor.startsWith('Dr.') ? ref.from_doctor : `Dr. ${ref.from_doctor}`) : 'Referring Clinician',
+        date: ref.date || '',
+        timestamp: ts,
+        notes: ref.reason,
+        status: ref.status,
+        tx_hash: ref['tx_hash'],
+        verified: !!ref['tx_hash'] && !ref['tx_hash'].startsWith('PENDING'),
+      });
+    }
+
+    items.sort((a, b) => b.timestamp - a.timestamp);
+    return items;
+  }
+
+  get filteredMedicalHistoryItems(): any[] {
+    const all = this.allMedicalHistoryItemsRaw;
+    if (this.historyFilter === 'records') {
+      return all.filter((i) => i.category === 'record');
+    }
+    if (this.historyFilter === 'measurements') {
+      return all.filter((i) => i.category === 'measurement');
+    }
+    if (this.historyFilter === 'hospitals') {
+      return all.filter((i) => i.category === 'referral');
+    }
+    return all;
+  }
+
+  copiedHash: string | null = null;
+  copyHash(hash: string) {
+    if (!hash) return;
+    navigator.clipboard.writeText(hash).then(() => {
+      this.copiedHash = hash;
+      this.syncView();
+      setTimeout(() => {
+        this.copiedHash = null;
+        this.syncView();
+      }, 2000);
+    }).catch(() => {});
+  }
+
+  setHistoryFilter(f: 'all' | 'records' | 'measurements' | 'hospitals') {
+    this.historyFilter = f;
+    this.syncView();
+  }
+
+  allMedicalHistoryItemsCount(type: 'all' | 'records' | 'measurements' | 'hospitals'): number {
+    const all = this.allMedicalHistoryItemsRaw;
+    if (type === 'records') return all.filter((i) => i.category === 'record').length;
+    if (type === 'measurements') return all.filter((i) => i.category === 'measurement').length;
+    if (type === 'hospitals') return all.filter((i) => i.category === 'referral').length;
+    return all.length;
   }
 
   walletGrants: {
@@ -2475,23 +3209,50 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.syncView();
   }
 
-  /** Sidebar icons */
+  /** Sidebar icons (inline SVG, 20×20) */
   getIcon(tabId: string): string {
+    const s = 'width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
     switch (tabId) {
+      case 'dashboard':
+        return `<svg ${s}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`;
       case 'records':
-        return '';
+        return `<svg ${s}><path d="M9 12h6m-6 4h6M7 8h.01M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"/></svg>`;
       case 'measurements':
-        return '';
+        return `<svg ${s}><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg>`;
       case 'referrals':
-        return '';
+        return `<svg ${s}><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>`;
       case 'permissions':
-        return '';
+        return `<svg ${s}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`;
       case 'requests':
-        return '';
+        return `<svg ${s}><path d="M18 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586"/><path d="M14 4H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l4-4h5a2 2 0 002-2V6a2 2 0 00-2-2z"/></svg>`;
       case 'activity':
-        return '';
+        return `<svg ${s}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>`;
+      case 'wallet':
+        return `<svg ${s}><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><path d="M1 10h22"/></svg>`;
+      case 'profile':
+        return `<svg ${s}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+      case 'referral-security':
+        return `<svg ${s}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`;
+      case 'how-it-works':
+        return `<svg ${s}><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>`;
       default:
         return '';
+    }
+  }
+
+  /** Filtered story items for the Audit Logs tab */
+  get auditFilteredStory(): typeof this.story {
+    switch (this.storyFilter) {
+      case 'views':
+        return this.story.filter(s => ['RecordViewed', 'PatientDashboardViewed'].includes(s.event));
+      case 'permissions':
+        return this.story.filter(s => ['AccessGranted', 'AccessRevoked', 'AccessRequested', 'PatientRegistered'].includes(s.event));
+      case 'measurements':
+        return this.story.filter(s => ['MeasurementRecorded', 'RecordAdded', 'ReferralAccepted'].includes(s.event));
+      case 'emergency':
+        return this.story.filter(s => ['BreakGlassUsed', 'EmergencyAccessGranted', 'EmergencyAccessRevoked'].includes(s.event));
+      default:
+        return this.story;
     }
   }
 
@@ -2539,6 +3300,74 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   get accessEvents(): ActivityStoryItem[] {
     return this.story.filter((event) => event.event === 'RecordViewed');
+  }
+
+  /** Run on-demand tamper detection against the blockchain */
+  async runIntegrityCheck() {
+    if (this.integrityLoading) return;
+    this.integrityLoading = true;
+    this.integrityError = '';
+    this.integrityReport = null;
+    this.syncView();
+    try {
+      this.integrityReport = await this.api.verifyIntegrity();
+    } catch (e: any) {
+      this.integrityError = e?.error?.error || e?.message || 'Integrity check failed. Please try again.';
+    } finally {
+      this.integrityLoading = false;
+      this.syncView();
+    }
+  }
+
+  /** CSS classes for an integrity status badge */
+  integrityBadgeClass(status: IntegrityCheckResult['status']): string {
+    switch (status) {
+      case 'VERIFIED': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case 'TAMPERED_PAYLOAD': return 'bg-red-100 text-red-800 border-red-300 animate-pulse';
+      case 'CHAIN_MISMATCH': return 'bg-red-100 text-red-800 border-red-300';
+      case 'UNANCHORED': return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'CHAIN_UNAVAILABLE': return 'bg-slate-100 text-slate-600 border-slate-200';
+      default: return 'bg-slate-100 text-slate-600 border-slate-200';
+    }
+  }
+
+  integrityBadgeIcon(status: IntegrityCheckResult['status']): string {
+    switch (status) {
+      case 'VERIFIED': return '✅';
+      case 'TAMPERED_PAYLOAD': return '🔴';
+      case 'CHAIN_MISMATCH': return '⚠️';
+      case 'UNANCHORED': return '⏳';
+      case 'CHAIN_UNAVAILABLE': return '🔌';
+      default: return '❓';
+    }
+  }
+
+  get breakGlassCount(): number {
+    return this.story.filter(s => s.event === 'BreakGlassUsed' || s.event === 'EmergencyAccessGranted').length;
+  }
+
+  get recordViewedCount(): number {
+    return this.story.filter(s => s.event === 'RecordViewed').length;
+  }
+
+  get onChainCount(): number {
+    return this.story.filter(s => !!(s as any).etherscan_url).length;
+  }
+
+  /** Count events for each audit filter category */
+  auditCategoryCount(filterId: string): number {
+    switch (filterId) {
+      case 'views':
+        return this.story.filter(s => ['RecordViewed', 'PatientDashboardViewed'].includes(s.event)).length;
+      case 'permissions':
+        return this.story.filter(s => ['AccessGranted', 'AccessRevoked', 'AccessRequested', 'PatientRegistered'].includes(s.event)).length;
+      case 'measurements':
+        return this.story.filter(s => ['MeasurementRecorded', 'RecordAdded', 'ReferralAccepted'].includes(s.event)).length;
+      case 'emergency':
+        return this.story.filter(s => ['BreakGlassUsed', 'EmergencyAccessGranted', 'EmergencyAccessRevoked'].includes(s.event)).length;
+      default:
+        return this.story.length;
+    }
   }
 
   /**

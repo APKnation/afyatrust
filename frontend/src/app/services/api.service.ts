@@ -626,4 +626,53 @@ export class ApiService {
   hospitalBlockchainSummary(): Promise<HospitalBlockchainSummaryResponse> {
     return this.request<HospitalBlockchainSummaryResponse>('GET', '/blockchain/hospital-summary/');
   }
+
+  /** On-demand tamper detection: re-hashes every record and measurement and
+   *  compares against stored DB hash AND on-chain hash. */
+  verifyIntegrity(): Promise<IntegrityReport> {
+    return this.request<IntegrityReport>('GET', '/patient/verify-integrity/');
+  }
 }
+
+/** A single record or measurement integrity result. */
+export interface IntegrityCheckResult {
+  id: number;
+  type: 'record' | 'measurement';
+  // record fields
+  record_type?: string;
+  // measurement fields
+  kind?: string;
+  value?: number;
+  unit?: string;
+  doctor?: string;
+  // common
+  facility_name: string;
+  created_at: string;
+  stored_hash: string;
+  recomputed_hash: string;
+  tx_hash: string | null;
+  etherscan_url: string | null;
+  status: 'VERIFIED' | 'TAMPERED_PAYLOAD' | 'CHAIN_MISMATCH' | 'UNANCHORED' | 'CHAIN_UNAVAILABLE';
+  severity: 'ok' | 'critical' | 'warning' | 'info';
+  payload_hash_matches: boolean;
+  on_chain_hash_matches: boolean | null;
+  chain_checked: boolean;
+  description: string;
+}
+
+export interface IntegrityReport {
+  health_id: string;
+  chain_available: boolean;
+  summary: {
+    total: number;
+    verified: number;
+    tampered: number;
+    unanchored: number;
+    chain_unavailable: number;
+  };
+  integrity_ok: boolean;
+  records: IntegrityCheckResult[];
+  measurements: IntegrityCheckResult[];
+  checked_at: string;
+}
+

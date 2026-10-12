@@ -731,113 +731,100 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
 
           <!-- PROFILE -->
           <div *ngIf="tab === 'profile' && profileInfo" class="space-y-6 animate-fade-in">
-            <div>
-              <h1 class="text-2xl font-bold text-slate-900 mb-2">Profile</h1>
-              <p class="text-slate-600">
-                Your personal account details. Full name and phone are editable.
-                Health ID and wallet address are assigned by the platform and cannot be changed.
-              </p>
-            </div>
+            <header class="border-b border-slate-200 pb-5">
+              <p class="m-0 text-xs font-semibold uppercase tracking-wide text-slate-500">Account settings</p>
+              <h1 class="mb-2 mt-1 text-2xl font-bold text-slate-900">Your profile</h1>
+              <p class="m-0 max-w-2xl text-sm leading-6 text-slate-600">Update your contact details and review the account information linked to your health record.</p>
+            </header>
 
             <!-- Read-only identity fields -->
-            <div class="card">
-              <h2 class="text-lg font-bold text-slate-900 mb-4">Account identity</h2>
-              <dl class="grid grid-cols-2 gap-4">
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Full name</p>
-                  <p class="text-sm font-semibold text-slate-900">{{ profileInfo.full_name }}</p>
+            <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6" aria-labelledby="profile-identity-title">
+              <h2 id="profile-identity-title" class="m-0 text-lg font-semibold text-slate-900">Account information</h2>
+              <p class="mb-0 mt-1 text-sm text-slate-600">Your Health ID is assigned by your care facility and cannot be changed here.</p>
+              <dl class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div class="min-w-0 border-t border-slate-100 pt-3">
+                  <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Health ID</dt>
+                  <dd class="mb-0 mt-1 break-all font-mono text-sm font-semibold text-slate-900">{{ profileInfo.health_id }}</dd>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Health ID</p>
-                  <p class="text-sm font-mono font-semibold text-slate-900">{{ profileInfo.health_id }}</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Phone</p>
-                  <p class="text-sm text-slate-900">{{ profileInfo.phone || '—' }}</p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <div class="min-w-0 border-t border-slate-100 pt-3">
                   <div class="flex items-center justify-between gap-2">
-                    <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Account reference</p>
+                    <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Account reference</dt>
                     <button type="button" (click)="walletVisible = !walletVisible"
-                            class="text-xs font-semibold text-primary-700 hover:underline"
+                            class="min-h-11 px-1 text-sm font-semibold text-primary-700 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-700"
                             [attr.aria-expanded]="walletVisible">
-                      {{ walletVisible ? 'Hide wallet' : 'View wallet' }}
+                      {{ walletVisible ? 'Hide reference' : 'Show reference' }}
                     </button>
                   </div>
-                  <p *ngIf="walletVisible" class="text-xs font-mono text-slate-900 break-all">{{ profileInfo.wallet_address }}</p>
-                  <p *ngIf="!walletVisible" class="text-xs text-slate-500">Hidden</p>
+                  <dd *ngIf="walletVisible" class="mb-0 mt-1 break-all font-mono text-xs text-slate-800">{{ profileInfo.wallet_address }}</dd>
+                  <dd *ngIf="!walletVisible" class="mb-0 mt-1 text-sm text-slate-600">Hidden for privacy</dd>
                 </div>
               </dl>
-            </div>
+            </section>
 
             <!-- Editable profile form -->
-            <div class="card">
-              <h2 class="text-lg font-bold text-slate-900 mb-4">Edit profile</h2>
-              <p class="mb-4 text-sm text-muted">
-                Update your name and phone. These changes take effect immediately.
-              </p>
+            <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6" aria-labelledby="profile-edit-title">
+              <h2 id="profile-edit-title" class="m-0 text-lg font-semibold text-slate-900">Contact details</h2>
+              <p class="mb-0 mt-1 text-sm text-slate-600">Keep your name and phone number up to date.</p>
 
-              <div *ngIf="editMsg" class="mb-4 rounded-lg border p-3 text-sm"
+              <div *ngIf="editMsg" class="mt-4 rounded-lg border p-3 text-sm" role="status" aria-live="polite"
                    [class.text-accent-900]="editOk" [class.bg-accent-50]="editOk" [class.border-accent-200]="editOk"
                    [class.text-red-700]="!editOk" [class.bg-red-50]="!editOk" [class.border-red-200]="!editOk">
                 {{ editMsg }}
               </div>
 
-              <form (ngSubmit)="saveProfile()" #profileForm="ngForm" class="flex flex-col gap-4">
+              <form (ngSubmit)="saveProfile()" #profileForm="ngForm" class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label class="flex flex-col gap-1.5">
-                  <span class="text-[13px] font-semibold text-ink">Full name</span>
+                  <span class="text-sm font-semibold text-slate-800">Full name</span>
                   <input
                     type="text"
                     name="full_name"
                     [(ngModel)]="editName"
                     required
                     autocomplete="name"
-                    class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] outline-none focus:ring-2 focus:ring-primary-500"
+                    class="min-h-11 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15"
                   />
                 </label>
 
                 <label class="flex flex-col gap-1.5">
-                  <span class="text-[13px] font-semibold text-ink">Phone (optional)</span>
+                  <span class="text-sm font-semibold text-slate-800">Phone <span class="font-normal text-slate-500">(optional)</span></span>
                   <input
                     type="tel"
                     name="phone"
                     [(ngModel)]="editPhone"
                     autocomplete="tel"
-                    class="rounded-lg border border-gray-300 px-3 py-3 text-[15px] outline-none focus:ring-2 focus:ring-primary-500"
+                    class="min-h-11 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-primary-600 focus:ring-2 focus:ring-primary-600/15"
                   />
                 </label>
 
                 <button
                   type="submit"
                   [disabled]="editBusy || !profileForm.valid"
-                  class="mt-2 w-full rounded-lg bg-primary-500 px-3.5 py-3.5 text-base font-semibold text-ink transition-colors hover:bg-primary-400 disabled:opacity-50"
+                  class="btn-primary min-h-11 w-full sm:col-span-2 sm:w-auto sm:justify-self-start"
                 >
                   {{ editBusy ? 'Saving…' : 'Save profile' }}
                 </button>
               </form>
-            </div>
+            </section>
 
             <!-- Grant summary for this profile -->
-            <div *ngIf="grantSummary" class="card">
-              <h2 class="text-lg font-bold text-slate-900 mb-4">Access you have granted</h2>
-              <dl class="grid grid-cols-3 gap-4">
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Active grants</p>
-                  <p class="text-2xl font-bold text-accent-700">{{ grantSummary.activeCount }}</p>
-                  <p class="text-xs text-muted">doctors with access now</p>
+            <section *ngIf="grantSummary" class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6" aria-labelledby="profile-access-title">
+              <h2 id="profile-access-title" class="m-0 text-lg font-semibold text-slate-900">Your access overview</h2>
+              <p class="mb-0 mt-1 text-sm text-slate-600">See which permissions need your attention.</p>
+              <dl class="mt-4 grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                <div class="py-3 sm:px-4 sm:py-1 sm:first:pl-0">
+                  <dt class="text-sm text-slate-600">Doctors with access</dt>
+                  <dd class="mb-0 mt-1 text-2xl font-semibold text-slate-900">{{ grantSummary.activeCount }}</dd>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Pending requests</p>
-                  <p class="text-2xl font-bold" [class.text-red-600]="grantSummary.pendingCount > 0">{{ grantSummary.pendingCount }}</p>
-                  <p class="text-xs text-muted">waiting for your answer</p>
+                <div class="py-3 sm:px-4 sm:py-1">
+                  <dt class="text-sm text-slate-600">Requests to review</dt>
+                  <dd class="mb-0 mt-1 text-2xl font-semibold text-slate-900">{{ grantSummary.pendingCount }}</dd>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Expiring soon</p>
-                  <p class="text-2xl font-bold" [class.text-amber-600]="grantSummary.expiringSoon > 0">{{ grantSummary.expiringSoon }}</p>
-                  <p class="text-xs text-muted">expire within 7 days</p>
+                <div class="py-3 sm:px-4 sm:py-1 sm:last:pr-0">
+                  <dt class="text-sm text-slate-600">Access ending within 7 days</dt>
+                  <dd class="mb-0 mt-1 text-2xl font-semibold text-slate-900">{{ grantSummary.expiringSoon }}</dd>
                 </div>
               </dl>
-            </div>
+            </section>
           </div>
 
           <!-- REFERRAL SECURITY -->

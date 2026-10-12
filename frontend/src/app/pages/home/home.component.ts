@@ -73,7 +73,7 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
         />
       </picture>
       <div aria-hidden="true" class="absolute inset-0 -z-10 bg-slate-950/65"></div>
-      <p class="absolute right-4 top-5 z-10 m-0 text-right text-sm font-medium text-white sm:right-8 sm:top-7 sm:text-base">Your health. Your choice.</p>
+      <p class="absolute right-4 top-5 z-10 m-0 bg-[#008254] px-3 py-2 text-right text-sm font-medium text-white sm:right-8 sm:top-7 sm:text-base">Your health. Your choice.</p>
       <div class="mx-auto flex min-h-[68svh] max-w-7xl flex-col justify-center px-4 py-20 text-white sm:px-6 sm:py-24 lg:px-8 lg:py-28">
         <h1 class="max-w-4xl text-[clamp(36px,8vw,64px)] leading-[1.1] font-medium tracking-[-0.03em] text-balance text-white">
           Your health records.<br />
@@ -115,7 +115,7 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
                 Get Started
               </a>
               <a routerLink="/login"
-                 class="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#008254] px-4 py-2 text-center text-sm font-semibold text-white no-underline transition-colors hover:bg-[#006642] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white sm:w-44">
+                 class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-white/80 bg-black/20 px-4 py-2 text-center text-sm font-medium text-white no-underline transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white sm:w-44">
                 Sign in
               </a>
             </ng-template>
@@ -145,26 +145,23 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
         they need it; you choose whether to approve, and can change your mind.
       </p>
       <div class="mt-10 grid gap-6 md:grid-cols-3">
-        <div class="rounded-xl bg-surface p-6 shadow-card sm:p-8">
-          <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-500 text-lg font-bold text-ink">1</div>
-          <h3 class="mt-4 text-xl font-bold">Set up your account</h3>
+        <div class="rounded-xl bg-slate-50 p-6 shadow-card sm:p-8">
+          <h3 class="text-xl font-bold">Set up your account</h3>
           <p class="mt-2 text-muted">
             Your facility gives you a Health ID. Create a PIN to sign in and
             manage requests to view your records.
           </p>
         </div>
-        <div class="rounded-xl bg-surface p-6 shadow-card sm:p-8">
-          <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-500 text-lg font-bold text-ink">2</div>
-          <h3 class="mt-4 text-xl font-bold">Choose who can view</h3>
+        <div class="rounded-xl bg-slate-50 p-6 shadow-card sm:p-8">
+          <h3 class="text-xl font-bold">Choose who can view</h3>
           <p class="mt-2 text-muted">
             Verified doctors request access for your care. Review each request
             and approve or decline it. Approved access ends after 7 days, and
             you can end it sooner.
           </p>
         </div>
-        <div class="rounded-xl bg-surface p-6 shadow-card sm:p-8">
-          <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-500 text-lg font-bold text-ink">3</div>
-          <h3 class="mt-4 text-xl font-bold">Know when records are viewed</h3>
+        <div class="rounded-xl bg-slate-50 p-6 shadow-card sm:p-8">
+          <h3 class="text-xl font-bold">Know when records are viewed</h3>
           <p class="mt-2 text-muted">
             Check your access history to see when your records were viewed and
             by whom. Emergency access follows facility rules and is shown in
@@ -226,19 +223,19 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
             </ul>
           </div>
           <div class="grid gap-4 sm:grid-cols-2">
-            <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
+            <div class="rounded-xl bg-slate-50 p-5 shadow-card sm:p-6">
               <h3 class="font-bold">Private by design</h3>
               <p class="mt-1 text-sm text-muted">Your records remain with your care facility.</p>
             </div>
-            <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
+            <div class="rounded-xl bg-slate-50 p-5 shadow-card sm:p-6">
               <h3 class="font-bold">Clear access history</h3>
               <p class="mt-1 text-sm text-muted">Check when your records were viewed and by whom.</p>
             </div>
-            <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
+            <div class="rounded-xl bg-slate-50 p-5 shadow-card sm:p-6">
               <h3 class="font-bold">Facility-first privacy</h3>
               <p class="mt-1 text-sm text-muted">Your medical information stays with the facility that holds it.</p>
             </div>
-            <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
+            <div class="rounded-xl bg-slate-50 p-5 shadow-card sm:p-6">
               <h3 class="font-bold">Accountable emergencies</h3>
               <p class="mt-1 text-sm text-muted">Emergency access is handled under facility rules and appears in your history.</p>
             </div>
@@ -312,19 +309,19 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
               with the patient's facility.
             </p>
             <div class="mt-6 grid gap-4 sm:grid-cols-2">
-              <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
+              <div class="rounded-xl bg-slate-50 p-5 shadow-card sm:p-6">
                 <h3 class="font-bold">Checked clinicians</h3>
                 <p class="mt-1 text-sm text-muted">Facilities verify doctors before they can request access.</p>
               </div>
-              <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
+              <div class="rounded-xl bg-slate-50 p-5 shadow-card sm:p-6">
                 <h3 class="font-bold">Time-limited access</h3>
                 <p class="mt-1 text-sm text-muted">Permissions lapse after 7 days unless renewed.</p>
               </div>
-              <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
+              <div class="rounded-xl bg-slate-50 p-5 shadow-card sm:p-6">
                 <h3 class="font-bold">Visible activity</h3>
                 <p class="mt-1 text-sm text-muted">Patients can see who viewed their records and when.</p>
               </div>
-              <div class="rounded-xl bg-surface p-5 shadow-card sm:p-6">
+              <div class="rounded-xl bg-slate-50 p-5 shadow-card sm:p-6">
                 <h3 class="font-bold">Accountable care</h3>
                 <p class="mt-1 text-sm text-muted">Access history helps facilities answer questions about record views.</p>
               </div>
@@ -354,19 +351,19 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
           approved access lasts.
         </p>
         <div class="mt-10 grid grid-cols-2 gap-4 sm:gap-6 lg:grid-cols-4">
-          <div class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 sm:p-6">
             <div class="text-xl font-medium text-ink sm:text-2xl">At your facility</div>
             <div class="mt-1 text-sm leading-snug text-slate-600">Your medical records stay with the facility that holds them.</div>
           </div>
-          <div class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 sm:p-6">
             <div class="text-xl font-medium text-ink sm:text-2xl">You decide</div>
             <div class="mt-1 text-sm leading-snug text-slate-600">Review a doctor's request before choosing to approve it.</div>
           </div>
-          <div class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 sm:p-6">
             <div class="text-xl font-medium text-ink sm:text-2xl">Up to 7 days</div>
             <div class="mt-1 text-sm leading-snug text-slate-600">Approved access ends automatically, or sooner if you revoke it.</div>
           </div>
-          <div class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 sm:p-6">
             <div class="text-xl font-medium text-ink sm:text-2xl">Easy to review</div>
             <div class="mt-1 text-sm leading-snug text-slate-600">Check who viewed your records and when.</div>
           </div>
@@ -376,12 +373,13 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
 
     <!-- ================= CTA BAND ================= -->
     <section class="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20">
-      <div class="rounded-xl border border-slate-200 bg-white px-6 py-12 text-center text-ink shadow-card sm:px-12">
+      <div class="rounded-xl border border-slate-200 bg-white px-6 py-12 text-left text-ink shadow-card sm:px-12">
         <h2 class="text-[28px] font-medium sm:text-4xl">Own your health history today</h2>
-        <p class="mx-auto mt-3 max-w-xl text-slate-600">
-          Create an account with your Health ID, then manage record access in one place.
+        <p class="mt-3 max-w-3xl text-slate-600">
+          Create an account using the Health ID provided by your facility. From your dashboard, review doctors’ requests,
+          choose whether to approve access, and check when your records have been viewed.
         </p>
-        <div class="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+        <div class="mt-8 flex flex-col gap-3 sm:flex-row">
           <a *ngIf="!auth.isPatient" routerLink="/register"
              class="rounded-md bg-primary-500 px-4 py-2 text-sm font-medium text-ink no-underline transition-colors hover:bg-primary-600">
             Get Started

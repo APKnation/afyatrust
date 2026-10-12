@@ -310,7 +310,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           <div *ngIf="denied" class="mt-4 rounded-lg border border-primary-200 bg-primary-50 p-4">
             <p class="m-0 font-semibold text-primary-900">No access permission for this patient.</p>
             <p class="m-0 mt-1 text-sm text-primary-800">
-              The patient must approve your request — or use break-glass in an emergency.
+              For routine care, request patient approval. If this is an emergency and the patient cannot communicate or consent, document the clinical reason and use emergency access.
             </p>
             <div class="mt-3 flex flex-wrap items-center gap-2">
               <input [(ngModel)]="requestReason" placeholder="Reason for access"
@@ -319,11 +319,22 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                       class="btn-primary">
                 {{ requestStatusFor(healthId) === 'PENDING' ? 'Request awaiting patient' : 'Request access' }}
               </button>
-              <button (click)="breakGlass()"
-                      class="cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700">
-                Break-glass
-              </button>
             </div>
+            <label class="mt-4 block rounded-lg border border-red-200 bg-red-50 p-4">
+              <span class="block text-sm font-semibold text-red-900">Emergency reason (required)</span>
+              <span class="mt-1 block text-xs text-red-800">
+                Explain why the patient cannot communicate or give consent and why immediate access is necessary. This reason is recorded for review.
+              </span>
+              <textarea [(ngModel)]="emergencyReasonInput" rows="3"
+                        placeholder="Example: Patient is unconscious after a serious accident; immediate allergy and medication history is needed."
+                        class="mt-2 w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm text-slate-900"
+                        [attr.aria-label]="'Emergency reason for patient ' + healthId"></textarea>
+              <button type="button" (click)="breakGlass()"
+                      [disabled]="!emergencyReasonInput.trim() || emergencyBusy"
+                      class="mt-3 cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
+                {{ emergencyBusy ? 'Recording emergency access…' : 'Use emergency access for 1 hour' }}
+              </button>
+            </label>
             <p *ngIf="requestStatusFor(healthId) === 'REJECTED'" class="mb-0 mt-2 text-xs font-semibold text-red-700">
               The patient rejected a previous request for this record.
             </p>
@@ -1049,6 +1060,8 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   // find patient
   healthId = '';
   requestReason = '';
+  emergencyReasonInput = '';
+  emergencyBusy = false;
   viewedName = '';
   viewedHealthId = '';
   records: PatientRecord[] = [];
@@ -1319,6 +1332,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
   async viewRecord() {
     if (!this.healthId.trim()) return;
+    this.emergencyReasonInput = '';
     this.loading = true;
     this.denied = false;
     this.requestSent = false;
@@ -1388,12 +1402,15 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   }
 
   async breakGlass() {
-    const reason = this.requestReason.trim();
+    const reason = this.emergencyReasonInput.trim();
     if (!reason) {
-      alert('A reason is required for break-glass access.');
+      alert('Document why the patient cannot communicate or consent and why immediate access is necessary.');
       return;
     }
-    if (!confirm('Use emergency break-glass access? The reason will be recorded and the blockchain audit may remain pending if the network is unavailable.')) return;
+    if (this.emergencyBusy) return;
+    if (!confirm('Use emergency access for this patient for up to one hour? This is only for an immediate emergency when the patient cannot communicate or consent. Your reason will be recorded and audited.')) return;
+    this.emergencyBusy = true;
+    this.syncView();
     try {
       const res: any = await this.api.breakGlass({
         health_id: this.healthId.trim(),
@@ -1405,7 +1422,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       } else {
         this.lastTx = { label: `Break-glass submitted for ${this.healthId.trim()}`, tx_hash: h || '', pending: true };
       }
-      this.requestReason = '';
+      this.emergencyReasonInput = '';
       // Immediately reflect the BreakGlassUsed event in the on-chain log.
       void this.loadTransactions();
       alert(res.chain_logged
@@ -1414,8 +1431,10 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       await this.viewRecord();
     } catch (e: any) {
       alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
+    } finally {
+      this.emergencyBusy = false;
+      this.syncView();
     }
-    this.syncView();
   }
 
   isPendingTx(h: string): boolean {

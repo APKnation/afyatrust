@@ -1,9 +1,9 @@
-// Grant the backend facility wallet permission to register patients and add
-// records on the current backend contract.
+// Grant the backend wallet record-operation and emergency-operator roles on
+// the current backend contract.
 // Usage: npx hardhat run scripts/grant-facility-role.js --network sepolia
 const hre = require("hardhat");
 const {
-  ensureFacilityRole,
+  ensureBackendRoles,
   getFacilityAddress,
   readBackendEnv,
 } = require("./facility-role");
@@ -23,7 +23,7 @@ async function main() {
   const facilityAddress = getFacilityAddress(hre.ethers, backendEnv);
   const contract = await hre.ethers.getContractAt("AfyaTrust", address);
   console.log(`Configuring the backend facility wallet on ${address}...`);
-  await ensureFacilityRole(hre, contract, facilityAddress);
+  await ensureBackendRoles(hre, contract, facilityAddress);
 }
 
 main().catch((error) => {

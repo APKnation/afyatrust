@@ -3,7 +3,7 @@
 const hre = require("hardhat");
 const fs = require("fs");
 const {
-  ensureFacilityRole,
+  ensureBackendRoles,
   getFacilityAddress,
   readBackendEnv,
 } = require("./facility-role");
@@ -29,7 +29,7 @@ async function main() {
 
   const backendEnv = readBackendEnv();
   const facilityAddress = getFacilityAddress(hre.ethers, backendEnv);
-  await ensureFacilityRole(hre, afyaTrust, facilityAddress);
+  await ensureBackendRoles(hre, afyaTrust, facilityAddress);
 
   if (
     backendEnv.CONTRACT_ADDRESS &&

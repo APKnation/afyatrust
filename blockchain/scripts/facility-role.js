@@ -22,15 +22,22 @@ function getFacilityAddress(ethers, backendEnv) {
   return new ethers.Wallet(normalizedKey).address;
 }
 
-async function ensureFacilityRole(hre, contract, facilityAddress) {
+async function ensureBackendRoles(hre, contract, backendAddress) {
   const network = await hre.ethers.provider.getNetwork();
   if (network.chainId !== 11155111n) {
     throw new Error(`Expected Sepolia (chain ID 11155111), got ${network.chainId}`);
   }
 
-  const facilityRole = hre.ethers.id("FACILITY_ROLE");
-  if (await contract.hasRole(facilityAddress, facilityRole)) {
-    console.log("Backend facility wallet already has FACILITY_ROLE.");
+  const roles = ["FACILITY_ROLE", "OPERATOR_ROLE"];
+  const missingRoles = [];
+  for (const roleName of roles) {
+    const role = hre.ethers.id(roleName);
+    if (!(await contract.hasRole(backendAddress, role))) {
+      missingRoles.push({ name: roleName, id: role });
+    }
+  }
+  if (missingRoles.length === 0) {
+    console.log("Backend wallet already has FACILITY_ROLE and OPERATOR_ROLE.");
     return;
   }
 
@@ -42,16 +49,18 @@ async function ensureFacilityRole(hre, contract, facilityAddress) {
     );
   }
 
-  console.log("Granting FACILITY_ROLE to the backend facility wallet...");
-  const tx = await contract.grantRole(facilityAddress, facilityRole);
-  const receipt = await tx.wait();
-  if (!receipt || receipt.status !== 1) {
-    throw new Error("FACILITY_ROLE grant transaction did not succeed.");
+  for (const role of missingRoles) {
+    console.log(`Granting ${role.name} to the backend wallet...`);
+    const tx = await contract.grantRole(backendAddress, role.id);
+    const receipt = await tx.wait();
+    if (!receipt || receipt.status !== 1) {
+      throw new Error(`${role.name} grant transaction did not succeed.`);
+    }
+    if (!(await contract.hasRole(backendAddress, role.id))) {
+      throw new Error(`${role.name} grant verification failed.`);
+    }
+    console.log(`${role.name} granted. Transaction: ${tx.hash}`);
   }
-  if (!(await contract.hasRole(facilityAddress, facilityRole))) {
-    throw new Error("Transaction succeeded but FACILITY_ROLE verification failed.");
-  }
-  console.log(`FACILITY_ROLE granted. Transaction: ${tx.hash}`);
 }
 
-module.exports = { ensureFacilityRole, getFacilityAddress, readBackendEnv };
+module.exports = { ensureBackendRoles, getFacilityAddress, readBackendEnv };

@@ -488,6 +488,20 @@ def patient_grant_access_status(request):
         .order_by("-created_at")
         .first()
     )
+    last_grant_doctor = None
+    last_grant_label = None
+    if last_grant:
+        if last_grant.doctor:
+            last_grant_doctor = last_grant.doctor.full_name
+        elif last_grant.hospital:
+            last_grant_doctor = last_grant.hospital.name
+        else:
+            last_grant_doctor = "Unknown"
+        # Append (Expired) if the grant is no longer active
+        if last_grant.expires_at and last_grant.expires_at < now:
+            last_grant_label = last_grant_doctor + " (Expired)"
+        else:
+            last_grant_label = last_grant_doctor
 
     # Active break-glass windows: the patient can see who is in their record
     # right now, why, and how long is left — and end it early.
@@ -537,10 +551,11 @@ def patient_grant_access_status(request):
         "pendingCount": pending_requests,
         "expiringSoon": expiring_soon,
         "lastGrantAt": last_grant.created_at.isoformat() if last_grant else None,
-        "lastGrantDoctor": last_grant.doctor.full_name if last_grant and last_grant.doctor else None,
+        "lastGrantDoctor": last_grant_label,
         "emergencyCount": len(emergency),
         "emergency": emergency,
         "active_grants": active_grants,
+        "totalGrantsEver": AccessGrant.objects.filter(patient=patient).count(),
     })
 
 
@@ -548,25 +563,65 @@ def patient_grant_access_status(request):
 @permission_classes([IsAuthenticated])
 def patient_wallet_activity(request):
     """Wallet-centric activity: the wallet address, activity count, most recent
-    on-chain event timestamp, and the last transaction hash touching this patient."""
+    on-chain event timestamp, and the last transaction hash touching this patient.
+
+    The activityCount is built from the DB so it is always accurate even when
+    the blockchain node is temporarily unreachable.
+    """
     patient = _patient_from_request(request)
     if not patient:
         return Response({"error": "Patient not found"}, status=404)
 
-    try:
-        story_res = patient_activity_story(request, patient.health_id)
-        story_data = story_res.data if hasattr(story_res, "data") else {}
-        story = story_data.get("story") or []
-    except Exception:
-        story = []
+    # Build activity count and last-tx from DB rows (never 0 when chain is down)
+    events = []
+
+    # Registration
+    if patient.created_at:
+        events.append({"timestamp": int(patient.created_at.timestamp()), "transaction_hash": None})
+
+    # Records
+    for r in patient.records.order_by("-created_at"):
+        tx = r.tx_hash if r.tx_hash and not r.tx_hash.startswith("PENDING") else None
+        events.append({"timestamp": int(r.created_at.timestamp()) if r.created_at else 0, "transaction_hash": tx})
+
+    # Access grants
+    for g in patient.grants.order_by("-created_at"):
+        tx = g.tx_hash if g.tx_hash and not g.tx_hash.startswith("PENDING") else None
+        events.append({"timestamp": int(g.created_at.timestamp()) if g.created_at else 0, "transaction_hash": tx})
+
+    # Referrals
+    for ref in patient.referrals.order_by("-created_at"):
+        tx = ref.tx_hash if ref.tx_hash and not ref.tx_hash.startswith("PENDING") else None
+        events.append({"timestamp": int(ref.created_at.timestamp()) if ref.created_at else 0, "transaction_hash": tx})
+
+    events.sort(key=lambda e: e["timestamp"], reverse=True)
 
     last_tx_hash = None
     last_ts = None
-    if story:
-        sorted_story = sorted(story, key=lambda s: s.get("timestamp") or 0, reverse=True)
-        last = sorted_story[0]
-        last_tx_hash = last.get("transaction_hash")
-        last_ts = last.get("timestamp")
+    for e in events:
+        if e["timestamp"]:
+            if last_ts is None:
+                last_ts = e["timestamp"]
+            if e["transaction_hash"] and not last_tx_hash:
+                last_tx_hash = e["transaction_hash"]
+
+    # Also try to enrich from on-chain story (best-effort; silently skip if chain is down)
+    try:
+        story_res = patient_activity_story(request, patient.health_id)
+        story_data = story_res.data if hasattr(story_res, "data") else {}
+        chain_story = story_data.get("story") or []
+        if chain_story:
+            chain_sorted = sorted(chain_story, key=lambda s: s.get("timestamp") or 0, reverse=True)
+            top = chain_sorted[0]
+            if top.get("timestamp") and (last_ts is None or top["timestamp"] > last_ts):
+                last_ts = top["timestamp"]
+            if top.get("transaction_hash") and not last_tx_hash:
+                last_tx_hash = top["transaction_hash"]
+            # Prefer chain count when available (it includes RecordViewed events)
+            if len(chain_story) > len(events):
+                events = chain_story
+    except Exception:
+        pass
 
     pending_ops = AccessRequest.objects.filter(
         patient=patient, status="PENDING"
@@ -576,7 +631,7 @@ def patient_wallet_activity(request):
         "wallet_address": patient.wallet_address,
         "health_id": patient.health_id,
         "full_name": patient.full_name,
-        "activityCount": len(story),
+        "activityCount": len(events),
         "lastTxHash": last_tx_hash,
         "lastActivityAt": last_ts,
         "pendingOperations": pending_ops,

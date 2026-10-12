@@ -860,95 +860,64 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
           </section>
 
           <!-- HOW IT WORKS -->
-          <div *ngIf="tab === 'how-it-works'" class="space-y-6 animate-fade-in">
-            <div class="card p-6">
-              <h1 class="text-2xl font-bold text-slate-900 mb-2">How it works</h1>
-              <p class="text-slate-600">
-                You stay in control of who can access your medical records.
-              </p>
-            </div>
+          <section *ngIf="tab === 'how-it-works'" class="space-y-5 animate-fade-in" aria-labelledby="how-it-works-title">
+            <header class="rounded-xl border border-slate-200 bg-white p-5 sm:p-7">
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Patient guide</p>
+              <h1 id="how-it-works-title" class="mt-1 text-2xl font-bold text-slate-900">How your care information works</h1>
+              <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Your dashboard brings together information shared by your care facilities. You can review your history, respond to access requests, and see activity related to your records.</p>
+            </header>
 
-            <div class="card">
-              <h2 class="text-lg font-bold text-slate-900 mb-4">For Patients</h2>
-              <div class="space-y-4">
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">1. Secure Registration</p>
-                  <p class="text-sm text-slate-600">
-                    Register at a participating hospital to receive a Health ID and secure account.
-                    Set up your 4-digit PIN — no cryptocurrency or MetaMask needed.
-                  </p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">2. Manage Access</p>
-                  <p class="text-sm text-slate-600">
-                    When doctors request access to your records, you'll get notified. Approve or deny from your dashboard.
-                    Access automatically expires after 7 days, and you can revoke it anytime.
-                  </p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">3. Track Everything</p>
-                  <p class="text-sm text-slate-600">
-                    See a complete audit trail of who accessed your records, when, and why. All access events
-                    are recorded in your activity history so you can review them.
-                  </p>
-                </div>
+            <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6" aria-labelledby="guide-steps-title">
+              <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div><h2 id="guide-steps-title" class="text-lg font-semibold text-slate-900">A simple guide</h2><p class="mt-1 text-sm text-slate-600">What happens and what you can do at each step.</p></div>
+                <button type="button" (click)="setTab('records')" class="btn-secondary w-full sm:w-auto">Open care history</button>
               </div>
-            </div>
+              <ol class="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <li class="rounded-lg border border-slate-200 bg-white p-4">
+                  <span class="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border border-slate-200 px-2 text-sm font-semibold text-slate-700">1</span>
+                  <h3 class="mt-3 text-base font-semibold text-slate-900">Your care team records care</h3>
+                  <p class="mt-2 text-sm leading-6 text-slate-600">A participating facility adds visit notes, diagnoses, treatments, or measurements to your history.</p>
+                </li>
+                <li class="rounded-lg border border-slate-200 bg-white p-4">
+                  <span class="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border border-slate-200 px-2 text-sm font-semibold text-slate-700">2</span>
+                  <h3 class="mt-3 text-base font-semibold text-slate-900">A doctor may ask to view records</h3>
+                  <p class="mt-2 text-sm leading-6 text-slate-600">Review the doctor's details and request before choosing whether to approve or decline.</p>
+                </li>
+                <li class="rounded-lg border border-slate-200 bg-white p-4">
+                  <span class="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border border-slate-200 px-2 text-sm font-semibold text-slate-700">3</span>
+                  <h3 class="mt-3 text-base font-semibold text-slate-900">You can manage access</h3>
+                  <p class="mt-2 text-sm leading-6 text-slate-600">Approved access lasts for the period shown in the request. You can review or remove active access from Permissions.</p>
+                </li>
+                <li class="rounded-lg border border-slate-200 bg-white p-4">
+                  <span class="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md border border-slate-200 px-2 text-sm font-semibold text-slate-700">4</span>
+                  <h3 class="mt-3 text-base font-semibold text-slate-900">You can review activity</h3>
+                  <p class="mt-2 text-sm leading-6 text-slate-600">The activity page shows recorded visits to your records and changes to permissions when those details are available.</p>
+                </li>
+              </ol>
+            </section>
 
-            <div class="card">
-              <h2 class="text-lg font-bold text-slate-900 mb-4">For Doctors</h2>
-              <div class="space-y-4">
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">1. Verified Access</p>
-                  <p class="text-sm text-slate-600">
-                    Only licensed, verified doctors can request access. Each request requires patient consent
-                    unless it's a documented medical emergency (break-glass).
-                  </p>
+            <div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
+              <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6" aria-labelledby="patient-controls-title">
+                <h2 id="patient-controls-title" class="text-lg font-semibold text-slate-900">Your controls</h2>
+                <p class="mt-1 text-sm text-slate-600">Go directly to the section you need.</p>
+                <div class="mt-4 divide-y divide-slate-100">
+                  <div class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"><div><h3 class="text-sm font-semibold text-slate-900">Access requests</h3><p class="mt-1 text-sm text-slate-600">Review requests from doctors and choose what to do.</p></div><button type="button" (click)="setTab('requests')" class="btn-secondary w-full sm:w-auto">Review requests</button></div>
+                  <div class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"><div><h3 class="text-sm font-semibold text-slate-900">Permissions</h3><p class="mt-1 text-sm text-slate-600">See which doctors currently have access.</p></div><button type="button" (click)="setTab('permissions')" class="btn-secondary w-full sm:w-auto">Manage access</button></div>
+                  <div class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"><div><h3 class="text-sm font-semibold text-slate-900">Activity</h3><p class="mt-1 text-sm text-slate-600">Review record views and permission changes.</p></div><button type="button" (click)="setTab('activity')" class="btn-secondary w-full sm:w-auto">View activity</button></div>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">2. Cross-Hospital Collaboration</p>
-                  <p class="text-sm text-slate-600">
-                    Refer patients to other hospitals and share verified medical histories. Every referral
-                    and access activity is recorded for your review.
-                  </p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">3. Data Integrity</p>
-                  <p class="text-sm text-slate-600">
-                    Available record checks can help identify changes when information is shared
-                    between facilities. They do not confirm that a diagnosis or treatment is medically correct.
-                  </p>
-                </div>
-              </div>
-            </div>
+              </section>
 
-            <div class="card">
-              <h2 class="text-lg font-bold text-slate-900 mb-4">Security & Privacy</h2>
-              <div class="space-y-4">
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">How records are checked</p>
-                  <p class="text-sm text-slate-600">
-                    Built on secure activity service testnet. Only limited record-checking details are shared with the secure activity service.
-                    Your medical records remain with the care facilities that created them.
-                  </p>
+              <section class="rounded-xl border border-slate-200 bg-white p-5 sm:p-6" aria-labelledby="trust-title">
+                <h2 id="trust-title" class="text-lg font-semibold text-slate-900">What record checks tell you</h2>
+                <p class="mt-2 text-sm leading-6 text-slate-600">When a check is available, it can help show whether saved information differs from an earlier record. A successful check supports confidence that the saved copy has not changed since then.</p>
+                <div class="mt-4 border-t border-slate-100 pt-4">
+                  <p class="text-sm font-semibold text-slate-900">What a check cannot tell you</p>
+                  <p class="mt-1 text-sm leading-6 text-slate-600">It does not confirm whether a diagnosis, measurement, or treatment is medically correct. Ask your care team if you have questions about the information in your history.</p>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">Patient-Controlled Access</p>
-                  <p class="text-sm text-slate-600">
-                    You decide who sees your data. No one can access your records without explicit consent
-                    or a properly documented emergency break-glass event.
-                  </p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">Full Transparency</p>
-                  <p class="text-sm text-slate-600">
-                    Every access, grant, revoke, and view is recorded. You can verify all
-                    activity details when they are available.
-                  </p>
-                </div>
-              </div>
+                <button type="button" (click)="setTab('referral-security')" class="btn-secondary mt-4 w-full sm:w-auto">Review referral details</button>
+              </section>
             </div>
-          </div>
+          </section>
 
           <!-- HEALTH SUMMARY -->
           <div *ngIf="tab === 'dashboard'" class="space-y-6 animate-fade-in">

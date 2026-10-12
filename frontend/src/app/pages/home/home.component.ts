@@ -5,7 +5,7 @@ import { AuthService } from '../../services/auth.service';
 import { SiteFooterComponent } from '../../components/shared/site-footer/site-footer.component';
 
 /**
- * Public landing page — role aware.
+ * Public landing page, with role-aware content.
  * Patients see "Open my records", verified doctors are pointed to their
  * workspace, visitors get the standard register/sign-in CTAs.
  */
@@ -15,23 +15,21 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
   template: `
     <!-- ================= NAVBAR ================= -->
     <nav aria-label="Main navigation" class="relative z-50 border-b border-slate-200 bg-white">
-      <div class="flex items-center justify-between px-6 py-4">
-        <div class="flex items-center gap-2">
-          <a routerLink="/" class="brand-wordmark text-2xl text-ink no-underline">Afya<span class="text-primary-700">Trust</span></a>
+      <div class="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4 sm:px-6 lg:px-8">
+        <a routerLink="/" class="brand-wordmark shrink-0 text-2xl text-ink no-underline">Afya<span class="text-primary-700">Trust</span></a>
+        <div class="hidden items-center gap-8 md:flex">
+          <a routerLink="/" class="min-h-11 inline-flex items-center text-sm font-medium text-slate-600 no-underline transition-colors hover:text-slate-900">Home</a>
+          <a href="/#how-it-works" class="min-h-11 inline-flex items-center text-sm font-medium text-slate-600 no-underline transition-colors hover:text-slate-900">How it works</a>
         </div>
-        <div class="hidden md:flex items-center gap-8">
-          <a routerLink="/" class="text-slate-600 hover:text-ink font-medium transition-colors relative after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-full after:bg-primary-500 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300">Home</a>
-          <a href="/#how-it-works" class="text-slate-600 hover:text-ink font-medium transition-colors relative after:absolute after:-bottom-1 after:left-0 after:h-[2px] after:w-full after:bg-primary-500 after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300">How it works</a>
-        </div>
-        <div class="hidden md:flex items-center gap-3">
+        <div class="hidden items-center gap-6 md:flex">
           <ng-container *ngIf="!auth.isAuthenticated()">
-            <a routerLink="/login" class="px-4 py-2 text-slate-700 font-medium hover:text-ink transition-colors">Log in</a>
-            <a routerLink="/register" class="px-4 py-2 bg-primary-500 text-ink text-sm font-medium rounded-md hover:bg-primary-600 transition-colors">Get Started</a>
+            <a routerLink="/login" class="min-h-11 inline-flex items-center text-sm font-medium text-slate-600 no-underline transition-colors hover:text-slate-900">Log in</a>
+            <a routerLink="/register" class="min-h-11 inline-flex items-center text-sm font-semibold text-slate-900 no-underline transition-colors hover:text-primary-700">Get started</a>
           </ng-container>
           <ng-container *ngIf="auth.isAuthenticated()">
-            <a *ngIf="auth.isPatient" routerLink="/patient" class="px-4 py-2 bg-primary-500 text-ink text-sm font-medium rounded-md hover:bg-primary-600 transition-colors">Dashboard</a>
-            <a *ngIf="auth.isDoctor" routerLink="/doctor" class="px-4 py-2 bg-primary-500 text-ink text-sm font-medium rounded-md hover:bg-primary-600 transition-colors">Dashboard</a>
-            <a *ngIf="auth.isStaff" routerLink="/hospital" class="px-4 py-2 bg-primary-500 text-ink text-sm font-medium rounded-md hover:bg-primary-600 transition-colors">Dashboard</a>
+            <a *ngIf="auth.isPatient" routerLink="/patient" class="min-h-11 inline-flex items-center text-sm font-semibold text-slate-900 no-underline transition-colors hover:text-primary-700">My dashboard</a>
+            <a *ngIf="auth.isDoctor" routerLink="/doctor" class="min-h-11 inline-flex items-center text-sm font-semibold text-slate-900 no-underline transition-colors hover:text-primary-700">My dashboard</a>
+            <a *ngIf="auth.isStaff" routerLink="/hospital" class="min-h-11 inline-flex items-center text-sm font-semibold text-slate-900 no-underline transition-colors hover:text-primary-700">Referral desk</a>
           </ng-container>
         </div>
         <!-- Mobile menu button -->
@@ -46,18 +44,18 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
         </button>
       </div>
       <!-- Mobile menu -->
-      <div *ngIf="menuOpen" id="home-mobile-menu" class="md:hidden border-t border-slate-200 bg-white">
-        <div class="flex flex-col px-6 py-4 gap-4">
-          <a routerLink="/" (click)="menuOpen = false" class="text-slate-700 hover:text-ink font-medium">Home</a>
-          <a href="/#how-it-works" (click)="menuOpen = false" class="text-slate-700 hover:text-ink font-medium">How it works</a>
+      <div *ngIf="menuOpen" id="home-mobile-menu" class="border-t border-slate-200 bg-white md:hidden">
+        <div class="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-3 sm:px-6 lg:px-8">
+          <a routerLink="/" (click)="menuOpen = false" class="inline-flex min-h-11 items-center text-sm font-medium text-slate-700 no-underline hover:text-slate-900">Home</a>
+          <a href="/#how-it-works" (click)="menuOpen = false" class="inline-flex min-h-11 items-center text-sm font-medium text-slate-700 no-underline hover:text-slate-900">How it works</a>
           <ng-container *ngIf="!auth.isAuthenticated()">
-            <a routerLink="/login" (click)="menuOpen = false" class="text-slate-700 hover:text-ink font-medium">Log in</a>
-            <a routerLink="/register" (click)="menuOpen = false" class="px-4 py-2 bg-primary-500 text-ink text-sm font-medium rounded-md text-center hover:bg-primary-600">Get Started</a>
+            <a routerLink="/login" (click)="menuOpen = false" class="inline-flex min-h-11 items-center text-sm font-medium text-slate-700 no-underline hover:text-slate-900">Log in</a>
+            <a routerLink="/register" (click)="menuOpen = false" class="inline-flex min-h-11 items-center text-sm font-semibold text-slate-900 no-underline hover:text-primary-700">Get started</a>
           </ng-container>
           <ng-container *ngIf="auth.isAuthenticated()">
-            <a *ngIf="auth.isPatient" routerLink="/patient" (click)="menuOpen = false" class="px-4 py-2 bg-primary-500 text-ink text-sm font-medium rounded-md text-center hover:bg-primary-600">Dashboard</a>
-            <a *ngIf="auth.isDoctor" routerLink="/doctor" (click)="menuOpen = false" class="px-4 py-2 bg-primary-500 text-ink text-sm font-medium rounded-md text-center hover:bg-primary-600">Dashboard</a>
-            <a *ngIf="auth.isStaff" routerLink="/hospital" (click)="menuOpen = false" class="px-4 py-2 bg-primary-500 text-ink text-sm font-medium rounded-md text-center hover:bg-primary-600">Dashboard</a>
+            <a *ngIf="auth.isPatient" routerLink="/patient" (click)="menuOpen = false" class="inline-flex min-h-11 items-center text-sm font-semibold text-slate-900 no-underline hover:text-primary-700">My dashboard</a>
+            <a *ngIf="auth.isDoctor" routerLink="/doctor" (click)="menuOpen = false" class="inline-flex min-h-11 items-center text-sm font-semibold text-slate-900 no-underline hover:text-primary-700">My dashboard</a>
+            <a *ngIf="auth.isStaff" routerLink="/hospital" (click)="menuOpen = false" class="inline-flex min-h-11 items-center text-sm font-semibold text-slate-900 no-underline hover:text-primary-700">Referral desk</a>
           </ng-container>
         </div>
       </div>
@@ -75,13 +73,11 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
         />
       </picture>
       <div aria-hidden="true" class="absolute inset-0 -z-10 bg-slate-950/65"></div>
-      <div class="mx-auto flex min-h-[68svh] max-w-7xl flex-col justify-center px-4 py-16 text-white sm:px-6 sm:py-20 lg:py-24">
-        <span class="mb-5 inline-flex w-fit items-center gap-2 rounded-full bg-primary-500 px-3 py-1 text-xs font-medium tracking-wide text-ink">
-          Your health. Your choice.
-        </span>
-        <h1 class="max-w-4xl text-[clamp(36px,8vw,64px)] leading-[1.1] font-medium tracking-[-0.03em] text-balance">
+      <p class="absolute right-4 top-5 z-10 m-0 text-right text-sm font-medium text-white sm:right-8 sm:top-7 sm:text-base">Your health. Your choice.</p>
+      <div class="mx-auto flex min-h-[68svh] max-w-7xl flex-col justify-center px-4 py-20 text-white sm:px-6 sm:py-24 lg:px-8 lg:py-28">
+        <h1 class="max-w-4xl text-[clamp(36px,8vw,64px)] leading-[1.1] font-medium tracking-[-0.03em] text-balance text-white">
           Your health records.<br />
-          <span class="text-primary-300">Your consent.</span> Your say.
+          <span class="font-semibold underline decoration-[#008254] decoration-4 underline-offset-8">Your consent.</span> Your say.
         </h1>
 
         <!-- Role-aware subline -->
@@ -102,24 +98,24 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
         <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <ng-container *ngIf="auth.isPatient; else notPatient">
             <a routerLink="/patient"
-               class="rounded-md bg-primary-500 px-4 py-2 text-center text-sm font-medium text-ink no-underline transition-colors hover:bg-primary-600">
+               class="inline-flex min-h-11 items-center px-1 text-center text-sm font-semibold text-white underline decoration-white/60 underline-offset-4 transition-colors hover:text-[#8dc63f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
               Open my records
             </a>
           </ng-container>
           <ng-template #notPatient>
             <ng-container *ngIf="auth.isDoctor; else visitorCtas">
               <a routerLink="/doctor"
-                 class="rounded-md bg-primary-500 px-4 py-2 text-center text-sm font-medium text-ink no-underline transition-colors hover:bg-primary-600">
+                 class="inline-flex min-h-11 items-center px-1 text-center text-sm font-semibold text-white underline decoration-white/60 underline-offset-4 transition-colors hover:text-[#8dc63f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
                 Open doctor dashboard
               </a>
             </ng-container>
             <ng-template #visitorCtas>
               <a routerLink="/register"
-                 class="rounded-md bg-primary-500 px-4 py-2 text-center text-sm font-medium text-ink no-underline transition-colors hover:bg-primary-600">
+                 class="inline-flex min-h-11 items-center px-1 text-center text-sm font-semibold text-white underline decoration-white/60 underline-offset-4 transition-colors hover:text-[#8dc63f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
                 Get Started
               </a>
               <a routerLink="/login"
-                 class="rounded-md border border-white/80 bg-black/20 px-4 py-2 text-center text-sm font-medium text-white no-underline transition-colors hover:bg-white/10">
+                 class="inline-flex min-h-11 items-center px-1 text-center text-sm font-medium text-white underline underline-offset-4 transition-colors hover:text-[#8dc63f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
                 Sign in
               </a>
             </ng-template>
@@ -127,14 +123,14 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
         </div>
 
         <!-- Trust strip -->
-        <div class="mt-12 grid max-w-2xl grid-cols-1 gap-3 text-left sm:grid-cols-3 sm:gap-4">
-          <div class="rounded-lg border border-white/30 bg-black/25 px-4 py-3 backdrop-blur-sm">
+        <div class="mt-12 grid max-w-2xl grid-cols-1 gap-3 border-t border-white/30 pt-4 text-left sm:grid-cols-3 sm:gap-4">
+          <div>
             <div class="text-sm leading-snug text-white">See who viewed your records</div>
           </div>
-          <div class="rounded-lg border border-white/30 bg-black/25 px-4 py-3 backdrop-blur-sm">
+          <div>
             <div class="text-sm leading-snug text-white">Choose who gets access</div>
           </div>
-          <div class="rounded-lg border border-white/30 bg-black/25 px-4 py-3 backdrop-blur-sm">
+          <div>
             <div class="text-sm leading-snug text-white">Access ends automatically</div>
           </div>
         </div>
@@ -213,19 +209,19 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
             <ul class="mt-6 flex flex-col gap-3">
               <li class="flex items-start gap-3">
                 <span class="btn-primary">&#10003;</span>
-                <span><strong>You choose</strong> — approve or decline a doctor's request</span>
+                <span><strong>You choose.</strong> Approve or decline a doctor's request.</span>
               </li>
               <li class="flex items-start gap-3">
                 <span class="btn-primary">&#10003;</span>
-                <span><strong>Clinicians are checked</strong> — facilities verify doctors before access requests</span>
+                <span><strong>Clinicians are checked.</strong> Facilities verify doctors before access requests.</span>
               </li>
               <li class="flex items-start gap-3">
                 <span class="btn-primary">&#10003;</span>
-                <span><strong>Access history</strong> — see who viewed your records and when</span>
+                <span><strong>Access history.</strong> See who viewed your records and when.</span>
               </li>
               <li class="flex items-start gap-3">
                 <span class="btn-primary">&#10003;</span>
-                <span><strong>Simple sign-in</strong> — use your Health ID and PIN</span>
+                <span><strong>Simple sign in.</strong> Use your Health ID and PIN.</span>
               </li>
             </ul>
           </div>
@@ -270,7 +266,7 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
           <div>
             <span class="eyebrow">Why it matters</span>
             <h2 class="mt-4 text-[28px] font-bold sm:text-4xl">
-              One record, every facility — without giving up control
+              One record across facilities, while you stay in control
             </h2>
             <p class="mt-4 text-muted">
               Paper records can be hard to find when you visit another facility.
@@ -280,15 +276,15 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
             <ul class="mt-6 flex flex-col gap-3">
               <li class="flex items-start gap-3">
                 <span class="btn-primary">&#10003;</span>
-                <span><strong>Find your record</strong> — use your Health ID to access your account</span>
+                <span><strong>Find your record.</strong> Use your Health ID to access your account.</span>
               </li>
               <li class="flex items-start gap-3">
                 <span class="btn-primary">&#10003;</span>
-                <span><strong>Manage access</strong> — review approvals, expiry dates, and end access early</span>
+                <span><strong>Manage access.</strong> Review approvals and expiry dates, or end access early.</span>
               </li>
               <li class="flex items-start gap-3">
                 <span class="btn-primary">&#10003;</span>
-                <span><strong>Made for local care</strong> — facilities can update records when a connection is available</span>
+                <span><strong>Made for local care.</strong> Facilities can update records when a connection is available.</span>
               </li>
             </ul>
             <a routerLink="/register"

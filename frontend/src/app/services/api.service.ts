@@ -79,7 +79,10 @@ export interface MeasurementItem {
   unit: string;
   notes: string;
   doctor: string;
+  doctor_license?: string;
+  doctor_wallet?: string;
   hospital: string;
+  facility_id?: string;
   date?: string;
   created_at?: string;
   verified?: boolean;

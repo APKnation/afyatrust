@@ -381,9 +381,15 @@ def my_records(request):
             "unit": m.unit,
             "notes": m.notes,
             "doctor": m.doctor.full_name if m.doctor else "",
+            "doctor_license": m.doctor.license_no if m.doctor else "",
+            "doctor_wallet": m.doctor.wallet_address if m.doctor else "",
             "hospital": m.hospital.name if m.hospital else (m.facility_id or ""),
+            "facility_id": m.facility_id or (m.hospital.code if m.hospital else ""),
+            "record_hash": m.record_hash,
+            "tx_hash": m.tx_hash,
+            "verified": bool(m.tx_hash) and not m.tx_hash.startswith("PENDING"),
             "date": m.created_at,
-        } for m in patient.measurements.all()],
+        } for m in patient.measurements.select_related("doctor", "hospital").all()],
         "referrals": [{
             "id": r.id,
             "from_hospital": r.from_hospital.name if r.from_hospital else "",
@@ -393,9 +399,10 @@ def my_records(request):
             "reason": r.reason,
             "status": r.status,
             "responded_by": r.responded_by,
+            "tx_hash": r.tx_hash,
             "date": r.created_at,
             "responded_at": r.responded_at,
-        } for r in patient.referrals.all()],
+        } for r in patient.referrals.select_related("from_hospital", "to_hospital", "from_doctor").all()],
         "audit_trail": events,
     })
 
@@ -2936,6 +2943,8 @@ _ACTION_STORY = {
     "EmergencyAccessGranted": ("received a 1-hour EMERGENCY window", "⏱"),
     "EmergencyAccessRevoked": ("had EMERGENCY access REVOKED", "🔒"),
     "ReferralAccepted": ("accepted transfer-of-care referral", "🏥"),
+    "MeasurementRecorded": ("recorded a clinical measurement (hash anchored on-chain)", "📊"),
+    "AccessRequested": ("requested access to view patient records", "📋"),
 }
 
 
@@ -3100,6 +3109,21 @@ def patient_dashboard(request, health_id=""):
             health_id = token_health_id
         elif token_health_id != health_id:
             return Response({"error": "Not authorized"}, status=403)
+    elif requestor_role == "DOCTOR":
+        if not health_id:
+            return Response({"error": "health_id is required"}, status=400)
+        doctor = _doctor_from_request(request)
+        if not doctor:
+            return Response({"error": "Doctor not verified"}, status=403)
+        patient_obj = Patient.objects.filter(health_id=health_id).first()
+        if not patient_obj:
+            return Response({"error": "Patient not found"}, status=404)
+        allowed, _ = _doctor_can_view_patient(doctor, patient_obj)
+        if not allowed:
+            return Response({
+                "error": "Access denied. Doctors cannot read patient data without access granted by the patient or by activating emergency break-glass.",
+                "action": "REQUEST_ACCESS"
+            }, status=403)
     elif not health_id:
         return Response({"error": "health_id is required"}, status=400)
     
@@ -3274,6 +3298,53 @@ def patient_activity_story(request, health_id):
                 "timestamp": ts,
                 "transaction_hash": tx,
                 "etherscan_url": "https://sepolia.etherscan.io/tx/%s" % tx if tx else None,
+                "source": "db",
+            })
+
+        # Clinical measurements recorded by doctors
+        for m in pat.measurements.order_by("-created_at"):
+            ts = int(m.created_at.timestamp()) if m.created_at else 0
+            tx = m.tx_hash if m.tx_hash and not m.tx_hash.startswith("PENDING") else None
+            doc_name = m.doctor.full_name if m.doctor else "Attending clinician"
+            hosp_name = m.hospital.name if m.hospital else (m.facility_id or "")
+            who_str = "Dr. %s" % doc_name
+            if hosp_name:
+                who_str += " (%s)" % hosp_name
+            items.append({
+                "action": "MEASUREMENT_RECORDED",
+                "event": "MeasurementRecorded",
+                "who": who_str,
+                "wallet": m.doctor.wallet_address if m.doctor else "",
+                "role": "DOCTOR",
+                "facility": hosp_name,
+                "verb": "recorded %s: %s%s (hash anchored on-chain)" % (m.kind, m.value, m.unit or ""),
+                "icon": _ACTION_STORY["MeasurementRecorded"][1],
+                "timestamp": ts,
+                "transaction_hash": tx,
+                "etherscan_url": "https://sepolia.etherscan.io/tx/%s" % tx if tx else None,
+                "source": "db",
+            })
+
+        # Doctor access requests
+        for req in pat.access_requests.order_by("-created_at"):
+            ts = int(req.created_at.timestamp()) if req.created_at else 0
+            doc_name = req.doctor_name or (req.doctor.full_name if req.doctor else "A doctor")
+            who_str = "Dr. %s" % doc_name
+            if req.facility_id:
+                who_str += " (%s)" % req.facility_id
+            status_desc = "[Status: %s]" % req.status
+            items.append({
+                "action": "ACCESS_REQUESTED",
+                "event": "AccessRequested",
+                "who": who_str,
+                "wallet": req.doctor_wallet or (req.doctor.wallet_address if req.doctor else ""),
+                "role": "DOCTOR",
+                "facility": req.facility_id,
+                "verb": "requested record access: '%s' %s" % (req.reason or "Clinical consultation", status_desc),
+                "icon": _ACTION_STORY["AccessRequested"][1],
+                "timestamp": ts,
+                "transaction_hash": req.tx_hash if req.tx_hash and not req.tx_hash.startswith("PENDING") else None,
+                "etherscan_url": ("https://sepolia.etherscan.io/tx/%s" % req.tx_hash) if req.tx_hash and not req.tx_hash.startswith("PENDING") else None,
                 "source": "db",
             })
 

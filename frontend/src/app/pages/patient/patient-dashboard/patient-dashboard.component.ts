@@ -162,8 +162,8 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
               <div>
                 <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2.5">
                   <span>Your Care History</span>
-                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                    <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white text-slate-700 border border-slate-200">
+                    <span class="w-2 h-2 rounded-full bg-slate-400"></span>
                     Care across hospitals
                   </span>
                 </h1>
@@ -174,18 +174,18 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
             </div>
 
             <!-- HOSPITAL CARE JOURNEY (Where care started to where it ended) -->
-            <div *ngIf="careJourneyFacilities.length > 0" class="card bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl shadow-xl border border-indigo-900/50">
+            <div *ngIf="careJourneyFacilities.length > 0" class="card bg-white p-5 sm:p-6">
               <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-8 h-8 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+                  <div class="w-8 h-8 rounded-lg bg-white text-slate-600 flex items-center justify-center border border-slate-200">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                   </div>
                   <div>
-                    <h2 class="text-sm font-bold text-white uppercase tracking-wider">Hospital Care Progression (Origin &rarr; Transfers)</h2>
-                    <p class="text-xs text-indigo-300">Your care history from each facility</p>
+                    <h2 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Hospital Care Progression (Origin &rarr; Transfers)</h2>
+                    <p class="text-xs text-slate-600">Your care history from each facility</p>
                   </div>
                 </div>
-                <span class="text-xs font-mono font-medium text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                <span class="text-xs font-mono font-medium text-slate-700 bg-white px-2.5 py-1 rounded-full border border-slate-200">
                   {{ careJourneyFacilities.length }} Facility Stops
                 </span>
               </div>
@@ -193,19 +193,19 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
               <!-- Stepper Chain -->
               <div class="flex flex-col sm:flex-row sm:items-center gap-3 overflow-x-auto pb-2 pt-1">
                 <div *ngFor="let fac of careJourneyFacilities; let i = index; let last = last" class="flex items-center gap-3 flex-shrink-0">
-                  <div class="flex items-center gap-3 bg-slate-900/90 border border-indigo-500/30 rounded-xl px-4 py-3 min-w-[200px]">
-                    <div class="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                  <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 min-w-[200px]">
+                    <div class="w-7 h-7 rounded-full bg-white text-slate-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
                       {{ i + 1 }}
                     </div>
                     <div>
-                      <p class="text-xs text-indigo-300 font-medium">
+                      <p class="text-xs text-slate-600 font-medium">
                         {{ i === 0 ? 'Initial Facility' : (last ? 'Current / Latest' : 'Transfer Facility') }}
                       </p>
-                      <p class="text-sm font-bold text-white capitalize truncate max-w-[160px]">{{ fac.name }}</p>
-                      <p *ngIf="fac.doctor" class="text-[11px] text-slate-400 truncate max-w-[160px]">Dr. {{ fac.doctor }}</p>
+                      <p class="text-sm font-bold text-slate-900 capitalize truncate max-w-[160px]">{{ fac.name }}</p>
+                      <p *ngIf="fac.doctor" class="text-[11px] text-slate-600 truncate max-w-[160px]">Dr. {{ fac.doctor }}</p>
                     </div>
                   </div>
-                  <svg *ngIf="!last" class="w-5 h-5 text-indigo-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <svg *ngIf="!last" class="w-5 h-5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
                   </svg>
                 </div>
@@ -224,21 +224,21 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
               <div class="dashboard-metric">
                 <span class="dashboard-metric-icon" aria-hidden="true">02</span><div>
                 <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Facilities Visited</p>
-                <p class="text-2xl font-extrabold text-indigo-600">{{ totalCareFacilitiesCount }}</p>
+                <p class="text-2xl font-extrabold text-slate-900">{{ totalCareFacilitiesCount }}</p>
                 <p class="text-xs text-slate-500 mt-0.5">Hospitals in your care journey</p>
                 </div>
               </div>
               <div class="dashboard-metric">
                 <span class="dashboard-metric-icon" aria-hidden="true">03</span><div>
                 <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Doctors Engaged</p>
-                <p class="text-2xl font-extrabold text-teal-600">{{ totalDoctorsEngagedCount }}</p>
+                <p class="text-2xl font-extrabold text-slate-900">{{ totalDoctorsEngagedCount }}</p>
                 <p class="text-xs text-slate-500 mt-0.5">Attending physicians & staff</p>
                 </div>
               </div>
               <div class="dashboard-metric">
                 <span class="dashboard-metric-icon" aria-hidden="true">04</span><div>
                 <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Records with verification</p>
-                <p class="text-2xl font-extrabold text-emerald-600">{{ onChainVerifiedEventsCount }}</p>
+                <p class="text-2xl font-extrabold text-slate-900">{{ onChainVerifiedEventsCount }}</p>
                 <p class="text-xs text-slate-500 mt-0.5">Record details checked</p>
                 </div>
               </div>
@@ -275,11 +275,11 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
                 <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
                   <div class="flex items-center gap-2">
                     <span class="px-2.5 py-1 text-xs font-bold rounded-lg uppercase tracking-wide"
-                          [class]="item.category === 'measurement' ? 'bg-teal-50 text-teal-700 border border-teal-200' : (item.category === 'record' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-violet-50 text-violet-700 border border-violet-200')">
+                          [class]="item.category === 'measurement' ? 'bg-white text-slate-700 border border-slate-200' : (item.category === 'record' ? 'bg-white text-slate-700 border border-slate-200' : 'bg-white text-slate-700 border border-slate-200')">
                       {{ item.categoryLabel }}
                     </span>
-                    <span class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1 capitalize">
-                      <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                    <span class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-white text-slate-700 border border-slate-200 flex items-center gap-1 capitalize">
+                      <svg class="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                       {{ item.facility }}
                     </span>
                   </div>
@@ -291,8 +291,8 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
                 <!-- Middle Row: Responsible Doctor & What Was Measured / Found -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
                   <!-- Responsible Doctor Box -->
-                  <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-start gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div class="p-3.5 bg-white rounded-xl border border-slate-200 flex items-start gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-white text-slate-700 flex items-center justify-center flex-shrink-0 mt-0.5">
                       <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
                       </svg>
@@ -301,15 +301,15 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
                       <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Responsible Clinician</p>
                       <p class="text-sm font-bold text-slate-900 truncate">{{ item.doctor }}</p>
                       <p *ngIf="item.doctorLicense" class="text-xs text-slate-500">License: {{ item.doctorLicense }}</p>
-                      <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 mt-1">
-                        <svg class="w-3 h-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                      <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 mt-1">
+                        <svg class="w-3 h-3 text-slate-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
                         Consent Authorized
                       </span>
                     </div>
                   </div>
 
                   <!-- What Was Done & Result Box -->
-                  <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                  <div class="p-3.5 bg-white rounded-xl border border-slate-200">
                     <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">What Was Measured & Result</p>
                     
                     <!-- If Measurement -->
@@ -337,7 +337,7 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
                       <p class="text-sm font-bold text-slate-900">{{ item.title }}</p>
                       <p *ngIf="item.notes" class="text-xs text-slate-600 mt-1"><span class="font-semibold">Reason:</span> {{ item.notes }}</p>
                       <span class="inline-block mt-1 text-[11px] font-bold uppercase px-2 py-0.5 rounded"
-                            [class]="item.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
+                            [class]="item.status === 'ACCEPTED' ? 'bg-white text-slate-700 border border-slate-200' : 'bg-white text-slate-700 border border-slate-200'">
                         {{ item.status }}
                       </span>
                     </div>
@@ -357,7 +357,7 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
 
             <!-- Empty State -->
             <div *ngIf="filteredMedicalHistoryItems.length === 0" class="card py-12 text-center">
-              <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div class="w-16 h-16 bg-white border border-slate-200 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg class="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
               </div>
               <h3 class="text-lg font-bold text-slate-900 mb-1">No Care Events Found</h3>

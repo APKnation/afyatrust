@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
   selector: 'app-site-footer',
   imports: [RouterLink],
   template: `
-    <footer class="border-t border-slate-200 bg-white">
+    <footer class="border-t border-primary-100 bg-primary-50">
       <div class="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:px-6 md:grid-cols-[1fr_auto] md:items-center">
         <div class="text-center md:text-left">
           <a routerLink="/" class="brand-wordmark text-lg text-ink no-underline">Afya<span class="text-primary-700">Trust</span></a>

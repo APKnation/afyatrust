@@ -3,7 +3,10 @@
 // permission grants and record pointers that live in the backend database.
 //
 // Usage:
-//   npx hardhat run scripts/migrate-state.js --network sepolia [state.json]
+//   STATE_FILE=/tmp/afya_state.json npx hardhat run scripts/migrate-state.js --network sepolia
+//
+// (Hardhat rejects extra positional args, so the path travels via STATE_FILE;
+// argv[2] still works when the script is executed directly.)
 //
 // state.json shape (exported from the backend, see README):
 //   { patients: [{health_id, wallet, name}],
@@ -12,7 +15,7 @@
 const hre = require("hardhat");
 const fs = require("fs");
 
-const STATE_FILE = process.argv[2] || "/tmp/afya_state.json";
+const STATE_FILE = process.env.STATE_FILE || process.argv[2] || "/tmp/afya_state.json";
 
 async function main() {
   const state = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));

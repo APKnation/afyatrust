@@ -8,6 +8,45 @@ from .models import (
     MedicalRecord, Patient, Referral,
 )
 from . import wallet_manager
+from .blockchain import ensure_clinician_role
+
+# One admin-visible line per doctor about the on-chain CLINICIAN_ROLE that
+# break-glass and patient-signed grants both require.
+_ROLE_MESSAGE_LEVELS = {
+    "granted": "success",
+    "already": "info",
+    "no_permission": "warning",
+    "chain_unavailable": "warning",
+    "failed": "error",
+    "invalid_wallet": "error",
+}
+
+
+def grant_clinician_role_message(request, doctor) -> str:
+    """Grant CLINICIAN_ROLE to an approved doctor and surface the outcome."""
+    result, detail = ensure_clinician_role(doctor.wallet_address)
+    label = f"Dr. {doctor.full_name} ({doctor.wallet_address or 'no wallet'})"
+    if result == "granted":
+        text = f"{label}: CLINICIAN_ROLE granted on-chain (break-glass ready)."
+    elif result == "already":
+        text = f"{label}: CLINICIAN_ROLE already granted."
+    elif result == "no_permission":
+        text = (
+            f"{label}: CLINICIAN_ROLE NOT granted — the backend wallet is not an "
+            f"admin on the contract. Until it is granted, break-glass will revert. "
+            f"Run: {detail}"
+        )
+    elif result == "invalid_wallet":
+        text = f"{label}: CLINICIAN_ROLE NOT granted — {detail}."
+    else:
+        text = (
+            f"{label}: CLINICIAN_ROLE not confirmed ({result}). Retry with: "
+            f"python manage.py grant_clinician_roles"
+        )
+    if request is not None:
+        from django.contrib import messages
+        getattr(messages, _ROLE_MESSAGE_LEVELS.get(result, "warning"))(request, text)
+    return text
 
 
 @admin.register(Hospital)
@@ -80,7 +119,7 @@ class DoctorAdmin(admin.ModelAdmin):
     def has_pin(self, obj):
         return bool(obj.pin_hash)
 
-    @admin.action(description="Approve selected doctors")
+    @admin.action(description="Approve selected doctors (and grant on-chain clinician role)")
     def approve_doctors(self, request, queryset):
         count = 0
         for d in queryset.filter(status__in=["PENDING", "REJECTED"]):
@@ -88,7 +127,18 @@ class DoctorAdmin(admin.ModelAdmin):
             d.approved_at = timezone.now()
             d.save(update_fields=["status", "approved_at"])
             count += 1
+            grant_clinician_role_message(request, d)
         self.message_user(request, f"{count} doctor(s) approved.")
+
+    def save_model(self, request, obj, form, change):
+        """Approving through the change form must provision the role too —
+        break-glass reverts for any wallet without CLINICIAN_ROLE."""
+        was_approved = change and Doctor.objects.filter(
+            pk=obj.pk, status="APPROVED"
+        ).exists()
+        super().save_model(request, obj, form, change)
+        if obj.status == "APPROVED" and not was_approved:
+            grant_clinician_role_message(request, obj)
 
     @admin.action(description="Revoke selected doctors")
     def reject_doctors(self, request, queryset):

@@ -136,6 +136,33 @@ export interface ReferralIntegrityReport {
   mismatch_count: number;
 }
 
+/** An active break-glass window on the patient's own record: who is in it,
+ * why, and how long is left. The patient can end it early. */
+export interface EmergencyAccessItem {
+  doctor_name: string;
+  doctor_license: string;
+  doctor_wallet: string;
+  facility_id: string;
+  reason: string;
+  started_at: string;
+  expires_at: string;
+  remaining_seconds: number;
+  tx_hash: string;
+}
+
+export interface ActiveGrantItem {
+  id: number;
+  doctor_name: string;
+  doctor_license: string;
+  doctor_wallet: string;
+  facility_id: string;
+  hospital_name: string;
+  source: string;
+  created_at: string;
+  expires_at: string;
+  tx_hash: string;
+}
+
 /** Aggregate overview of the logged-in doctor's practice (all hospitals). */
 export interface DoctorDashboard {
   total_patients: number;
@@ -187,7 +214,9 @@ export interface DoctorOption {
 export interface PatientData {
   health_id: string;
   full_name: string;
+  phone?: string;
   wallet_address: string;
+  hospital?: string;
   records: PatientRecord[];
   measurements: MeasurementItem[];
   referrals: ReferralItem[];
@@ -317,15 +346,25 @@ export class ApiService {
     return this.request('POST', '/patient/profile/patch/', payload);
   }
 
-  /** Counts of active grants, pending requests, expiring-soon grants. */
+  /** Counts of active grants, pending requests, expiring-soon grants,
+   * plus any live break-glass windows on this patient's record. */
   patientGrantAccessStatus(): Promise<{
     activeCount: number;
     pendingCount: number;
     expiringSoon: number;
     lastGrantAt: string | null;
     lastGrantDoctor: string | null;
+    emergencyCount?: number;
+    emergency?: EmergencyAccessItem[];
+    active_grants?: ActiveGrantItem[];
   }> {
     return this.request('GET', '/patient/grant-access/status/');
+  }
+
+  /** Unified comprehensive patient dashboard. */
+  patientDashboard(health_id?: string): Promise<any> {
+    const path = health_id ? `/patient/dashboard/${encodeURIComponent(health_id)}/` : '/patient/dashboard/';
+    return this.request('GET', path);
   }
 
   /** Wallet-centric activity summary (address, last tx, pending ops). */
@@ -414,6 +453,11 @@ export class ApiService {
 
   revokeAccess(payload: { doctor_license?: string; doctor_wallet?: string }) {
     return this.request('POST', '/patient/revoke-access/', payload);
+  }
+
+  /** Patient ends an active break-glass window before its one-hour expiry. */
+  revokeEmergencyAccess(payload: { doctor_license?: string; doctor_wallet?: string }) {
+    return this.request('POST', '/patient/revoke-emergency/', payload);
   }
 
   approveRequest(request_id: number) {

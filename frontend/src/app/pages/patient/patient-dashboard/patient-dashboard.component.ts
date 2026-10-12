@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { NgIf, NgFor, SlicePipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { ApiService, PatientData, AccessRequest, DoctorOption, ActivityStoryItem } from '../../../services/api.service';
+import { ApiService, PatientData, AccessRequest, DoctorOption, ActivityStoryItem, EmergencyAccessItem, ActiveGrantItem } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 import { RecordChartComponent, RecordChartPoint } from '../../../components/shared/record-chart/record-chart.component';
 
@@ -279,32 +279,145 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
           </div>
 
-          <!-- REFERRALS -->
+          <!-- REFERRALS (Advanced UI) -->
           <div *ngIf="tab === 'referrals'" class="space-y-6 animate-fade-in">
-            <div class="flex flex-wrap items-center justify-between gap-4">
+
+            <!-- PAGE HEADER -->
+            <div class="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 class="text-2xl font-bold text-slate-900 mb-2">My Referrals</h1>
-                <p class="text-slate-600">Hospital referrals and their current status.</p>
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-md">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" /></svg>
+                  </span>
+                  <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">My Referrals</h1>
+                </div>
+                <p class="text-slate-500 text-sm leading-relaxed">Track every hospital referral — on-chain secured and tamper-proof.</p>
               </div>
-              <button (click)="referralModal = true" class="btn-secondary w-full sm:w-auto">
+              <button (click)="referralModal = true"
+                      class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-semibold shadow-lg shadow-violet-200 hover:shadow-violet-300 hover:from-violet-600 hover:to-indigo-700 transition-all duration-200 active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
                 Request Referral
               </button>
             </div>
-            <div *ngFor="let r of data.referrals" class="card">
-              <div class="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h3 class="font-bold text-slate-900 text-lg">{{ r.to_hospital }}</h3>
-                  <p class="text-sm text-slate-600 mt-1">{{ r.reason || 'No reason recorded' }} • {{ r.date | date:'medium' }}</p>
-                  <p *ngIf="r.responded_by" class="text-xs text-slate-500 mt-2">Responded by {{ r.responded_by }}{{ r.responded_at ? (' • ' + (r.responded_at | date:'short')) : '' }}</p>
-                </div>
-                <span class="px-3 py-1 rounded-full text-xs font-semibold" [class]="r.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700' : r.status === 'DECLINED' ? 'bg-red-100 text-red-700' : r.status === 'CANCELLED' ? 'bg-slate-100 text-slate-700' : 'bg-blue-100 text-blue-700'">{{ r.status }}</span>
+
+            <!-- STATS BAR -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total</p>
+                <p class="text-2xl font-black text-slate-900">{{ data.referrals.length }}</p>
+              </div>
+              <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 shadow-sm">
+                <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-1">Accepted</p>
+                <p class="text-2xl font-black text-emerald-700">{{ countReferralsByStatus('ACCEPTED') }}</p>
+              </div>
+              <div class="bg-amber-50 border border-amber-100 rounded-2xl p-4 shadow-sm">
+                <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-1">Pending</p>
+                <p class="text-2xl font-black text-amber-700">{{ countReferralsByStatus('PENDING') }}</p>
+              </div>
+              <div class="bg-red-50 border border-red-100 rounded-2xl p-4 shadow-sm">
+                <p class="text-xs font-semibold text-red-500 uppercase tracking-wider mb-1">Declined</p>
+                <p class="text-2xl font-black text-red-600">{{ countReferralsByStatus('DECLINED') }}</p>
               </div>
             </div>
-            <div *ngIf="data.referrals.length === 0" class="card">
-              <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+
+            <!-- REFERRAL CARDS -->
+            <div *ngIf="data.referrals.length > 0" class="space-y-4">
+              <div *ngFor="let r of data.referrals; let i = index"
+                   class="group relative bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-violet-100 transition-all duration-300 overflow-hidden">
+
+                <!-- LEFT ACCENT STRIPE -->
+                <div class="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl"
+                     [class]="r.status === 'ACCEPTED' ? 'bg-emerald-500' : r.status === 'DECLINED' ? 'bg-red-400' : r.status === 'CANCELLED' ? 'bg-slate-400' : 'bg-amber-400'"></div>
+
+                <div class="pl-5 pr-5 pt-5 pb-4">
+                  <!-- TOP ROW -->
+                  <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                    <div class="flex items-start gap-3">
+                      <!-- Hospital icon -->
+                      <div class="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-white shadow-md"
+                           [class]="r.status === 'ACCEPTED' ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : r.status === 'DECLINED' ? 'bg-gradient-to-br from-red-400 to-red-600' : r.status === 'CANCELLED' ? 'bg-gradient-to-br from-slate-400 to-slate-600' : 'bg-gradient-to-br from-amber-400 to-orange-500'">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5m4 0H9" /></svg>
+                      </div>
+                      <div>
+                        <h3 class="font-bold text-slate-900 text-base leading-tight">{{ r.to_hospital }}</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">Referral #{{ r.id }}  ·  {{ (r.date || r.created_at) | date:'MMM d, y' }}</p>
+                      </div>
+                    </div>
+
+                    <!-- STATUS PILL -->
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"
+                          [class]="r.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' : r.status === 'DECLINED' ? 'bg-red-100 text-red-700 ring-1 ring-red-200' : r.status === 'CANCELLED' ? 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' : 'bg-amber-100 text-amber-700 ring-1 ring-amber-200'">
+                      <span class="w-1.5 h-1.5 rounded-full"
+                            [class]="r.status === 'ACCEPTED' ? 'bg-emerald-500' : r.status === 'DECLINED' ? 'bg-red-500' : r.status === 'CANCELLED' ? 'bg-slate-400' : 'bg-amber-500'"></span>
+                      {{ r.status }}
+                    </span>
+                  </div>
+
+                  <!-- REASON -->
+                  <div *ngIf="r.reason" class="mb-4 px-4 py-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Reason</p>
+                    <p class="text-sm text-slate-800 leading-relaxed">{{ r.reason }}</p>
+                  </div>
+
+                  <!-- TIMELINE MINI -->
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <!-- Sent -->
+                    <div class="flex items-center gap-1.5 text-xs text-slate-500">
+                      <span class="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center">
+                        <svg class="w-3 h-3 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                      </span>
+                      Sent {{ (r.date || r.created_at) | date:'shortDate' }}
+                    </div>
+                    <!-- Arrow -->
+                    <svg class="w-3 h-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    <!-- Response -->
+                    <div *ngIf="r.responded_at" class="flex items-center gap-1.5 text-xs text-slate-500">
+                      <span class="w-5 h-5 rounded-full flex items-center justify-center"
+                            [class]="r.status === 'ACCEPTED' ? 'bg-emerald-100' : 'bg-red-100'">
+                        <svg class="w-3 h-3" [class]="r.status === 'ACCEPTED' ? 'text-emerald-600' : 'text-red-500'" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                      </span>
+                      Responded {{ r.responded_at | date:'shortDate' }}
+                      <span *ngIf="r.responded_by" class="text-slate-400">by {{ r.responded_by }}</span>
+                    </div>
+                    <div *ngIf="!r.responded_at" class="flex items-center gap-1.5 text-xs text-amber-600">
+                      <span class="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center">
+                        <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </span>
+                      Awaiting response…
+                    </div>
+                  </div>
+
+                  <!-- BOTTOM: FROM DOCTOR + ON-CHAIN BADGE -->
+                  <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                    <div class="text-xs text-slate-400 flex items-center gap-1">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      <span *ngIf="r.from_doctor">Referred by Dr. {{ r.from_doctor }}</span>
+                      <span *ngIf="!r.from_doctor && r.from_hospital">From {{ r.from_hospital }}</span>
+                      <span *ngIf="!r.from_doctor && !r.from_hospital">Self-requested</span>
+                    </div>
+                    <!-- On-chain badge placeholder -->
+                    <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
+                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                      Blockchain-secured
+                    </span>
+                  </div>
+                </div>
               </div>
-              <h3 class="text-lg font-bold text-slate-900 mb-2">No Referrals Yet</h3>
-              <p class="text-slate-600">Referrals will appear here once initiated.</p>
+            </div>
+
+            <!-- EMPTY STATE -->
+            <div *ngIf="data.referrals.length === 0"
+                 class="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-slate-200 shadow-sm">
+              <div class="w-20 h-20 rounded-full bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center mb-5 shadow-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" /></svg>
+              </div>
+              <h3 class="text-lg font-bold text-slate-800 mb-1">No Referrals Yet</h3>
+              <p class="text-sm text-slate-400 text-center max-w-xs mb-6">When a doctor or hospital refers you to another facility, it will appear here — secured on-chain.</p>
+              <button (click)="referralModal = true"
+                      class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-semibold shadow-lg shadow-violet-200 hover:shadow-violet-300 transition-all duration-200 active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                Request your first referral
+              </button>
             </div>
           </div>
 
@@ -313,6 +426,44 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <div>
               <h1 class="text-2xl font-bold text-slate-900 mb-2">Grant Access to a Doctor</h1>
               <p class="text-slate-600">Search for a doctor by name or license number, then grant time-limited on-chain access.</p>
+            </div>
+
+            <!-- LIVE BREAK-GLASS WINDOW (emergency access) -->
+            <div *ngIf="walletGrants?.emergency?.length" class="card border-2 border-red-300 bg-red-50">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-lg font-bold text-red-900">Emergency access in progress (break-glass)</h2>
+                <span class="rounded-full bg-red-600 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
+                  {{ walletGrants?.emergency?.length }} active
+                </span>
+              </div>
+              <p class="mt-2 text-sm text-red-800">
+                A doctor opened your record under break-glass because you could not
+                communicate or give consent. Every view is logged on-chain, the window
+                closes automatically after one hour, and you can end it sooner.
+              </p>
+              <div *ngFor="let e of walletGrants?.emergency" class="mt-3 rounded-xl border border-red-200 bg-white p-4">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p class="font-semibold text-slate-900">Dr. {{ e.doctor_name }}</p>
+                    <p class="text-xs text-slate-500">
+                      {{ e.facility_id }}<span *ngIf="e.doctor_license"> • {{ e.doctor_license }}</span>
+                    </p>
+                    <p class="mt-2 text-sm text-slate-700">
+                      <span class="font-semibold">Reason:</span> {{ e.reason || 'No reason recorded' }}
+                    </p>
+                    <p class="mt-1 text-xs text-slate-500">Started {{ e.started_at | date:'medium' }}</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-xs text-slate-500 uppercase tracking-wide">Time left</p>
+                    <p class="text-xl font-bold text-red-700" aria-live="polite">{{ emergencyCountdown(e) }}</p>
+                    <p class="text-[11px] text-slate-500">ends {{ e.expires_at | date:'shortTime' }}</p>
+                    <button type="button" (click)="revokeEmergency(e)" [disabled]="emergencyBusy"
+                            class="mt-2 cursor-pointer rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
+                      {{ emergencyBusy ? 'Ending…' : 'End emergency access' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="card">
@@ -349,6 +500,42 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 </button>
               </div>
             </div>
+
+            <!-- ACTIVE ROUTINE DOCTOR PERMISSIONS -->
+            <div *ngIf="walletGrants?.active_grants?.length" class="card border border-primary-200 bg-white">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h2 class="text-lg font-bold text-slate-900">Active Doctor Access Grants</h2>
+                <span class="rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-xs font-bold uppercase tracking-wide">
+                  {{ walletGrants?.active_grants?.length }} active
+                </span>
+              </div>
+              <p class="text-sm text-slate-600 mb-4">
+                These doctors currently hold authorized on-chain permissions to view your medical records. You can revoke access at any time.
+              </p>
+              <div class="space-y-3">
+                <div *ngFor="let g of walletGrants?.active_grants" class="rounded-xl border border-slate-200 bg-slate-50 p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p class="font-semibold text-slate-900">Dr. {{ g.doctor_name }}</p>
+                    <p class="text-xs text-slate-500">
+                      {{ g.facility_id }}<span *ngIf="g.doctor_license"> • License: {{ g.doctor_license }}</span>
+                    </p>
+                    <p class="text-xs text-slate-500 mt-1">
+                      Granted: {{ g.created_at | date:'mediumDate' }} • Expires: <span class="font-medium text-slate-700">{{ g.expires_at | date:'medium' }}</span>
+                    </p>
+                    <p *ngIf="g.tx_hash" class="text-[11px] font-mono text-slate-400 mt-0.5 truncate max-w-xs">
+                      Tx: {{ g.tx_hash }}
+                    </p>
+                  </div>
+                  <div>
+                    <button type="button" (click)="revokeRoutineAccess(g)" [disabled]="busy"
+                            class="cursor-pointer rounded-lg bg-red-600 hover:bg-red-700 px-3 py-1.5 text-xs font-semibold text-white transition-colors disabled:opacity-50">
+                      {{ busy ? 'Revoking…' : 'Revoke Access' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="card">
               <p class="text-sm text-slate-600">
                 <span class="font-semibold text-slate-700">Note:</span> Access expires automatically after the granted duration. Revocations are permanently logged on the blockchain.
@@ -948,6 +1135,26 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </p>
             </div>
 
+            <!-- Emergency (break-glass) alert -->
+            <div *ngIf="walletGrants?.emergency?.length"
+                 class="rounded-xl border-2 border-red-400 bg-red-50 p-4" role="alert">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p class="font-bold text-red-900">
+                    Emergency access to your records is open right now
+                  </p>
+                  <p class="mt-1 text-sm text-red-800">
+                    <span *ngFor="let e of walletGrants?.emergency; let last = last">
+                      Dr. {{ e.doctor_name }} — {{ emergencyCountdown(e) }} left<span *ngIf="!last"> · </span>
+                    </span>
+                  </p>
+                </div>
+                <button type="button" (click)="setTab('permissions')" class="btn-secondary shrink-0">
+                  Review &amp; end it
+                </button>
+              </div>
+            </div>
+
             <section class="card p-5" aria-labelledby="access-history-heading">
               <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -1138,55 +1345,98 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
           <!-- ACTIVITY -->
           <div *ngIf="tab === 'activity'" class="space-y-6 animate-fade-in">
-            <div>
-              <h1 class="text-2xl font-bold text-slate-900 mb-2">Access History</h1>
-              <p class="text-slate-600 leading-relaxed">
-                See recorded views, permission changes, and other security activity for your health data here in your dashboard.
-              </p>
-              <p class="text-sm text-slate-500 mt-2">{{ story.length }} event(s) • Newest first</p>
+            <!-- HEADER -->
+            <div class="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h1 class="text-2xl font-bold text-slate-900 mb-2">Access History</h1>
+                <p class="text-slate-600 leading-relaxed">
+                  Every view, permission change, and security event for your health data.
+                </p>
+                <p class="text-sm text-slate-500 mt-1">{{ story.length }} event(s) &nbsp;&bull;&nbsp; Newest first</p>
+              </div>
+              <button (click)="loadStory()" [disabled]="storyLoading"
+                      class="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50">
+                <svg class="w-4 h-4" [class.animate-spin]="storyLoading" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                Refresh
+              </button>
             </div>
 
-            <div *ngIf="storyLoading && story.length === 0" class="card text-sm text-slate-600" role="status">
-              Loading access history…
-            </div>
-            <div *ngIf="storyError" class="card border-amber-200 bg-amber-50 text-sm text-amber-900" role="alert">
-              <p>{{ storyError }}</p>
-              <button type="button" (click)="loadStory()" class="mt-2 font-semibold underline">Try again</button>
-            </div>
-
-            <div class="relative">
-              <div class="absolute left-5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-slate-200 via-slate-200 to-transparent"></div>
-              <div *ngFor="let s of story; let last = last" class="relative flex gap-4 mb-6">
-                <div class="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg shadow-md" [class]="storyDot(s)">
-                  {{ s.icon }}
-                </div>
-                <div class="flex-1 bg-white rounded-2xl shadow-lg border border-slate-200 p-5 hover:shadow-xl transition-all duration-200">
-                  <div class="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p class="text-slate-900 leading-relaxed">
-                        <span class="font-bold">{{ s.who || s.wallet | slice:0:18 }}</span>
-                        <span> {{ s.verb }}</span>
-                      </p>
-                      <div class="flex flex-wrap items-center gap-2 mt-2 text-sm text-slate-500">
-                        <span>{{ s.timestamp * 1000 | date:'medium' }}</span>
-                        <span *ngIf="s.facility">• Facility {{ s.facility }}</span>
-                        <span *ngIf="s.role">• {{ s.role }}</span>
-                      </div>
-                    </div>
-                    <a *ngIf="s.etherscan_url" [href]="s.etherscan_url" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-100 transition-colors shadow-sm">
-                      Verify on Etherscan
-                    </a>
-                    <span *ngIf="!s.etherscan_url" class="text-xs text-slate-400 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">Transaction pending</span>
+            <!-- LOADING SKELETON -->
+            <div *ngIf="storyLoading && story.length === 0" class="space-y-4">
+              <div *ngFor="let _ of [1,2,3]" class="bg-white rounded-2xl border border-slate-100 p-5 animate-pulse">
+                <div class="flex gap-4">
+                  <div class="w-10 h-10 rounded-full bg-slate-200 flex-shrink-0"></div>
+                  <div class="flex-1 space-y-2">
+                    <div class="h-4 bg-slate-200 rounded w-3/4"></div>
+                    <div class="h-3 bg-slate-100 rounded w-1/2"></div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div *ngIf="!storyLoading && !storyError && story.length === 0" class="card">
-              <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <!-- DB-ONLY MODE NOTICE (blockchain unreachable, but data still shown) -->
+            <div *ngIf="storySource === 'db' && story.length > 0"
+                 class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+              <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <div>
+                <p class="text-sm font-semibold text-amber-800">Showing database records (blockchain temporarily unreachable)</p>
+                <p class="text-xs text-amber-700 mt-0.5">Events with verified on-chain tx hashes still show Etherscan links. Full on-chain history will appear when the node reconnects.</p>
               </div>
+            </div>
+
+            <!-- PERSISTENT ERROR (no data at all) -->
+            <div *ngIf="storyError && story.length === 0"
+                 class="flex flex-col items-center gap-3 p-8 bg-red-50 border border-red-100 rounded-2xl text-center">
+              <svg class="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+              <p class="text-sm font-semibold text-red-700">{{ storyError }}</p>
+              <button type="button" (click)="loadStory()" class="text-sm font-bold text-red-600 underline hover:text-red-800">Try again</button>
+            </div>
+
+            <!-- TIMELINE -->
+            <div *ngIf="story.length > 0" class="relative">
+              <div class="absolute left-5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-slate-200 via-slate-200 to-transparent"></div>
+              <div *ngFor="let s of story" class="relative flex gap-4 mb-6">
+                <!-- DOT -->
+                <div class="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg shadow-md" [class]="storyDot(s)">
+                  {{ s.icon }}
+                </div>
+                <!-- CARD -->
+                <div class="flex-1 bg-white rounded-2xl shadow-sm border border-slate-100 p-5 hover:shadow-md transition-all duration-200">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="flex-1 min-w-0">
+                      <p class="text-slate-900 leading-relaxed">
+                        <span class="font-bold">{{ s.who || (s.wallet | slice:0:18) }}</span>
+                        <span> {{ s.verb }}</span>
+                      </p>
+                      <div class="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-500">
+                        <span>{{ s.timestamp * 1000 | date:'medium' }}</span>
+                        <span *ngIf="s.facility">&bull; {{ s.facility }}</span>
+                        <span *ngIf="s.role" class="px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 font-medium">{{ s.role }}</span>
+                        <!-- DB source badge -->
+                        <span *ngIf="s['source'] === 'db'" class="px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded border border-amber-100 font-medium">DB</span>
+                      </div>
+                    </div>
+                    <!-- ACTION BUTTON -->
+                    <a *ngIf="s.etherscan_url" [href]="s.etherscan_url" target="_blank" rel="noopener"
+                       class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg hover:bg-indigo-100 transition-colors">
+                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                      Verify on Etherscan
+                    </a>
+                    <span *ngIf="!s.etherscan_url"
+                          class="flex-shrink-0 text-xs text-slate-400 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100">
+                      No tx yet
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- EMPTY STATE (no events at all after load) -->
+            <div *ngIf="!storyLoading && !storyError && story.length === 0"
+                 class="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
+              <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">🔐</div>
               <h3 class="text-lg font-bold text-slate-900 mb-2">No Activity Yet</h3>
-              <p class="text-slate-600">Blockchain activity will appear here when records are accessed or permissions change.</p>
+              <p class="text-slate-500 text-sm text-center max-w-xs">Blockchain activity will appear here when records are accessed or permissions change.</p>
             </div>
           </div>
         </main>
@@ -1227,49 +1477,102 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       </div>
     </div>
 
-    <!-- REFERRAL REQUEST MODAL (patient) -->
+    <!-- REFERRAL REQUEST MODAL (Advanced UI) -->
     <div *ngIf="referralModal"
-         class="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-fade-in">
-      <div class="card w-full max-w-lg p-6 sm:p-8 shadow-2xl border border-gray-200 animate-slide-up bg-surface">
-        <div class="mb-4 flex items-start justify-between">
-          <div>
-            <span class="eyebrow mb-2">Referral</span>
-            <h2 class="text-xl font-bold">Request a hospital referral</h2>
+         class="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4 backdrop-blur-md animate-fade-in"
+         (click)="referralModal = false">
+      <div class="w-full sm:max-w-lg bg-white sm:rounded-2xl shadow-2xl border border-slate-100 overflow-hidden animate-slide-up"
+           (click)="$event.stopPropagation()">
+
+        <!-- MODAL HEADER (gradient) -->
+        <div class="relative bg-gradient-to-r from-violet-600 to-indigo-700 px-6 py-6">
+          <!-- Close -->
+          <button (click)="referralModal = false" aria-label="Close referral modal"
+                  class="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg bg-white/20 text-white hover:bg-white/30 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" /></svg>
+            </div>
+            <div>
+              <p class="text-xs font-semibold text-white/70 uppercase tracking-widest">New Request</p>
+              <h2 class="text-lg font-extrabold text-white leading-tight">Request a Hospital Referral</h2>
+            </div>
           </div>
-          <button (click)="referralModal = false" aria-label="Close"
-                  class="cursor-pointer rounded-lg p-1 text-2xl leading-none text-slate-500 hover:text-slate-900 hover:bg-slate-100">×</button>
         </div>
-        <p class="mb-4 text-sm text-muted">
-          Choose the hospital you want to be referred to and why. That hospital's staff
-          or doctor must accept it before the referral is complete.
-        </p>
-        <div class="flex flex-col gap-3">
-          <label class="flex flex-col gap-1.5">
-            <span class="text-[13px] font-semibold text-ink">Target hospital</span>
-            <select [(ngModel)]="referralForm.to_hospital"
-                    class="px-3 py-2.5 text-sm">
-               <option value="" disabled>Select hospital…</option>
-               <option *ngFor="let h of sendHospitals" [value]="h.code">{{ h.name }} ({{ h.code }})</option>
-            </select>
-          </label>
-          <label class="flex flex-col gap-1.5">
-            <span class="text-[13px] font-semibold text-ink">Reason</span>
-            <textarea [(ngModel)]="referralForm.reason" rows="2"
-                      placeholder="e.g. specialist review, follow-up after discharge"
-                      class="px-3 py-2.5 text-sm"></textarea>
-          </label>
+
+        <!-- MODAL BODY -->
+        <div class="px-6 py-6">
+          <!-- Info banner -->
+          <div class="flex items-start gap-3 p-3.5 rounded-xl bg-indigo-50 border border-indigo-100 mb-5">
+            <svg class="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <p class="text-xs text-indigo-700 leading-relaxed">
+              Choose the hospital and reason. The receiving hospital's staff must <strong>accept</strong> before the referral is active.
+              Every acceptance is anchored on-chain for immutable proof.
+            </p>
+          </div>
+
+          <div class="space-y-4">
+            <!-- Hospital select -->
+            <div>
+              <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Target Hospital</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5m4 0H9" /></svg>
+                </span>
+                <select [(ngModel)]="referralForm.to_hospital"
+                        id="referral-hospital-select"
+                        class="w-full pl-9 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition appearance-none">
+                  <option value="" disabled>Select a hospital…</option>
+                  <option *ngFor="let h of sendHospitals" [value]="h.code">{{ h.name }} ({{ h.code }})</option>
+                </select>
+                <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                </span>
+              </div>
+            </div>
+
+            <!-- Reason textarea -->
+            <div>
+              <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Reason <span class="text-slate-400 font-normal normal-case">(optional)</span></label>
+              <textarea [(ngModel)]="referralForm.reason"
+                        id="referral-reason-textarea"
+                        rows="3"
+                        placeholder="e.g. specialist cardiac review, post-discharge follow-up, second opinion…"
+                        class="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-400 focus:border-transparent transition resize-none"></textarea>
+            </div>
+          </div>
+
+          <!-- SUCCESS message -->
+          <div *ngIf="sendMsg && sendOk"
+               class="mt-4 flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+            <svg class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+            <p class="text-xs text-emerald-700 font-medium">{{ sendMsg }}</p>
+          </div>
+          <!-- ERROR message -->
+          <div *ngIf="sendMsg && !sendOk"
+               class="mt-4 flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl">
+            <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <p class="text-xs text-red-700 font-medium">{{ sendMsg }}</p>
+          </div>
         </div>
-        <div class="mt-5 flex gap-2">
-          <button (click)="sendReferral()" [disabled]="sendBusy || !referralForm.to_hospital"
-                  class="flex-1 btn-primary disabled:opacity-50">
-            {{ sendBusy ? 'Sending…' : 'Send request' }}
+
+        <!-- MODAL FOOTER -->
+        <div class="px-6 pb-6 flex flex-col sm:flex-row gap-3">
+          <button (click)="sendReferral()"
+                  [disabled]="sendBusy || !referralForm.to_hospital"
+                  id="send-referral-btn"
+                  class="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-bold shadow-lg shadow-violet-200 hover:from-violet-600 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none active:scale-95">
+            <svg *ngIf="!sendBusy" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+            <svg *ngIf="sendBusy" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            {{ sendBusy ? 'Sending…' : 'Send Referral Request' }}
           </button>
           <button (click)="referralModal = false"
-                  class="flex-1 btn-secondary">
+                  class="flex-1 sm:flex-none sm:px-6 py-3 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 transition-colors">
             Cancel
           </button>
         </div>
-        <p *ngIf="sendMsg" class="mb-0 mt-3 text-sm" [class]="sendOk ? 'text-accent-600' : 'text-red-600'">{{ sendMsg }}</p>
       </div>
     </div>
   `,
@@ -1296,9 +1599,11 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   story: ActivityStoryItem[] = [];
   storyLoading = false;
   storyError = '';
+  storySource: 'chain' | 'db' | '' = '';
   loading = false;
   busy = false;
   errorMsg = '';
+  historyFilter: 'all' | 'records' | 'measurements' | 'hospitals' = 'all';
 
   /** Most recent on-chain action performed by this patient (grant/approve),
    * surfaced as a banner with a direct Etherscan link. */
@@ -1353,6 +1658,9 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     if (id === 'referral-security') {
       void this.loadReferralSecurity();
     }
+    if (id === 'permissions') {
+      void this.loadGrantSummary();
+    }
     this.syncView();
   }
 
@@ -1390,7 +1698,14 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     expiringSoon: number;
     lastGrantAt: string | null;
     lastGrantDoctor: string | null;
+    emergencyCount?: number;
+    emergency?: EmergencyAccessItem[];
+    active_grants?: ActiveGrantItem[];
   } | null = null;
+
+  /** Seconds until the next emergency window ends (ticked once a second). */
+  private emergencyTimer: any = null;
+  emergencyBusy = false;
 
   // --- Profile tab data (user-centric editable info) ---
   profileInfo: { health_id: string; full_name: string; phone: string; wallet_address: string } | null = null;
@@ -1446,7 +1761,106 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     } catch {
       this.walletGrants = null;
     }
+    this.updateEmergencyTicker();
     this.syncView();
+  }
+
+  /** Live countdown while a break-glass window is open on this record. */
+  private updateEmergencyTicker() {
+    const open = (this.walletGrants?.emergency?.length ?? 0) > 0;
+    if (open && !this.emergencyTimer) {
+      this.emergencyTimer = setInterval(() => {
+        if (this.allEmergencyWindowsClosed()) {
+          this.stopEmergencyTicker();
+          void this.loadGrantSummary();
+        }
+        this.syncView();
+      }, 1000);
+    } else if (!open) {
+      this.stopEmergencyTicker();
+    }
+  }
+
+  private stopEmergencyTicker() {
+    if (this.emergencyTimer) {
+      clearInterval(this.emergencyTimer);
+      this.emergencyTimer = null;
+    }
+  }
+
+  private allEmergencyWindowsClosed(): boolean {
+    return (this.walletGrants?.emergency ?? [])
+      .every((e) => new Date(e.expires_at).getTime() <= Date.now());
+  }
+
+  /** Seconds left on one emergency window (floored at zero). */
+  emergencyRemaining(e: EmergencyAccessItem): number {
+    const ms = new Date(e.expires_at).getTime() - Date.now();
+    return Math.max(0, Math.floor(ms / 1000));
+  }
+
+  /** "42:07" (or "1:02:03") remaining on an emergency window. */
+  emergencyCountdown(e: EmergencyAccessItem): string {
+    const total = this.emergencyRemaining(e);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return hours > 0
+      ? `${hours}:${pad(minutes)}:${pad(seconds)}`
+      : `${pad(minutes)}:${pad(seconds)}`;
+  }
+
+  /** Patient ends a break-glass window before its one-hour expiry. */
+  async revokeEmergency(e: EmergencyAccessItem) {
+    if (this.emergencyBusy) return;
+    const who = e.doctor_name ? `Dr. ${e.doctor_name}` : 'this doctor';
+    if (!confirm(
+      `End ${who}'s emergency access now? ` +
+      'The revocation is logged on-chain and they lose access immediately.'
+    )) return;
+    this.emergencyBusy = true;
+    this.syncView();
+    try {
+      const res: any = await this.api.revokeEmergencyAccess({
+        doctor_license: e.doctor_license,
+        doctor_wallet: e.doctor_wallet,
+      });
+      alert(res?.message || 'Emergency access ended.');
+      await this.loadGrantSummary();
+    } catch (err: any) {
+      alert('Error: ' + (err?.error?.error || err?.message || 'Could not end emergency access'));
+    } finally {
+      this.emergencyBusy = false;
+      this.syncView();
+    }
+  }
+
+  /** Patient revokes a doctor's routine access. */
+  async revokeRoutineAccess(g: ActiveGrantItem) {
+    if (this.busy) return;
+    const doc = g.doctor_name ? `Dr. ${g.doctor_name}` : 'this doctor';
+    if (!confirm(
+      `Revoke ${doc}'s access to your medical records? ` +
+      'The revocation will be confirmed and logged on-chain.'
+    )) return;
+    this.busy = true;
+    this.syncView();
+    try {
+      const res: any = await this.api.revokeAccess({
+        doctor_license: g.doctor_license,
+        doctor_wallet: g.doctor_wallet,
+      });
+      alert(res?.message || 'Access revoked successfully.');
+      await this.loadGrantSummary();
+      const fresh = await this.api.myRecords();
+      this.data = fresh;
+    } catch (err: any) {
+      alert('Error: ' + (err?.error?.error || err?.message || 'Could not revoke access'));
+    } finally {
+      this.busy = false;
+      this.syncView();
+    }
   }
 
   /** Load the profile tab: editable user info + grant summary. */
@@ -1551,9 +1965,9 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   healthSummary: {
     diagnoses: { type: string; count: number }[];
     medicines: { detail: string; count: number }[];
-    measurements: { kind: string; count: number; latest_value: number; latest_unit: string; latest_date: string; latest_doctor: string; latest_hospital: string }[];
+    measurements: { kind: string; count: number; latest_value: any; latest_unit: string; latest_date: string; latest_doctor: string; latest_hospital: string }[];
     care_team: { name: string; hospital: string; measurements: number; treatment_records: number; other_records: number; latest_date: string }[];
-    hospital_visits: { facility: string; count: number }[];
+    hospital_visits: { facility: string; count: number; last_date?: string; services?: string }[];
     total_records: number;
     total_measurements: number;
   } | null = null;
@@ -1568,7 +1982,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.syncView();
   }
 
-  /** Compute a health summary from the already-loaded patient data. */
+  /** Compute a comprehensive health summary from all records, measurements, and referrals. */
   private computeHealthSummary() {
     if (!this.data) {
       this.healthSummary = null;
@@ -1576,6 +1990,8 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     }
     const records = this.data.records || [];
     const measurements = this.data.measurements || [];
+    const referrals = this.data.referrals || [];
+
     const careTeam = new Map<string, {
       name: string;
       hospital: string;
@@ -1584,6 +2000,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       other_records: number;
       latest_date: string;
     }>();
+
     const addCareEntry = (name: string, hospital: string, type: 'measurement' | 'treatment' | 'record', date: string) => {
       const normalizedName = name.trim();
       if (!normalizedName) return;
@@ -1618,30 +2035,90 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
           : value && typeof value === 'object' && !Array.isArray(value) && ('full_name' in value || 'name' in value || 'doctor_name' in value)
             ? String(('full_name' in value && value.full_name) || ('name' in value && value.name) || ('doctor_name' in value && value.doctor_name) || '')
             : '';
-        const recordType = record.type.toLowerCase();
+        const recordType = (record.type || '').toLowerCase();
         const isTreatment = ['treatment', 'prescription', 'medication', 'procedure'].some(term => recordType.includes(term));
         addCareEntry(doctorName, record.facility || '', isTreatment ? 'treatment' : 'record', record.date || '');
       }
     }
 
-    // Diagnoses / record types frequency
-    const typeCounter: Record<string, number> = {};
+    // --- 1. EXTRACT ALL DISEASES, DIAGNOSES & CONDITIONS ---
+    const diseaseCounter: Record<string, number> = {};
+    const addDisease = (disease: string) => {
+      if (!disease) return;
+      const clean = disease.trim();
+      if (!clean || clean.length < 2) return;
+      const lower = clean.toLowerCase();
+      // Skip pure boilerplate/boolean values
+      if (['positive', 'negative', 'normal', 'abnormal', 'yes', 'no', 'true', 'false', 'none', 'n/a', 'null', 'undefined'].includes(lower)) return;
+      // Capitalize first letter of each word
+      const formatted = clean.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+      diseaseCounter[formatted] = (diseaseCounter[formatted] || 0) + 1;
+    };
+
     for (const r of records) {
-      typeCounter[r.type] = (typeCounter[r.type] || 0) + 1;
+      let foundDiseaseInRecord = false;
+      if (r.data && typeof r.data === 'object' && !Array.isArray(r.data)) {
+        for (const [key, value] of Object.entries(r.data)) {
+          const lk = key.toLowerCase().trim();
+          const strVal = typeof value === 'string' ? value.trim() : (Array.isArray(value) ? value.join(', ') : String(value || ''));
+
+          // Case A: Key mentions diagnosis / disease / condition / illness / complaint
+          if (['diagnos', 'disease', 'condition', 'illness', 'problem', 'finding', 'pathology', 'infection', 'disorder', 'complaint', 'assessment'].some(term => lk.includes(term))) {
+            if (Array.isArray(value)) {
+              for (const item of value) {
+                if (typeof item === 'string') {
+                  item.split(/[,;\n]+/).forEach(d => addDisease(d));
+                  foundDiseaseInRecord = true;
+                }
+              }
+            } else if (typeof value === 'string') {
+              value.split(/[,;\n]+/).forEach(d => addDisease(d));
+              foundDiseaseInRecord = true;
+            }
+          }
+          // Case B: Key IS the disease itself with a positive/confirmed/detected result (e.g., malaria: 'positive')
+          else if (['positive', 'confirmed', 'detected', 'present', 'severe', 'mild', 'chronic', 'acute', 'yes'].some(t => strVal.toLowerCase().includes(t))) {
+            addDisease(key);
+            foundDiseaseInRecord = true;
+          }
+          // Case C: Test indicates a disease (e.g. test: 'malaria', result: 'positive')
+          else if (lk === 'test' || lk === 'lab_test' || lk === 'examination') {
+            const resultVal = String((r.data as any)['result'] || (r.data as any)['status'] || '').toLowerCase();
+            if (!resultVal.includes('negative')) {
+              addDisease(strVal);
+              foundDiseaseInRecord = true;
+            }
+          }
+        }
+      }
+
+      // If no specific clinical disease found in payload, include record type
+      if (!foundDiseaseInRecord && r.type) {
+        addDisease(r.type);
+      }
     }
-    const diagnoses = Object.entries(typeCounter)
+
+    // Also check measurements for disease test kinds (like "MALARIA")
+    for (const m of measurements) {
+      const mk = (m.kind || '').trim();
+      const lowerMk = mk.toLowerCase();
+      if (['malaria', 'typhoid', 'cholera', 'tuberculosis', 'tb', 'hiv', 'covid', 'diabetes', 'hypertension', 'asthma', 'pneumonia'].some(d => lowerMk.includes(d))) {
+        addDisease(mk);
+      }
+    }
+
+    const diagnoses = Object.entries(diseaseCounter)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
       .map(([type, count]) => ({ type, count }));
 
-    // Medicines: scan record data for keys containing medicine/medication/drug/prescription/treatment
+    // --- 2. MEDICINES: SCAN RECORD DATA ---
     const medCounter: Record<string, number> = {};
     for (const r of records) {
-      if (!r.data) continue;
+      if (!r.data || typeof r.data !== 'object') continue;
       for (const [key, value] of Object.entries(r.data)) {
         const lk = key.toLowerCase();
         if (['medicine', 'medication', 'drug', 'prescription', 'rx', 'treatment'].some(t => lk.includes(t))) {
-          const detail = `${key}: ${value}`;
+          const detail = typeof value === 'string' && value.length > 0 ? `${key}: ${value}` : `${key}`;
           medCounter[detail] = (medCounter[detail] || 0) + 1;
         }
       }
@@ -1651,47 +2128,104 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       .slice(0, 10)
       .map(([detail, count]) => ({ detail, count }));
 
-    // Measurements frequency + latest value per kind
+    // --- 3. ALL MEASUREMENTS: GROUP & TRACK ALL KINDS + VITALS IN RECORDS ---
     const measCounter: Record<string, number> = {};
-    const measLatest: Record<string, { value: number; unit: string; date: string; doctor: string; hospital: string }> = {};
+    const measLatest: Record<string, { value: any; unit: string; date: string; doctor: string; hospital: string }> = {};
+
     for (const m of measurements) {
-      measCounter[m.kind] = (measCounter[m.kind] || 0) + 1;
+      const kind = (m.kind || 'Other').trim();
+      measCounter[kind] = (measCounter[kind] || 0) + 1;
       const measurementDate = m.date ?? m.created_at ?? '';
-      if (!measLatest[m.kind] || measurementDate > measLatest[m.kind].date) {
-        measLatest[m.kind] = {
+      if (!measLatest[kind] || measurementDate > measLatest[kind].date) {
+        measLatest[kind] = {
           value: m.value,
-          unit: m.unit,
+          unit: m.unit || '',
           date: measurementDate,
           doctor: m.doctor || '',
           hospital: m.hospital || '',
         };
       }
     }
+
+    // Also check records for vitals embedded in r.data (e.g. temp: '38.5°C', bp: '120/80')
+    for (const r of records) {
+      if (r.data && typeof r.data === 'object' && !Array.isArray(r.data)) {
+        for (const [key, value] of Object.entries(r.data)) {
+          const lk = key.toLowerCase().trim();
+          if (['temp', 'temperature', 'blood_pressure', 'bp', 'heart_rate', 'pulse', 'weight', 'height', 'bmi', 'spo2', 'glucose', 'sugar'].some(v => lk.includes(v))) {
+            const kindName = key.charAt(0).toUpperCase() + key.slice(1);
+            if (!measCounter[kindName]) {
+              measCounter[kindName] = (measCounter[kindName] || 0) + 1;
+              measLatest[kindName] = {
+                value: value,
+                unit: '',
+                date: r.date || '',
+                doctor: '',
+                hospital: r.facility || '',
+              };
+            }
+          }
+        }
+      }
+    }
+
     const measurementsSummary = Object.entries(measCounter)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
       .map(([kind, count]) => {
         const lv = measLatest[kind];
         return {
           kind,
           count,
-          latest_value: lv && lv.value != null ? lv.value : 0,
-          latest_unit: (lv && lv.unit) || '',
-          latest_date: (lv && lv.date) || '',
-          latest_doctor: (lv && lv.doctor) || '',
-          latest_hospital: (lv && lv.hospital) || '',
+          latest_value: lv ? lv.value : 0,
+          latest_unit: lv?.unit || '',
+          latest_date: lv?.date || '',
+          latest_doctor: lv?.doctor || '',
+          latest_hospital: lv?.hospital || '',
         };
       });
 
-    // Hospital visit frequency (from records)
-    const hospitalCounter: Record<string, number> = {};
+    // --- 4. ALL HOSPITALS WHERE PATIENT HAS BEEN VISITED EARLIER ---
+    const hospitalMap: Record<string, { count: number; last_date: string; services: Set<string> }> = {};
+    const recordHospital = (name: string, date: string, service: string) => {
+      if (!name) return;
+      const clean = name.trim();
+      if (!clean || clean.toLowerCase() === 'none' || clean.toLowerCase() === 'unknown') return;
+      if (!hospitalMap[clean]) {
+        hospitalMap[clean] = { count: 0, last_date: date || '', services: new Set() };
+      }
+      hospitalMap[clean].count += 1;
+      if (date && date > hospitalMap[clean].last_date) {
+        hospitalMap[clean].last_date = date;
+      }
+      if (service) hospitalMap[clean].services.add(service);
+    };
+
+    // From all records
     for (const r of records) {
-      hospitalCounter[r.facility] = (hospitalCounter[r.facility] || 0) + 1;
+      if (r.facility) recordHospital(r.facility, r.date || '', r.type || 'Medical Record');
     }
-    const hospitalVisits = Object.entries(hospitalCounter)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([facility, count]) => ({ facility, count }));
+    // From all measurements
+    for (const m of measurements) {
+      if (m.hospital) recordHospital(m.hospital, m.date ?? m.created_at ?? '', `Measurement (${m.kind})`);
+    }
+    // From all referrals (both originating and target hospitals)
+    for (const ref of referrals) {
+      if (ref.from_hospital) recordHospital(ref.from_hospital, ref.date || '', 'Referral Out');
+      if (ref.to_hospital) recordHospital(ref.to_hospital, ref.date || '', 'Referral In');
+    }
+    // From patient's registered facility
+    if (this.data.hospital) {
+      recordHospital(this.data.hospital, '', 'Registration Facility');
+    }
+
+    const hospitalVisits = Object.entries(hospitalMap)
+      .sort((a, b) => b[1].count - a[1].count)
+      .map(([facility, info]) => ({
+        facility,
+        count: info.count,
+        last_date: info.last_date,
+        services: Array.from(info.services).join(' · '),
+      }));
 
     this.healthSummary = {
       diagnoses,
@@ -1742,6 +2276,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     if (this.pollTimer) clearInterval(this.pollTimer);
     if (this.doctorSearchTimer) clearTimeout(this.doctorSearchTimer);
+    this.stopEmergencyTicker();
   }
 
   /** Load the list of hospitals so the patient can pick where to go. */
@@ -1794,7 +2329,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   }
 
   /** Load the unified on-chain activity story (who did what, when). */
-  private async loadStory() {
+  async loadStory() {
     if (!this.data?.health_id || this.storyLoading) return;
     this.storyLoading = true;
     this.storyError = '';
@@ -1802,6 +2337,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     try {
       const res = await this.api.patientActivityStory(this.data.health_id);
       this.story = res.story;
+      this.storySource = (res as any).source === 'db' ? 'db' : 'chain';
       // A PENDING grant just mined? Update the banner to show the live link.
       if (this.lastTx?.pending && this.story.some((s) => s.transaction_hash === this.lastTx!.tx_hash)) {
         this.lastTx.pending = false;
@@ -1881,6 +2417,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       this.data = data;
       this.computeHealthSummary();
       void this.loadStory();
+      void this.loadGrantSummary();
     } catch (e: any) {
       // 401 = token expired: log the user out so the login page handles it
       if (e?.status === 401) {
@@ -2042,6 +2579,14 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   /** Switch to profile tab within the dashboard. */
   viewProfile() {
     this.setTab('profile');
+  }
+
+  /** Count referrals matching a specific status string (case-insensitive). */
+  countReferralsByStatus(status: string): number {
+    if (!this.data?.referrals) return 0;
+    return this.data.referrals.filter(
+      (r) => (r.status || '').toUpperCase() === status.toUpperCase()
+    ).length;
   }
 
   /** Log out and take the user back to the sign-in page. */

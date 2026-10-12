@@ -394,15 +394,36 @@ contract AfyaTrust {
         uint256 expiry =
             block.timestamp + (_days * 1 days);
 
-        permissions[_healthID].push(
-            AccessPermission({
-                grantedTo: _doctorWallet,
-                grantedBy: _patient,
-                grantedByRole: "PATIENT",
-                expiry: expiry,
-                isActive: true
-            })
-        );
+        // Re-granting must not stack duplicate entries: otherwise a later
+        // revoke only clears the first one and the doctor keeps access.
+        bool refreshed = false;
+        for (
+            uint256 i = 0;
+            i < permissions[_healthID].length;
+            i++
+        ) {
+            if (
+                permissions[_healthID][i].grantedTo == _doctorWallet &&
+                permissions[_healthID][i].isActive &&
+                permissions[_healthID][i].expiry > block.timestamp
+            ) {
+                permissions[_healthID][i].expiry = expiry;
+                refreshed = true;
+                break;
+            }
+        }
+
+        if (!refreshed) {
+            permissions[_healthID].push(
+                AccessPermission({
+                    grantedTo: _doctorWallet,
+                    grantedBy: _patient,
+                    grantedByRole: "PATIENT",
+                    expiry: expiry,
+                    isActive: true
+                })
+            );
+        }
 
         emit AccessGranted(
             _healthID,
@@ -456,7 +477,8 @@ contract AfyaTrust {
 
                 revoked = true;
 
-                break;
+                // Clear every active entry for this doctor — stopping at the
+                // first one would leave a duplicate grant alive after revoke.
             }
         }
 

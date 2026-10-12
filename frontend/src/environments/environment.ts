@@ -5,7 +5,7 @@ export const environment = {
   chainId: 11155111,
   chainName: 'Sepolia',
   etherscanUrl: 'https://sepolia.etherscan.io',
-  contractAddress: '0x71B286D28Ff87BcE14c89720806a6cB045f877C4',
+  contractAddress: '0x142F4871c1D1c1999A8D1d9fbAD6Bbff4bDc92ED',
   contractABI: [
     'function registerPatient(string,address,string) public',
     'function addRecord(string,string,string,string) public',
@@ -14,6 +14,8 @@ export const environment = {
     'function hasAccess(string,address) public view returns (bool)',
     'function recordView(string,address,string) public',
     'function breakGlass(string,address,string,string) public',
+    'function emergencyAccessRemaining(string,address) public view returns (uint256)',
+    'function revokeEmergencyAccess(string,address) public',
     'function getRecords(string) public view returns (tuple(string,string,string,uint256)[])',
     'function getAuditTrail(string) public view returns (tuple(address,string,string,string,uint256)[])',
     'function getPermissions(string) public view returns (tuple(address,address,string,uint256,bool)[])',

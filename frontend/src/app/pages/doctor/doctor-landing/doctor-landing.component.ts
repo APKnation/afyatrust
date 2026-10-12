@@ -400,7 +400,9 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 {{ denied
                   ? 'Request patient consent, or use break-glass only for an emergency.'
                   : (emergencyAccess
-                    ? 'Temporary emergency access — expires after one hour.'
+                    ? 'Temporary emergency access — ' + (emergencyCountdownLabel
+                        ? 'expires in ' + emergencyCountdownLabel + '.'
+                        : 'expires after one hour.')
                     : 'Your individual patient access was verified on-chain.') }}
               </span>
             </div>
@@ -417,8 +419,18 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
           </div>
           <div *ngIf="emergencyAccess && emergencyReason" class="card border border-red-200 bg-red-50 p-4">
-            <p class="m-0 text-sm font-semibold text-red-900">Emergency access reason</p>
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              <p class="m-0 text-sm font-semibold text-red-900">Emergency access reason</p>
+              <p class="m-0 text-sm font-bold text-red-900" aria-live="polite">
+                <span *ngIf="emergencyCountdownLabel">Expires in {{ emergencyCountdownLabel }}</span>
+                <span *ngIf="!emergencyCountdownLabel">Emergency window ended</span>
+              </p>
+            </div>
             <p class="mb-0 mt-1 text-sm text-red-800">{{ emergencyReason }}</p>
+            <p class="mb-0 mt-2 text-xs text-red-700">
+              Access is audited: every view is logged on-chain as a BREAK_GLASS audit entry.
+              The patient sees this window on their dashboard and can end it early.
+            </p>
           </div>
           <div *ngIf="referralContext" class="card border border-indigo-200 bg-indigo-50 p-4">
             <p class="m-0 text-sm font-semibold text-indigo-900">Referral context</p>
@@ -1091,6 +1103,10 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   integrityIssues: { record_hash: string | null; facility_id: string; record_type: string; reason: string }[] = [];
   emergencyAccess = false;
   emergencyReason = '';
+  /** Live break-glass window: when it ends and the seconds left (ticked below). */
+  emergencyExpiresAt = '';
+  emergencyRemaining = 0;
+  private emergencyTimer: any = null;
   referralAccess = false;
   referralContext: {
     from_hospital: string;
@@ -1220,6 +1236,42 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
   ngOnDestroy() {
     if (this.referralTimer) clearInterval(this.referralTimer);
+    this.stopEmergencyCountdown();
+  }
+
+  /** Tick the emergency countdown once a second while a window is open. */
+  private startEmergencyCountdown() {
+    this.stopEmergencyCountdown();
+    if (!this.emergencyAccess || !this.emergencyExpiresAt) return;
+    this.tickEmergencyCountdown();
+    this.emergencyTimer = setInterval(() => this.tickEmergencyCountdown(), 1000);
+  }
+
+  private stopEmergencyCountdown() {
+    if (this.emergencyTimer) {
+      clearInterval(this.emergencyTimer);
+      this.emergencyTimer = null;
+    }
+  }
+
+  private tickEmergencyCountdown() {
+    const ms = new Date(this.emergencyExpiresAt).getTime() - Date.now();
+    this.emergencyRemaining = Math.max(0, Math.floor(ms / 1000));
+    if (this.emergencyRemaining === 0) this.stopEmergencyCountdown();
+    this.syncView();
+  }
+
+  /** "42:07" (or "1:02:03") left on the emergency window; empty if none. */
+  get emergencyCountdownLabel(): string {
+    if (!this.emergencyAccess || !this.emergencyExpiresAt) return '';
+    const total = this.emergencyRemaining;
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return hours > 0
+      ? `${hours}:${pad(minutes)}:${pad(seconds)}`
+      : `${pad(minutes)}:${pad(seconds)}`;
   }
 
   /** Poll referrals addressed to my hospital so toasts appear live. */
@@ -1343,6 +1395,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.integrityIssues = [];
     this.emergencyAccess = false;
     this.emergencyReason = '';
+    this.emergencyExpiresAt = '';
+    this.emergencyRemaining = 0;
+    this.stopEmergencyCountdown();
     this.referralAccess = false;
     this.referralContext = null;
     this.chainVerificationUnavailable = false;
@@ -1360,6 +1415,9 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       this.integrityIssues = res.integrity_issues || [];
       this.emergencyAccess = !!res.emergency_access;
       this.emergencyReason = res.emergency_reason || '';
+      this.emergencyExpiresAt = res.emergency_expires_at || '';
+      this.emergencyRemaining = res.emergency_remaining_seconds || 0;
+      this.startEmergencyCountdown();
       this.referralAccess = !!res.referral_access;
       this.referralContext = res.referral_context || null;
       this.chainVerificationUnavailable = !!res.chain_verification_unavailable;

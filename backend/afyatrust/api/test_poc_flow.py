@@ -152,6 +152,12 @@ def run():
 
     # --- 5. Grant access to a doctor wallet (patient-signed tx) -------------
     doctor = Account.create()
+    # patientGrantAccess (and break-glass) require CLINICIAN_ROLE on-chain —
+    # in production the Django admin grants it at approval time.
+    from api.blockchain import ensure_clinician_role
+    role_status, role_detail = ensure_clinician_role(doctor.address)
+    assert role_status == "granted", f"clinician role: {role_status} {role_detail}"
+    print('   clinician role  -> CLINICIAN_ROLE granted on-chain (break-glass enabled)')
     r = c.post('/api/patient/grant-access/', HTTP_AUTHORIZATION=f'Bearer {jwt}',
                content_type='application/json', data={
                    'doctor_wallet': doctor.address, 'doctor_name': 'Dr. Test', 'days': 7})
@@ -213,11 +219,23 @@ def run():
     print('   doctor view      -> hasAccess OK on-chain,',
           len(r.json()['records']), 'record(s) visible')
 
-    # The patient's audit trail must now include the VIEW event.
-    r = c.get('/api/patient/my-records/', HTTP_AUTHORIZATION=f'Bearer {jwt}')
-    actions = [e['action'] for e in r.json()['audit_trail']]
-    assert 'VIEW' in actions, actions
-    print('   audit trail      ->', actions)
+    # The patient's on-chain history must now include the RecordViewed event.
+    # recordView is submitted fire-and-forget (the doctor's response must not
+    # wait ~12s for a receipt) and the lean my-records payload no longer carries
+    # the trail, so poll the blockchain history endpoint until it is mined.
+    viewed = []
+    for _ in range(15):
+        time.sleep(4)
+        r = c.get(f'/api/blockchain/patient/{health_id}/',
+                  HTTP_AUTHORIZATION=f'Bearer {jwt}')
+        assert r.status_code == 200, f"blockchain history: {r.status_code} {r.content}"
+        viewed = [e for e in r.json()['events']
+                  if e.get('event') == 'RecordViewed']
+        if viewed:
+            break
+    assert viewed, 'RecordViewed event never appeared on-chain'
+    print('   audit trail      -> RecordViewed logged on-chain:',
+          viewed[0]['transaction_hash'][:18] + '...')
 
     # --- 7. Break-glass (emergency access, permanently logged) --------------
     r = c.post('/api/patient/revoke-access/',
@@ -225,18 +243,55 @@ def run():
                content_type='application/json',
                data={'doctor_license': license_no})
     assert r.status_code == 200, f"revoke access: {r.status_code} {r.content}"
+    r = c.get(f'/api/doctor/patient/{health_id}/',
+              HTTP_AUTHORIZATION=f'Bearer {doctor_jwt}')
+    assert r.status_code == 403, f"no-access expected before break-glass: {r.status_code}"
+    print('   doctor denied    -> 403 before break-glass (consent revoked)')
+
     r = c.post('/api/doctor/break-glass/',
                HTTP_AUTHORIZATION=f'Bearer {doctor_jwt}',
                content_type='application/json',
                data={'health_id': health_id, 'reason': 'unconscious emergency'})
     assert r.status_code == 200, f"break-glass: {r.status_code} {r.content}"
     break_glass_result = r.json()
-    assert 'chain_logged' in break_glass_result, break_glass_result
+    assert break_glass_result['chain_logged'] is True, break_glass_result
+    assert break_glass_result['tx_hash'].startswith('0x'), break_glass_result
     r = c.get(f'/api/doctor/patient/{health_id}/',
               HTTP_AUTHORIZATION=f'Bearer {doctor_jwt}')
     assert r.status_code == 200, f"emergency history: {r.status_code} {r.content}"
+    emergency = r.json()
+    assert emergency['emergency_access'] is True, emergency
+    assert emergency['emergency_remaining_seconds'] > 0, emergency
+    assert emergency['emergency_expires_at'], emergency
     print('7. break-glass      ->', break_glass_result['message'],
           '| one-hour history access verified')
+    print('   emergency window ->', emergency['emergency_remaining_seconds'],
+          's remaining | reason:', emergency['emergency_reason'])
+
+    # --- 8. Patient ends the emergency window before the hour ---------------
+    r = c.get('/api/patient/grant-access/status/',
+              HTTP_AUTHORIZATION=f'Bearer {jwt}')
+    assert r.status_code == 200, f"grant status: {r.status_code} {r.content}"
+    open_windows = r.json().get('emergency', [])
+    assert any(w['doctor_license'] == license_no for w in open_windows), open_windows
+    print('8. patient sees     ->', len(open_windows), 'open emergency window(s) '
+          f"with {open_windows[0]['remaining_seconds']}s left")
+
+    r = c.post('/api/patient/revoke-emergency/',
+               HTTP_AUTHORIZATION=f'Bearer {jwt}',
+               content_type='application/json',
+               data={'doctor_license': license_no})
+    assert r.status_code == 200, f"revoke emergency: {r.status_code} {r.content}"
+    assert r.json()['chain_logged'] is True, r.json()
+    print('   emergency ended  ->', r.json()['message'])
+
+    r = c.get(f'/api/doctor/patient/{health_id}/',
+              HTTP_AUTHORIZATION=f'Bearer {doctor_jwt}')
+    assert r.status_code == 403, f"expected 403 after emergency revoke: {r.status_code}"
+    from api.blockchain import emergency_access_remaining
+    remaining = emergency_access_remaining(health_id, doctor.address)
+    assert remaining == 0, remaining
+    print('   doctor denied    -> 403 after revoke, on-chain window closed')
 
     # --- cleanup -------------------------------------------------------------
     Patient.objects.filter(health_id=health_id).delete()

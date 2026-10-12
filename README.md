@@ -1,329 +1,519 @@
-# AfyaTrust — PoC
+# AfyaTrust — Decentralized Patient Record Access, Consent & Audit Layer
 
-Blockchain-based patient record access and audit layer.
-**Author:** Atanasi Patrick Kafuka · **University:** UDOM
+**Author:** Atanasi Patrick Kafuka · **University:** University of Dodoma (UDOM)  
+**Architecture:** Hybrid On-chain / Off-chain Electronic Health Record (EHR) Security Layer  
+**Deployed Contract (Sepolia Testnet):** [`0x142F4871c1D1c1999A8D1d9fbAD6Bbff4bDc92ED`](https://sepolia.etherscan.io/address/0x142F4871c1D1c1999A8D1d9fbAD6Bbff4bDc92ED)
 
-[Technical architecture diagram](./docs/architecture.md)
+---
 
-**Deployed contract (Sepolia):** [`0x94a66c550a51980e4Ae35364046555e0Fc5Bd1A3`](https://sepolia.etherscan.io/address/0x94a66c550a51980e4Ae35364046555e0Fc5Bd1A3) — the full 7-step flow was verified on-chain (registration, record hashes, patient-signed grants, doctor `hasAccess` check, audit `VIEW` events, break-glass).
+## 1. Executive Summary & Core Philosophy
 
-Clinical data **stays at the facility** that holds it. The blockchain stores
-only the minimum: record hashes, location pointers, permissions, and audit
-events. Patients authorize access; every read is logged; emergencies use an
-auditable break-glass flow.
+AfyaTrust solves the dual challenge of **patient privacy** and **inter-hospital record integrity** in modern healthcare systems:
 
-## Stack
+1. **Clinical Data Stays at the Facility (Off-Chain):**  
+   Sensitive medical records, vitals, prescriptions, and diagnosis notes never touch the public blockchain. They are stored in facility databases.
 
-| Layer | Tech |
+2. **Cryptographic Proofs & Governance Live On-Chain:**  
+   The Ethereum smart contract stores only immutable cryptographic hashes (SHA-256) of medical records, metadata pointers, time-limited patient consent grants, access revocations, and audit event logs.
+
+3. **Patient-Centric Access Control:**  
+   Patients own their health data and authorize doctors for specified durations. Every access is logged, and patients can revoke permissions on-chain at any time.
+
+4. **Emergency Break-Glass Protocol:**  
+   When an unconscious or incapacitated patient arrives at emergency care, verified doctors can activate an audited, short-lived (1-hour) **Break-Glass Emergency Access** window. The action is permanently recorded on-chain, and the patient has real-time visibility and the power to terminate emergency access early.
+
+5. **Inter-Hospital Transfer of Care & Tamper Detection:**  
+   When a patient is referred from Hospital A to Hospital B, Hospital B recomputes the hash of the received clinical data and verifies it against the immutable Sepolia blockchain anchor. Any modified, corrupted, or tampered payload is automatically detected and rejected (`INTEGRITY_MISMATCH`).
+
+6. **Resilient Activity History (DB + Chain Fallback):**  
+   The Access History tab always shows meaningful data. When the blockchain node is reachable, events come from the on-chain audit trail. When it is temporarily unavailable, a DB-sourced story (records, grants, referrals) is returned automatically — no blank screens, no 503 errors.
+
+---
+
+## 2. Technology Stack
+
+| Layer | Technologies & Frameworks | Purpose |
+|---|---|---|
+| **Frontend** | Angular 22 (Standalone Components), Tailwind CSS, RxJS | Responsive patient, doctor, and hospital portals |
+| **Backend** | Python 3.14, Django 5.x, Django REST Framework (DRF) | REST API, cryptographic hashing, JWT authentication |
+| **Database** | PostgreSQL 16+ | Off-chain clinical data, user profiles, custodial key vault |
+| **Smart Contract** | Solidity ^0.8.20, OpenZeppelin AccessControl | Decentralized access ledger, role management, audit trail |
+| **Blockchain Client** | Web3.py (Backend), Ethers.js (Deployment / Scripts) | RPC interaction with Ethereum Sepolia testnet |
+| **Wallet Security** | AES-256-GCM (Master Key Envelope Encryption) | Non-custodial patient experience via backend-managed wallets |
+| **PoC Network** | Ethereum Sepolia Testnet (Chain ID `11155111`) | Free, publicly verifiable testnet |
+| **Production Target** | Hyperledger Fabric | Permissioned enterprise blockchain for national health networks |
+
+---
+
+## 3. High-Level Architecture & Workflow
+
+```
+       +--------------------------------------------------------------+
+       |                  Angular Frontend Portal                     |
+       |     [Patient Portal]   [Doctor Portal]   [Hospital Desk]     |
+       +------------------------------+-------------------------------+
+                                      | HTTP REST / JWT
+                                      v
+       +--------------------------------------------------------------+
+       |                     Django Backend API                       |
+       |  - AES-256-GCM Key Vault       - SHA-256 Payload Hasher      |
+       |  - Role & Permission Layer     - Web3.py RPC Gateway         |
+       |  - DB Fallback Story Builder   - Break-Glass Handler         |
+       +--------------+-------------------------------+---------------+
+                      |                               |
+       Off-Chain Data |                               | On-Chain Proofs & Audits
+                      v                               v
+       +-------------------------------+  +-------------------------------+
+       |      PostgreSQL Database      |  |  Ethereum Sepolia Blockchain  |
+       | - MedicalRecord (JSON)        |  | - Record Hash & Facility Code |
+       | - Measurement Readings        |  | - Active Doctor Grants        |
+       | - Encrypted Private Keys      |  | - Break-Glass Emergency Window|
+       | - Inter-Hospital Referrals    |  | - Immutable AuditTrail Logs   |
+       | - Access Grant History        |  | - ReferralAccepted Events     |
+       +-------------------------------+  +-------------------------------+
+```
+
+---
+
+## 4. Key System Features & Protocols
+
+### 4.1 Custodial Wallets & Frictionless Patient Experience
+- Patients do not need MetaMask or crypto knowledge. They register with a **Health ID + 4-digit PIN**.
+- The backend generates a unique Ethereum wallet address for each patient.
+- Private keys are encrypted using **AES-256-GCM** with a server-side 256-bit `MASTER_KEY` and unique initialization vectors (IVs).
+- The facility wallet pays all Sepolia gas fees (`ensure_gas`), automatically topping up custodial wallets when needed.
+
+> **Note:** Always activate the virtual environment before running the backend:
+> ```bash
+> cd backend && source venv/bin/activate
+> ```
+> Running `/bin/python` directly will fail with `ModuleNotFoundError: No module named 'eth_account'`.
+
+### 4.2 Consent Management & Access Revocation
+- **Access Requests:** Verified doctors search for a patient by Health ID and request access with a stated medical reason.
+- **Grant Access:** Patients review pending requests in their dashboard and grant time-limited access (e.g., 7 days). The backend signs the `patientGrantAccess` transaction.
+- **Instant Revocation:** Patients can view all currently authorized doctors in the **Permissions** tab and click **Revoke Access** anytime, executing `patientRevokeAccess` on-chain.
+
+### 4.3 Emergency "Break-Glass" Protocol
+In urgent emergencies where patient consent cannot be obtained:
+
+1. **Invocation:** An approved doctor clicks **Break-Glass** in the doctor dashboard, documents the emergency clinical reason, and submits the request.
+2. **On-Chain Log & Role Check:** The backend verifies `CLINICIAN_ROLE` and signs `breakGlass(healthID, clinicianAddress, facilityID, reason)`.
+3. **Emergency Window:** The contract grants emergency access for up to 1 hour (`emergencyAccessRemaining`).
+4. **Patient Real-Time Alert:** The patient's dashboard displays a prominent red alert banner with a real-time countdown ticker showing who is accessing the record and why.
+5. **Patient Early Termination:** The patient can click **End emergency access** at any moment, calling `revokeEmergencyAccess` on-chain immediately.
+6. **Audit Permanence:** Even after the window expires or is revoked, the event remains permanently visible in the patient's Access History tab with an Etherscan link.
+
+### 4.4 Inter-Hospital Referrals & Tamper Verification (Hospital A to Hospital B)
+- **Record Anchoring:** Hospital A adds a clinical record. The backend computes `SHA-256(payload)` and calls `addRecord(...)` on-chain.
+- **Referral Flow:** A doctor or patient initiates a referral to Hospital B. Hospital B accepts it on-chain (`ReferralAccepted`).
+- **Cryptographic Gate:** When Hospital B staff clicks **Verify & Receive Records**, the system:
+  1. Computes the SHA-256 hash of the received clinical data.
+  2. Queries the smart contract's `getRecords(healthID)`.
+  3. Validates that `hash_matches_payload == True` and `anchored_on_chain == True`.
+  4. If any data was altered, the check fails with `INTEGRITY_MISMATCH` and withholds clinical data.
+
+### 4.5 Advanced Referrals Dashboard (Patient Portal)
+The Referrals tab provides a premium UI for tracking all hospital referrals:
+
+- **Stat bar:** Total / Accepted / Pending / Declined counts at a glance.
+- **Rich referral cards:** Left-side color-coded accent stripe, status pill with animated dot, reason block, and a mini-timeline showing Sent and Responded dates.
+- **Blockchain-secured badge:** Every card confirms the referral acceptance is anchored on-chain.
+- **Referral origin:** Shows the referring doctor or hospital, or "Self-requested" for patient-initiated referrals.
+- **Gradient modal:** Opens with hospital selector, reason textarea, animated send button with spinner, and inline success/error alerts.
+- **Empty state:** Illustrated with a call-to-action button to request the first referral.
+
+### 4.6 Resilient Access History (On-Chain + DB Fallback)
+The **Access History** tab previously returned HTTP 503 and showed nothing when the blockchain node was unreachable. It now:
+
+| Scenario | Behavior |
 |---|---|
-| Frontend | Angular + Tailwind CSS |
-| Backend | Django REST Framework |
-| Database | PostgreSQL |
-| Smart contract | Solidity |
-| Web3 | Ethers.js (deploy) / web3.py (backend) |
-| PoC chain | Ethereum Sepolia testnet (free) |
-| Production (future) | Hyperledger Fabric |
+| Blockchain **reachable** + audit trail has events | Full on-chain story with Etherscan links |
+| Blockchain **reachable** but trail is empty | DB-sourced story (records, grants, referrals from DB) |
+| Blockchain **unreachable** | DB-sourced story built automatically — no error, no blank screen |
 
-PoC simplifications: patients log in with **Health ID + 4-digit PIN** (no
-OTP/SMS, no MetaMask). The backend creates and manages **custodial patient
-wallets** — private keys encrypted with AES-256-GCM (`MASTER_KEY`). Only
-facility/doctor wallets pay gas. Doctors may optionally connect MetaMask. 
-*(Note: To handle testnet propagation delays and EIP-1559 gas spikes on Sepolia, the backend includes automated gas-limit buffering and state-sync delays when funding custodial wallets).*
+When running in DB-only mode, an amber info banner informs the user. Events with a verified `tx_hash` stored in the DB still show Etherscan links. Each DB-sourced event is tagged with a small `DB` badge. A **Refresh** button lets the user manually retry. Loading skeletons animate while data is fetching.
 
-## 1. Deploy the contract to Sepolia
+### 4.7 Unified Patient Health Summary
+The patient dashboard overview computes a complete health summary client-side:
+
+- **All conditions/diseases** across all records (not just the first record).
+- **All measurement types** aggregated by kind with counts.
+- **All hospital visits** from records, measurements, and referrals — deduplicated.
+- Summary charts rendered using `RecordChartComponent` (bar charts for diagnoses, measurements, hospital visits, and medications).
+
+---
+
+## 5. Project Directory Structure
+
+```
+afyatrust/
+├── backend/
+│   ├── afyatrust/
+│   │   ├── afyatrust/
+│   │   │   ├── settings.py           # Django configuration, database & JWT
+│   │   │   ├── urls.py               # Root URL configuration
+│   │   │   └── wsgi.py
+│   │   ├── api/
+│   │   │   ├── admin.py              # Django admin (hospital, doctor, patient setup)
+│   │   │   ├── afyatrust_abi.json    # Complete AfyaTrust contract ABI
+│   │   │   ├── blockchain.py         # Web3.py RPC connector, gas buffer, EIP-1559 fees
+│   │   │   ├── models.py             # Patient, Doctor, Hospital, Record, Referral, Grants
+│   │   │   ├── urls.py               # Complete REST API route definitions
+│   │   │   ├── views.py              # All API views + DB fallback story builder
+│   │   │   ├── wallet_manager.py     # AES-256-GCM encryption for custodial wallets
+│   │   │   ├── test_poc_flow.py      # End-to-end integration test script
+│   │   │   └── tests.py              # DRF unit test suite
+│   │   └── manage.py
+│   ├── venv/                         # Python virtual environment (always use this)
+│   ├── .env                          # Backend environment variables
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── components/
+│   │   │   │   ├── auth/             # Login & Registration views
+│   │   │   │   └── shared/           # RecordChartComponent, navbar
+│   │   │   ├── pages/
+│   │   │   │   ├── doctor/           # Doctor dashboard & Break-Glass controls
+│   │   │   │   ├── hospital/         # Hospital desk & referral verification portal
+│   │   │   │   └── patient/
+│   │   │   │       └── patient-dashboard/
+│   │   │   │           └── patient-dashboard.component.ts  # All tabs (inline template)
+│   │   │   └── services/
+│   │   │       ├── api.service.ts    # Typed API client (all 35+ endpoints)
+│   │   │       ├── auth.service.ts   # JWT token storage & session handling
+│   │   │       └── web3.service.ts   # Optional MetaMask integration
+│   │   ├── environments/
+│   │   │   ├── environment.ts        # Sepolia contract address, ABI, emergency ABI methods
+│   │   │   └── environment.prod.ts
+│   │   └── index.html
+│   ├── package.json
+│   └── angular.json
+├── blockchain/
+│   ├── contracts/
+│   │   └── AfyaTrust.sol             # Core smart contract (Solidity ^0.8.20)
+│   ├── scripts/
+│   │   ├── deploy.js                 # Hardhat deployment script
+│   │   └── grant-clinician-role.js   # RBAC helper script
+│   ├── test/
+│   │   └── AfyaTrust.test.js         # Hardhat smart contract tests
+│   ├── hardhat.config.js
+│   └── contract-address.txt          # Current deployed Sepolia address
+└── README.md
+```
+
+---
+
+## 6. Installation & Quickstart
+
+### Prerequisites
+- **Node.js**: v20.x or v22.x
+- **Python**: 3.11+ (Python 3.14 compatible)
+- **PostgreSQL**: 14+ running locally or in Docker
+- **Sepolia RPC URL**: Infura, Alchemy, or public Sepolia node
+
+---
+
+### Step 1: Smart Contract Deployment (Optional — already deployed)
+
+The contract is already deployed on Sepolia at `0x142F4871c1D1c1999A8D1d9fbAD6Bbff4bDc92ED`. To redeploy:
 
 ```bash
 cd blockchain
 npm install
 
-# blockchain/.env
-# SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<YOUR_KEY>
-# DEPLOYER_PRIVATE_KEY=0x...            # a funded Sepolia test wallet
+# Create blockchain/.env
+# SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<YOUR_API_KEY>
+# DEPLOYER_PRIVATE_KEY=0x<YOUR_SEPOLIA_PRIVATE_KEY>
+
+npx hardhat compile
 npx hardhat run scripts/deploy.js --network sepolia
 ```
 
-The script prints the address, saves it to `blockchain/contract-address.txt`,
-and shows the line to paste into `backend/.env`.
+Copy the generated contract address into `backend/.env` and `frontend/src/environments/environment.ts`.
 
-Free Sepolia ETH: https://sepoliafaucet.com (or any public faucet).
+---
 
-## 2. Configure backend/.env
+### Step 2: Backend Setup
 
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate    # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+**`backend/.env` Configuration:**
 ```ini
 DEBUG=True
-SECRET_KEY=<django-secret>
+SECRET_KEY=your-django-secret-key
 DB_NAME=afyatrust
 DB_USER=postgres
-DB_PASSWORD=<db-password>
+DB_PASSWORD=your-postgres-password
 DB_HOST=localhost
 DB_PORT=5432
 
-SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<YOUR_KEY>
-CONTRACT_ADDRESS=0x<from deploy step>
-FACILITY_PRIVATE_KEY=0x<facility wallet key, pays gas>
-MASTER_KEY=<64 hex chars = 32 bytes, encrypts patient keys>
+CONTRACT_ADDRESS=0x142F4871c1D1c1999A8D1d9fbAD6Bbff4bDc92ED
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<YOUR_INFURA_KEY>
+FACILITY_PRIVATE_KEY=0x<FUNDED_SEPOLIA_PRIVATE_KEY>
+MASTER_KEY=fe2647c04def4bd7588341658953395304c0ede4cbf2a4f604e8b41f09239372
 ```
 
-Use actual credentials in `backend/.env`; the angle-bracket values above are
-examples only. An RPC URL containing a placeholder such as `<YOUR_KEY>` will
-fail with an unauthorized response. `SEPOLIA_RPC_URL` must be an active Sepolia
-RPC endpoint. The facility key must be a real 32-byte
-hexadecimal private key (`0x` followed by 64 hex characters) for a funded
-Sepolia wallet. Never commit or share either credential. Restart Django after
-changing the environment file.
-
-If a doctor records a measurement while a chain write fails, the measurement is
-saved locally, but the API returns `saved_pending_chain` (HTTP 202) and marks it
-unverified. The doctor dashboard displays a warning; the reading must not be
-represented as blockchain-secured. This does not automatically anchor
-previously saved pending measurements. Restore a working RPC endpoint and
-signer before relying on on-chain integrity checks.
-
-Generate a master key:
-
+Generate a secure 32-byte master key:
 ```bash
 python -c "import secrets; print(secrets.token_bytes(32).hex())"
 ```
 
-> PoC note: some workflows can save local data when the chain is unavailable,
-> but a local save is not an on-chain verification. In particular, pending
-> measurement writes are returned as HTTP 202 and marked unverified. Check
-> response status and verification state rather than assuming a successful
-> database write means a successful blockchain transaction.
-
-## 3. Run backend + frontend
-
+Run migrations and start server:
 ```bash
-# Backend
-cd backend
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
 cd afyatrust
 python manage.py migrate
-python manage.py runserver          # http://localhost:8000
-
-# Frontend (new terminal)
-cd frontend
-npm install
-npm start                           # http://localhost:4200
+python manage.py check
+python manage.py runserver 0.0.0.0:8000
 ```
 
-## 4. Demonstrate Hospital A → Hospital B record integrity
+---
 
-Hospital A stores clinical data off-chain and anchors its SHA-256 hash on
-Sepolia. After Hospital B accepts the referral, it recomputes the hash and
-checks that the same hash and facility are in the patient's blockchain record
-list. Hospital B receives the clinical payload only if both checks pass.
-
-1. In Django admin, create two hospitals (for example `FAC-A` and `FAC-B`) and
-   a staff login for each. Ensure the facility wallet is configured and
-   authorized on the deployed contract.
-2. Register a demo patient at `/register` and select `FAC-A` as the
-   registering hospital.
-3. Log in as Hospital A staff, open **Add Record**, and add a sample record.
-   Wait for the successful Sepolia transaction; the dashboard shows its hash
-   and Etherscan link. Only the hash, facility code, and metadata pointer are
-   stored on-chain; clinical fields remain off-chain.
-4. Sign in as the patient, open **Referrals**, and request a referral to
-   `FAC-B`.
-5. Log in as Hospital B staff, open **Incoming Referrals**, and accept the
-   referral. The backend writes the transfer-of-care event to Sepolia.
-6. On the accepted referral, click **Verify & receive records**. The screen
-   reports whether the current payload matches its stored hash and whether that
-   hash/facility pair exists on-chain. Only records passing both checks display
-   clinical data. Mismatched or unanchored records are withheld.
-7. To demonstrate detection, use Django admin to edit the record's
-   `record_data` (for example, change a lab result), save it, then run
-   **Verify & receive records** again at Hospital B. The computed hash will
-   differ from the immutable Sepolia hash, the record will show
-   `INTEGRITY_MISMATCH`, and its data will not be released. Restore the record
-   after the demonstration.
-
-After pulling the current code, apply database changes before running the
-demo:
+### Step 3: Frontend Setup
 
 ```bash
-cd backend/afyatrust
-python manage.py migrate
-python manage.py check
+cd frontend
+npm install
+npm start    # Launches Angular dev server at http://localhost:4200
 ```
 
-This includes migration `0009_referral_transaction_fields`, which adds the
-referral transaction/audit fields required by the current model. If an API
-error reports a missing database column, first confirm that migrations have
-been applied to the same database configured for the running Django server.
+### Running Both Dev Servers
+```bash
+# Terminal 1 — Backend
+cd backend && source venv/bin/activate
+cd afyatrust && python manage.py runserver 0.0.0.0:8000
 
-The Angular 22 CLI requires Node.js 22.22.3 or newer in the 22.x line, or
-24.15.0 or newer in the 24.x line. If `npm run build` stops before compilation
-with a Node version message, use a supported Node.js release and rerun the
-build from `frontend/`.
+# Terminal 2 — Frontend
+cd frontend && npm start
+# App available at http://localhost:4200
+```
 
-The exchange metadata endpoint is `/exchange/<record-hash>/`. It exposes
-verification metadata only, not clinical data. The authenticated referral
-verification endpoint is `POST /api/staff/referrals/<id>/verify-records/`;
-it is scoped to the receiving hospital and accepted referrals.
+---
 
-For the longitudinal summary to group clinical concepts consistently, enter
-diagnosis values under fields named `diagnosis`, `disease`, or `condition`, and
-medicine names under `medicine`, `medication`, `drug`, or `prescription`.
-Doctors record vitals from their **Measurements** tab; each new reading is
-anchored with a hash and appears in the measurement timeline with its hospital,
-clinician, date, and verification status. The doctor’s **Find Patient** view
-then shows all verified history, frequent recorded diagnoses/medicines,
-measurement counts/latest values, referral reasons, and facility activity.
-Patients’ consent requests are approved from their **Requests** tab; emergency
-break-glass is limited to approved doctors and requires a reason.
+## 7. Patient Dashboard — Tab Reference
 
-### Dashboard charts
+| Tab | Description |
+|---|---|
+| **Dashboard** | Health overview: all conditions, measurements chart, hospital visits, recent activity |
+| **History** | All medical records with SHA-256 hash, Etherscan verification link, and clinical data |
+| **Measurements** | Vitals table (blood pressure, glucose, weight, etc.) with doctor and hospital columns |
+| **Referrals** | Advanced referral cards: status timeline, stat bar, blockchain badge, and request modal |
+| **Permissions** | Active doctor grants, break-glass alerts with live countdown, and revoke controls |
+| **Requests** | Pending doctor access requests — approve or reject with on-chain effect |
+| **Access History** | Unified activity story (records, grants, views, break-glass) — DB fallback when chain is down |
+| **Wallet** | Custodial wallet address, transaction count, last tx hash |
+| **Profile** | Editable name and phone number |
+| **Referral Security** | Per-referral blockchain proof explorer with Etherscan verification |
+| **How it Works** | Patient-facing explainer of the on-chain/off-chain architecture |
 
-Patient and doctor history dashboards include responsive horizontal bar charts
-for recorded conditions/record types, measurement frequency, medicine mentions,
-and activity by hospital. Patient charts summarize the records available in
-the patient's own history; a doctor's charts use the verified history returned
-for the patient they are authorized to view. Medicine mentions count recorded
-entries and do not indicate how many doses a patient took.
+---
 
-The hospital dashboard charts that hospital's loaded records by record type
-and summarizes its on-chain event activity. Empty charts display an explicit
-no-data message; the charts do not invent or infer clinical values.
+## 8. Exhaustive REST API Reference
 
-> **PoC boundary:** Hospital A and Hospital B are separate facility identities
-> and staff accounts in this demo, but they currently use one AfyaTrust
-> backend/database deployment. The on-chain hash check demonstrates detection
-> of changed off-chain data; independent hospital deployments and production
-> health-data transport/security require further integration.
+All protected endpoints require an `Authorization: Bearer <JWT>` header obtained via `/api/login/`.
 
-Run the scripted flow (creates a fresh patient, writes real Sepolia
-transactions, and includes a simulated tamper check):
+### 8.1 Authentication & Registration
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/register/` | Public | Register patient, generate custodial wallet, anchor on-chain identity |
+| `POST` | `/api/login/` | Public | Unified login for Patient, Doctor, or Staff |
+| `POST` | `/api/account/change-secret/` | Authenticated | Change account PIN or password |
+| `GET` | `/api/hospitals/` | Public | List registered hospitals and facility codes |
 
+### 8.2 Patient Endpoints
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/patient/my-records/` | Patient JWT | Fetch records, measurements, referrals, and hospital metadata |
+| `GET` | `/api/patient/profile/` | Patient JWT | Fetch patient profile and wallet address |
+| `PATCH` | `/api/patient/profile/patch/` | Patient JWT | Update phone number and name |
+| `GET` | `/api/patient/measurements/` | Patient JWT | Fetch vitals and measurements |
+| `GET` | `/api/patient/referrals/` | Patient JWT | List all referrals with from_doctor, from_hospital fields |
+| `POST` | `/api/patient/referrals/send/` | Patient JWT | Request a referral to another hospital |
+| `GET` | `/api/patient/requests/` | Patient JWT | List pending access requests from doctors |
+| `POST` | `/api/patient/grant-access/` | Patient JWT | Grant doctor time-limited access on-chain |
+| `GET` | `/api/patient/grant-access/status/` | Patient JWT | Active grants, expiring grants, active break-glass windows |
+| `POST` | `/api/patient/revoke-access/` | Patient JWT | Revoke routine doctor access on-chain |
+| `POST` | `/api/patient/revoke-emergency/` | Patient JWT | Instantly terminate an active break-glass emergency window |
+| `POST` | `/api/patient/approve-request/<id>/` | Patient JWT | Approve a doctor's access request |
+| `POST` | `/api/patient/reject-request/<id>/` | Patient JWT | Reject a doctor's access request |
+| `GET` | `/api/patient/summary/` | Patient JWT | Longitudinal health summary (diagnoses, medications, visits) |
+| `GET` | `/api/patient/dashboard/` | Patient JWT | Unified metrics: records breakdown, measurements, referrals |
+| `GET` | `/api/patient/dashboard/<health_id>/` | JWT | Scoped dashboard for authorized patient or clinician |
+| `GET` | `/api/patient/wallet/activity/` | Patient JWT | Custodial wallet transactions, last hash, pending actions |
+| `GET` | `/api/patient/referral-timeline/` | Patient JWT | Cryptographic referral journey with on-chain proofs |
+
+### 8.3 Doctor Endpoints
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/list-doctors/` | Authenticated | Search approved doctors by name or license number |
+| `GET` | `/api/doctor/me/` | Doctor JWT | Current doctor profile, wallet address, and verification status |
+| `GET` | `/api/doctor/status/` | Doctor JWT | Verification state (PENDING, APPROVED, REJECTED) |
+| `POST` | `/api/doctor/request-access/` | Approved Doctor | Submit access consent request for a patient |
+| `GET` | `/api/doctor/pending-requests/` | Doctor JWT | List doctor's pending access requests |
+| `GET` | `/api/doctor/patients/` | Doctor JWT | List patients who have granted active access |
+| `GET` | `/api/doctor/dashboard/` | Doctor JWT | Doctor practice metrics (patients, referrals, measurements) |
+| `GET` | `/api/doctor/patient/<health_id>/` | Doctor JWT | Check hasAccess on-chain, release records, log VIEW audit |
+| `POST` | `/api/doctor/break-glass/` | Approved Doctor | Trigger emergency break-glass with documented medical reason |
+| `GET` | `/api/doctor/measurements/<health_id>/` | Doctor JWT | View patient measurements with integrity status |
+| `POST` | `/api/doctor/measurements/` | Doctor JWT | Record vital reading and anchor hash on-chain |
+| `GET` | `/api/doctor/referrals/` | Doctor JWT | Referrals initiated by this doctor |
+| `GET` | `/api/doctor/referrals/incoming/` | Doctor JWT | Incoming referrals directed to doctor's hospital |
+
+### 8.4 Hospital Staff Endpoints
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/add-record/` | Staff JWT | Add medical record, hash payload, anchor hash on-chain |
+| `GET` | `/api/facility/records/` | Staff JWT | View records anchored by the staff member's hospital |
+| `GET` | `/api/staff/referrals/` | Staff JWT | Incoming patient referrals for facility |
+| `GET` | `/api/staff/referrals/outgoing/` | Staff JWT | Outgoing referrals sent from facility |
+| `POST` | `/api/staff/referrals/<id>/respond/` | Staff JWT | Accept or decline referral; logs acceptance on-chain |
+| `POST` | `/api/staff/referrals/<id>/verify-records/` | Staff JWT | Verify SHA-256 payload against Sepolia hash before release |
+| `GET` | `/api/staff/records-exchange/` | Staff JWT | Cross-facility exchange verification overview |
+| `GET` | `/exchange/<record_hash>/` | Public | Public decentralized metadata verification pointer |
+
+### 8.5 Blockchain & Etherscan Verification
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/api/blockchain/events/` | Staff / Doctor | Filter on-chain events by type (RecordAdded, BreakGlassUsed, etc.) |
+| `GET` | `/api/blockchain/patient/<health_id>/` | Authorized JWT | All on-chain events associated with a patient's Health ID |
+| `GET` | `/api/blockchain/patient/<health_id>/story/` | Authorized JWT | Unified narrative — on-chain if available, DB fallback otherwise |
+| `GET` | `/api/blockchain/hospital-summary/` | Staff JWT | Hospital transaction volume summary grouped by event type |
+
+---
+
+## 9. Smart Contract Specification (`AfyaTrust.sol`)
+
+### Roles (AccessControl)
+- `ADMIN_ROLE`: Contract deployer; grants and manages facility and operator roles.
+- `FACILITY_ROLE`: Authorized hospital wallets capable of anchoring records.
+- `OPERATOR_ROLE`: Backend relayer wallet authorized to submit patient-signed transactions.
+- `CLINICIAN_ROLE`: Verified medical doctors authorized to invoke `breakGlass`.
+
+### Key Functions
+```solidity
+// Registration
+function registerPatient(string memory _healthID, address _wallet, string memory _name) public;
+
+// Record Integrity Anchoring
+function addRecord(
+    string memory _healthID,
+    string memory _recordHash,
+    string memory _facilityID,
+    string memory _metadataURI
+) public;
+
+// Consent Management
+function patientGrantAccess(string memory _healthID, address _patient, address _doctor, uint256 _duration) public;
+function patientRevokeAccess(string memory _healthID, address _patient, address _doctor) public;
+function hasAccess(string memory _healthID, address _viewer) public view returns (bool);
+
+// Emergency Break-Glass
+function breakGlass(string memory _healthID, address _clinician, string memory _facilityID, string memory _reason) public;
+function emergencyAccessRemaining(string memory _healthID, address _clinician) public view returns (uint256);
+function revokeEmergencyAccess(string memory _healthID, address _clinician) public;
+
+// Auditing & Record Queries
+function recordView(string memory _healthID, address _viewer, string memory _facilityID) public;
+function getRecords(string memory _healthID) public view returns (HealthRecord[] memory);
+function getAuditTrail(string memory _healthID) public view returns (AuditEntry[] memory);
+function getPermissions(string memory _healthID) public view returns (Permission[] memory);
+```
+
+### Events Logged On-Chain
+```solidity
+event PatientRegistered(string indexed healthID, address indexed wallet, string name, uint256 timestamp);
+event RecordAdded(string indexed healthID, string recordHash, string facilityID, string metadataURI, uint256 timestamp);
+event AccessGranted(string indexed healthID, address indexed grantedTo, uint256 expiresAt, uint256 timestamp);
+event AccessRevoked(string indexed healthID, address indexed revokedFrom, uint256 timestamp);
+event RecordViewed(string indexed healthID, address indexed viewer, string facilityID, uint256 timestamp);
+event BreakGlassUsed(string indexed healthID, address indexed clinician, string facilityID, string reason, uint256 timestamp);
+event EmergencyAccessGranted(string indexed healthID, address indexed clinician, uint256 expiresAt, uint256 timestamp);
+event EmergencyAccessRevoked(string indexed healthID, address indexed clinician, uint256 timestamp);
+event ReferralAccepted(string indexed healthID, string fromHospital, string toHospital, string respondedBy, uint256 timestamp);
+```
+
+---
+
+## 10. Known Fixes & Implementation Notes
+
+### Access History Tab — DB Fallback
+**Problem:** `patient_activity_story` called `contract.functions.getAuditTrail().call()`. If the blockchain node was unreachable, it returned HTTP 503 and the frontend showed a blank tab with an error.
+
+**Fix:** The view now catches all blockchain exceptions and builds a story from PostgreSQL instead:
+- Patient registration timestamp
+- All medical records (with stored `tx_hash` if anchored)
+- All access grants and break-glass events
+- All accepted referrals
+
+The response includes `"source": "db"`. The frontend shows an amber banner instead of an error, while still displaying Etherscan links for events with a real transaction hash.
+
+### Referrals UI — Premium Redesign
+The plain Referrals tab was replaced with a fully featured premium UI:
+- 4 stat cards (Total / Accepted / Pending / Declined)
+- Color-coded referral cards with left accent stripe and status timeline
+- "Blockchain-secured" indigo badge on each card
+- Gradient request modal with animated send button
+
+### Patient Health Summary — All Conditions
+`computeHealthSummary()` was fixed to aggregate **all** diseases, diagnoses, and hospital visits across the complete record set — not just the first record.
+
+### Python Virtual Environment
+Always use `source venv/bin/activate` before any backend Python command. System Python (`/bin/python`) does not have `eth_account`, `web3`, or `djangorestframework` installed.
+
+---
+
+## 11. Verification & Testing
+
+### Backend Unit & Integration Tests
+```bash
+cd backend/afyatrust
+source ../venv/bin/activate
+python manage.py test api
+```
+
+### Simulated PoC Tamper Demonstration
 ```bash
 cd backend/afyatrust
 python manage.py shell -c "from api.test_poc_flow import run; run()"
 ```
 
-## Current implemented end-to-end flow
+### Smart Contract Tests
+```bash
+cd blockchain
+npx hardhat test
+```
 
-This is the complete flow that is in the codebase today, not just the original 7-step demo script.
+### Frontend Production Build
+```bash
+cd frontend
+npm run build
+```
 
-1. **Hospital/health system and identities**
-   - A hospital/facility is created in Django by an admin (`Hospital` model).
-   - A patient registers with a unique Health ID, full name, and 4-digit PIN.
-   - The backend creates a custodial patient wallet, encrypts the private key with AES-256-GCM, and saves the encrypted key on the server.
-   - A doctor is created by admin approval flow, with a medical license number, PIN, facility ID, and a custodial wallet for on-chain actions.
-   - Hospital staff accounts can also be created by admin and sign in with username/password for desk-side workflows.
+---
 
-2. **Single sign-in and role routing**
-   - There is one login endpoint for all user types: patient, doctor, and staff.
-   - The same page routes users by role after JWT authentication.
-   - Patients access `/patient`, doctors access `/doctor`, and staff access `/hospital`.
+## 12. Production Roadmap
 
-3. **Patient registration and on-chain identity**
-   - `POST /api/register/` creates the patient record and calls `registerPatient` on the smart contract if the contract is reachable.
-   - The blockchain stores the patient’s Health ID, wallet address, and name; the private key stays off-chain and encrypted in the backend.
-   - If the contract is not yet deployed or RPC is unavailable, the API still works and marks the transaction as `PENDING: ...` in the response.
+1. **Hyperledger Fabric Transition:**  
+   Move from Ethereum Sepolia to a private, permissioned Hyperledger Fabric channel for national health authorities.
 
-4. **Facility record ingestion**
-   - Authenticated hospital staff add patient records; the backend derives the
-     facility code from the staff account, not from a client-supplied value.
-   - The actual record payload remains off-chain in Django (`MedicalRecord.record_data`), while a SHA-256 hash and facility metadata are written to-chain.
-   - This preserves privacy while keeping an auditable pointer and hash on the blockchain.
-   - The added record is linked to the patient and the facility that created it.
-   - Doctors can add measurements during care. New measurements also receive
-     a SHA-256 integrity hash anchored on-chain; the dashboard labels old
-     pre-migration measurements as legacy/unanchored.
+2. **National Health Insurance Integration:**  
+   Integrate verification proofs with NHIF / universal health coverage to prevent duplicate claims and fraudulent billing.
 
-5. **Hospital-to-hospital referral integrity**
-   - A patient registered with Hospital A requests referral to Hospital B.
-   - Hospital B accepts; the backend logs the transfer of care on-chain.
-   - Hospital B can verify records created by Hospital A before the referral.
-     It recomputes each payload hash and checks for the exact hash/facility
-     pair in the patient's on-chain `getRecords` result.
-   - The backend returns clinical content only for records passing both
-     checks. Changed or unanchored records are flagged and withheld.
+3. **SMS / USSD Two-Factor Authentication:**  
+   Feature-phone accessible 2FA for patient consent via USSD codes — critical for low-connectivity rural settings.
 
-6. **Doctor onboarding and verification flow**
-   - A doctor is not self-registered in the PoC. The admin creates the doctor profile and sets the initial PIN.
-   - The doctor can then log in and check status via the backend; only `APPROVED` doctors can request access or view patient records.
-   - The frontend shows the doctor status and gating states based on admin approval.
+4. **Zero-Knowledge Proofs (ZKP):**  
+   ZK-SNARKs for clinical assertions (e.g., proving a patient is vaccinated without revealing diagnosis history).
 
-7. **Access requests and patient consent**
-   - A verified doctor submits a request for access to a patient by Health ID.
-   - The request is stored as an `AccessRequest` with the doctor’s wallet, facility, reason, and status (`PENDING`/`APPROVED`/`REJECTED`).
-   - The patient sees pending requests in the patient dashboard and can approve or reject them.
-   - On approval, the backend calls `patientGrantAccess(...)` with the patient’s custodial key, and the permission is logged on-chain for a configurable number of days.
-   - The patient can also revoke access later.
+5. **Real-Time WebSocket Alerts:**  
+   Replace the 15-second polling loop with persistent WebSocket connections for instant break-glass and access-request notifications.
 
-8. **Doctor record access checks**
-   - When the doctor requests patient records, the API checks `hasAccess` on-chain with a cached read layer to avoid repeated expensive RPC calls.
-   - If the patient has granted access, the doctor can view the record bundle.
-   - If access is missing, the denial flow is shown in the UI and the doctor can request access or trigger break-glass if the case is urgent.
-   - The doctor history includes verified clinical records, all measurements
-     with integrity status, recorded referral reasons, recurring diagnoses,
-     frequently recorded medicines, measurement trends, and recorded activity
-     days per hospital. Payloads with an anchored hash mismatch are withheld.
+6. **Offline-First Mobile App:**  
+   Progressive Web App (PWA) or React Native client for community health workers with offline record capture and background sync.
 
-9. **Audit trail and accountability**
-   - Every successful record view is logged on-chain as a `VIEW` event with accessor, role, facility, and timestamp.
-   - The patient dashboard exposes the chain-backed audit trail and the latest tx hash when available.
-   - This gives a permanent evidence trail of who accessed what and when.
-
-10. **Emergency break-glass flow**
-   - From the denial panel, a doctor can enter a reason and use the break-glass mechanism.
-   - Only an authenticated, admin-approved doctor can invoke break-glass. The
-     backend calls `breakGlass(...)` on-chain and creates a one-hour emergency
-     grant with the reason recorded. The UI indicates if the chain audit is
-     still pending; data history is not described as chain-verified when its
-     anchors cannot be checked.
-
-11. **Secondary clinical workflows already implemented**
-   - Doctors can record measurements (`Measurement`) for granted patients.
-   - Patients can see their measurements and referrals.
-   - Patients can initiate referral requests to other hospitals.
-   - Receiving hospital staff can review and accept/decline referrals through the staff workflow.
-   - The system already supports referral handoff and hospital-to-hospital coordination, not just patient access control.
-
-12. **Frontend + backend integration**
-   - Angular handles the patient, doctor, and hospital portals and routes users by role (including secure logout and session clearing).
-   - Django REST Framework exposes the API and handles auth, wallet management, contract interaction, and audit aggregation.
-   - Hardhat + Solidity secures the permission logic, event logging, and access checks while the backend keeps private patient records off-chain.
-
-In short, the project today implements: identity creation, custodial wallets,
-facility-scoped record ingestion, tamper detection and gated record handoff
-during Hospital A → Hospital B referrals, approval-based patient consent,
-doctor access gates, audit logging, break-glass emergency access,
-measurements, and referral workflows across the frontend, backend, and
-blockchain. The PoC uses a shared backend/database; it does not yet deploy
-independent hospital systems.
-
-## API overview
-
-| Method | Endpoint | Auth | Purpose |
-|---|---|---|---|
-| POST | `/api/register/` | — | Register patient (creates custodial wallet and on-chain identity) |
-| POST | `/api/login/` | — | Single login for patient, doctor, or staff (`identity` + `secret`) |
-| POST | `/api/add-record/` | Hospital staff JWT | Add off-chain record; derive facility from staff; anchor hash on-chain |
-| GET | `/exchange/<record-hash>/` | — | Public verification metadata only; no clinical payload |
-| GET | `/api/patient/my-records/` | JWT | Patient’s own records + audit trail |
-| GET | `/api/patient/requests/` | JWT | Patient’s pending access requests |
-| POST | `/api/patient/grant-access/` | JWT | Grant doctor access for N days |
-| POST | `/api/patient/revoke-access/` | JWT | Revoke doctor access |
-| POST | `/api/patient/approve-request/<id>/` | JWT | Approve a doctor’s access request |
-| POST | `/api/patient/reject-request/<id>/` | JWT | Reject a doctor’s access request |
-| GET | `/api/doctor/me/` | JWT | Current approved doctor profile |
-| GET | `/api/doctor/status/` | JWT | Doctor checks approval status |
-| POST | `/api/doctor/request-access/` | JWT | Verified doctor requests patient access |
-| GET | `/api/doctor/patient/<health_id>/` | JWT | View patient records if `hasAccess` is true |
-| POST | `/api/doctor/measurements/` | JWT | Add a clinical measurement for a patient |
-| GET | `/api/patient/measurements/` | JWT | Patient view of their own measurements |
-| GET | `/api/doctor/measurements/<health_id>/` | Approved doctor JWT + access grant | View measurement history with integrity status |
-| POST | `/api/patient/referrals/send/` | JWT | Patient requests a referral to another hospital |
-| GET | `/api/staff/referrals/` | JWT | Staff receives and processes referral requests |
-| POST | `/api/staff/referrals/<id>/respond/` | Receiving hospital staff JWT | Accept/decline referral; acceptance is anchored on-chain |
-| POST | `/api/staff/referrals/<id>/verify-records/` | Receiving hospital staff JWT | Verify and receive records only when payload and chain hashes match |
-| POST | `/api/doctor/break-glass/` | JWT | Emergency access with permanent audit logging |
-
-## Future work
-
-- Hyperledger Fabric for production (permissioned chain).
-- NHIF as an integrating target user (fraud/duplicate-claim reduction).
-- OTP/SMS hardening of PIN login; per-record consent granularity.

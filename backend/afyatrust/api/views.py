@@ -30,10 +30,11 @@ from .blockchain import (
     checksum_address,
     contract,
     CONTRACT_ADDRESS,
-    ensure_gas,
+    emergency_access_remaining,
+    ensure_clinician_role,
     facility_address,
+    revoke_emergency_access_on_chain,
     send_transaction,
-    send_transaction_pending,
     send_transaction_async,
 )
 from .blockchain import w3
@@ -92,10 +93,47 @@ def _doctor_can_view_patient(doctor, patient):
     return False, chain_ok
 
 
+def _on_chain_permission_active(health_id: str, doctor_wallet: str) -> bool:
+    """True when the contract still lists a live permission for this doctor.
+
+    Used after a failed revoke: if the chain has nothing left to revoke, the
+    local bookkeeping can safely be closed; if a live permission remains, the
+    caller must report that access still stands.
+    """
+    try:
+        now_ts = int(timezone.now().timestamp())
+        wallet = checksum_address(doctor_wallet).lower()
+        return any(
+            str(permission[0]).lower() == wallet
+            and permission[4]
+            and int(permission[3]) > now_ts
+            for permission in contract.functions.getPermissions(health_id).call()
+        )
+    except Exception:
+        return True  # chain unreadable — assume it stands and report failure
+
+
+def _read_audit_trail(health_id: str):
+    """getAuditTrail with one retry — public Sepolia RPCs drop requests
+    intermittently and a single failure used to blank a patient's whole trail."""
+    for attempt in (1, 2):
+        try:
+            return contract.functions.getAuditTrail(health_id).call()
+        except Exception:
+            logger.warning(
+                "Audit trail read failed for %s (attempt %d)",
+                health_id, attempt,
+            )
+    return None
+
+
 def _audit(patient, events):
     """Fetch and normalize the on-chain audit trail for a patient."""
+    trail = _read_audit_trail(patient.health_id)
+    if trail is None:
+        events[:] = []  # chain unreachable — show an empty trail
+        return events
     try:
-        trail = contract.functions.getAuditTrail(patient.health_id).call()
         audit_entries = [{
             "accessor": e[0],
             "role": e[1],
@@ -123,12 +161,18 @@ def _audit(patient, events):
             try:
                 c = _get_contract()
                 event = getattr(c.events, event_name)
-                logs = event.get_logs(
-                    argument_filters={"healthID": patient.health_id},
-                    from_block=0
-                )
+                # No server-side healthID filter: web3 mis-encodes string
+                # topics. Fetch this event's logs and match the patient's
+                # topic client-side (see _topic_matches).
+                topic = _health_id_topic(patient.health_id)
+                topic_bytes = bytes.fromhex(topic[2:]) if topic else b""
+                logs = event.get_logs(from_block=_deploy_block())
                 for log in logs:
                     args = dict(log.args)
+                    if topic_bytes and not _topic_matches(
+                        args.get("healthID"), topic_bytes
+                    ):
+                        continue
                     # Match by timestamp (within 2 minutes) and accessor
                     log_ts = args.get("timestamp") or args.get("expiry") or 0
                     if abs(log_ts - entry["timestamp"]) <= 120:
@@ -144,6 +188,7 @@ def _audit(patient, events):
         audit_entries.sort(key=lambda e: e["timestamp"], reverse=True)
         events[:] = audit_entries
     except Exception:
+        logger.exception("Could not normalize audit trail for %s", patient.health_id)
         events[:] = []  # PoC: chain may be unreachable; show empty trail
     return events
 
@@ -327,6 +372,7 @@ def my_records(request):
         "full_name": patient.full_name,
         "phone": patient.phone,
         "wallet_address": patient.wallet_address,
+        "hospital": patient.hospital.name if patient.hospital else (patient.registered_by_facility or ""),
         "records": final_records,
         "measurements": [{
             "id": m.id,
@@ -335,7 +381,7 @@ def my_records(request):
             "unit": m.unit,
             "notes": m.notes,
             "doctor": m.doctor.full_name if m.doctor else "",
-            "hospital": m.hospital.name if m.hospital else "",
+            "hospital": m.hospital.name if m.hospital else (m.facility_id or ""),
             "date": m.created_at,
         } for m in patient.measurements.all()],
         "referrals": [{
@@ -443,12 +489,58 @@ def patient_grant_access_status(request):
         .first()
     )
 
+    # Active break-glass windows: the patient can see who is in their record
+    # right now, why, and how long is left — and end it early.
+    emergency = []
+    for g in AccessGrant.objects.filter(
+        patient=patient,
+        source="BREAK_GLASS",
+        active=True,
+        expires_at__gt=now,
+    ).select_related("doctor"):
+        emergency.append({
+            "doctor_name": g.doctor.full_name if g.doctor else "Unknown doctor",
+            "doctor_license": g.doctor.license_no if g.doctor else "",
+            "doctor_wallet": g.doctor.wallet_address if g.doctor else "",
+            "facility_id": g.doctor.facility_id if g.doctor else "",
+            "reason": g.reason,
+            "started_at": g.created_at.isoformat(),
+            "expires_at": g.expires_at.isoformat(),
+            "remaining_seconds": max(
+                int((g.expires_at - now).total_seconds()), 0
+            ),
+            "tx_hash": g.tx_hash,
+        })
+
+    # Active routine doctor grants (patient can review and revoke)
+    active_grants = []
+    for g in AccessGrant.objects.filter(
+        patient=patient,
+        active=True,
+        expires_at__gt=now,
+    ).exclude(source="BREAK_GLASS").select_related("doctor", "hospital"):
+        active_grants.append({
+            "id": g.id,
+            "doctor_name": g.doctor.full_name if g.doctor else "Unknown doctor",
+            "doctor_license": g.doctor.license_no if g.doctor else "",
+            "doctor_wallet": g.doctor.wallet_address if g.doctor else "",
+            "facility_id": g.doctor.facility_id if g.doctor else "",
+            "hospital_name": g.hospital.name if g.hospital else "",
+            "source": g.source,
+            "created_at": g.created_at.isoformat(),
+            "expires_at": g.expires_at.isoformat(),
+            "tx_hash": g.tx_hash,
+        })
+
     return Response({
         "activeCount": active,
         "pendingCount": pending_requests,
         "expiringSoon": expiring_soon,
         "lastGrantAt": last_grant.created_at.isoformat() if last_grant else None,
         "lastGrantDoctor": last_grant.doctor.full_name if last_grant and last_grant.doctor else None,
+        "emergencyCount": len(emergency),
+        "emergency": emergency,
+        "active_grants": active_grants,
     })
 
 
@@ -522,21 +614,31 @@ def grant_access(request):
     if not doctor_wallet:
         return Response({"error": "doctor_license or doctor_wallet is required"}, status=400)
 
-    # The contract attributes the grant to the patient wallet itself, so the
-    # patient's custodial key signs (facility tops up gas first).
+    # patientGrantAccess is operator-only: the facility wallet submits it on
+    # the patient's behalf (their wallet is passed as grantedBy and their JWT
+    # authorizes the call). send_transaction waits for the receipt and raises
+    # when the contract reverts — a rejected grant is reported as an error
+    # instead of a fake success.
+    # Automatically ensure the clinician role is active on-chain so the transaction does not revert.
+    try:
+        ensure_clinician_role(doctor_wallet)
+    except Exception:
+        logger.warning("Could not auto-ensure clinician role for %s", doctor_wallet)
+
     tx_hash = ""
     try:
-        ensure_gas(patient.wallet_address)
-        patient_key = wallet_manager.get_private_key(
-            patient.encrypted_private_key, patient.encryption_iv
-        )
         tx = contract.functions.patientGrantAccess(
             patient.health_id, checksum_address(patient.wallet_address),
             checksum_address(doctor_wallet), days
         )
-        tx_hash = send_transaction_pending(tx, patient_key)
-    except Exception as e:
-        tx_hash = f"PENDING: {e}"
+        tx_hash = send_transaction(tx)
+    except Exception as exc:
+        logger.exception(
+            "patientGrantAccess failed for %s -> %s",
+            patient.health_id, doctor_wallet,
+        )
+        tx_hash = f"PENDING: {type(exc).__name__}"
+    granted_on_chain = tx_hash.startswith("0x")
 
     # Permission changed (or was attempted) — drop cached hasAccess for this
     # patient so doctors see the new state on their next call.
@@ -546,17 +648,31 @@ def grant_access(request):
         AccessGrant.objects.update_or_create(
             patient=patient, doctor=doc,
             defaults={
+                "hospital": doc.hospital,
                 "tx_hash": tx_hash,
-                "active": True,  # chain liveness overrides when reachable
+                "active": granted_on_chain,
                 "expires_at": timezone.now() + timedelta(days=days),
             },
         )
+
+    if not granted_on_chain:
+        return Response({
+            "error": (
+                "The access grant was not confirmed on-chain, so no access was "
+                "granted. This usually means the doctor's wallet is missing "
+                "CLINICIAN_ROLE (approved doctors receive it automatically — ask "
+                "an administrator to run: python manage.py grant_clinician_roles)."
+            ),
+            "tx_hash": tx_hash,
+            "pending": True,
+        }, status=status.HTTP_502_BAD_GATEWAY)
 
     return Response({
         "status": "success",
         "message": f"Access granted to {doctor_name or doctor_wallet} for {days} days",
         "tx_hash": tx_hash,
-        "pending": tx_hash.startswith("0x"),
+        "pending": False,
+        "chain_logged": True,
     })
 
 
@@ -577,18 +693,30 @@ def revoke_access(request):
         doctor_wallet = doc.wallet_address
     if not doctor_wallet:
         return Response({"error": "doctor_license or doctor_wallet is required"}, status=400)
+    # patientRevokeAccess is operator-only: the facility wallet submits the
+    # patient's revocation. A revert must not read as success.
+    tx_hash = ""
     try:
-        ensure_gas(patient.wallet_address)
-        patient_key = wallet_manager.get_private_key(
-            patient.encrypted_private_key, patient.encryption_iv
-        )
         tx = contract.functions.patientRevokeAccess(
             patient.health_id, checksum_address(patient.wallet_address),
             checksum_address(doctor_wallet)
         )
-        tx_hash = send_transaction(tx, patient_key)
-    except Exception as e:
-        tx_hash = f"PENDING: {e}"
+        tx_hash = send_transaction(tx)
+    except Exception as exc:
+        logger.exception(
+            "patientRevokeAccess failed for %s -> %s",
+            patient.health_id, doctor_wallet,
+        )
+        if _on_chain_permission_active(patient.health_id, doctor_wallet):
+            # A live permission remains on-chain: closing the local row would
+            # only hide it. Tell the patient the truth and leave access as-is.
+            return Response({
+                "error": (
+                    "The revocation was not confirmed on-chain, so the doctor "
+                    f"still has access ({type(exc).__name__}). Please retry."
+                )
+            }, status=status.HTTP_502_BAD_GATEWAY)
+        tx_hash = ""  # nothing left to revoke on-chain — close locally
 
     # Revocation must be visible to doctors immediately.
     cache_invalidate(f"hasAccess:{patient.health_id.strip().lower()}")
@@ -597,7 +725,12 @@ def revoke_access(request):
         patient=patient, doctor__wallet_address__iexact=doctor_wallet
     ).update(active=False)
 
-    return Response({"status": "success", "tx_hash": tx_hash})
+    return Response({
+        "status": "success",
+        "message": "Access revoked; the revocation is logged on-chain.",
+        "tx_hash": tx_hash,
+        "chain_logged": bool(tx_hash),
+    })
 
 
 # ============ 5. DOCTOR: ADMIN-CREATED ACCOUNTS ONLY ============
@@ -736,6 +869,20 @@ def doctor_view_record(request, health_id):
         active=True,
         expires_at__gt=timezone.now(),
     ).first()
+    rem = emergency_access_remaining(patient.health_id, doctor.wallet_address)
+    has_emergency = bool(emergency_grant) or rem > 0
+    emergency_reason = (
+        emergency_grant.reason if (emergency_grant and emergency_grant.reason)
+        else ("Medical emergency break-glass" if rem > 0 else "")
+    )
+    emergency_expires_at = (
+        emergency_grant.expires_at.isoformat() if emergency_grant
+        else ((timezone.now() + timedelta(seconds=rem)).isoformat() if rem > 0 else None)
+    )
+    emergency_remaining_secs = (
+        rem if rem > 0
+        else (max(int((emergency_grant.expires_at - timezone.now()).total_seconds()), 0) if emergency_grant else 0)
+    )
 
     # Referral context is shown separately and never grants record access.
     referral_context = None
@@ -754,7 +901,7 @@ def doctor_view_record(request, health_id):
         chain_records = contract.functions.getRecords(health_id).call()
     except Exception:
         logger.exception("Could not load on-chain records for patient %s", health_id)
-        if not emergency_grant:
+        if not has_emergency:
             return Response(
                 {"error": "Blockchain records are unavailable; medical history was not released"},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -822,7 +969,7 @@ def doctor_view_record(request, health_id):
                 _record_payload_hash(record.record_data).lower()
                 == record.record_hash.lower()
             )
-            if emergency_grant and payload_matches:
+            if has_emergency and payload_matches:
                 final_records.append({
                     "facility": record.facility_name or record.facility_id,
                     "type": record.record_type,
@@ -939,8 +1086,10 @@ def doctor_view_record(request, health_id):
         "health_id": health_id,
         "full_name": patient.full_name,
         "chain_checked": chain_ok,
-        "emergency_access": bool(emergency_grant),
-        "emergency_reason": emergency_grant.reason if emergency_grant else "",
+        "emergency_access": has_emergency,
+        "emergency_reason": emergency_reason,
+        "emergency_expires_at": emergency_expires_at,
+        "emergency_remaining_seconds": emergency_remaining_secs,
         "referral_access": False,
         "referral_context": ({
             "from_hospital": referral_context.from_hospital.name if referral_context and referral_context.from_hospital else "",
@@ -1067,20 +1216,22 @@ def approve_request(request, request_id):
     if not req:
         return Response({"error": "Request not found"}, status=404)
 
-    # Patient-signed on-chain grant (custodial key + facility gas top-up).
+    # operator-submitted grant (patientGrantAccess is onlyOperator), waited
+    # on so a revert surfaces here instead of silently granting nothing.
     tx_hash = ""
     try:
-        ensure_gas(patient.wallet_address)
-        patient_key = wallet_manager.get_private_key(
-            patient.encrypted_private_key, patient.encryption_iv
-        )
         tx = contract.functions.patientGrantAccess(
             patient.health_id, checksum_address(patient.wallet_address),
             checksum_address(req.doctor_wallet), 7
         )
-        tx_hash = send_transaction_pending(tx, patient_key)
-    except Exception as e:
-        tx_hash = f"PENDING: {e}"
+        tx_hash = send_transaction(tx)
+    except Exception as exc:
+        logger.exception(
+            "approve_request grant failed for %s -> %s",
+            patient.health_id, req.doctor_wallet,
+        )
+        tx_hash = f"PENDING: {type(exc).__name__}"
+    granted_on_chain = tx_hash.startswith("0x")
 
     cache_invalidate(f"hasAccess:{patient.health_id.strip().lower()}")
 
@@ -1088,17 +1239,30 @@ def approve_request(request, request_id):
         patient=patient, doctor=req.doctor,
         defaults={
             "tx_hash": tx_hash,
-            "active": True,  # chain liveness overrides when reachable
+            "active": granted_on_chain,
             "expires_at": timezone.now() + timedelta(days=7),
         },
     )
+
+    if not granted_on_chain:
+        # The request stays pending so it can be approved again once the
+        # doctor's CLINICIAN_ROLE is provisioned.
+        return Response({
+            "error": (
+                "Your approval could not be confirmed on-chain, so no access "
+                "was granted. Please retry; if it keeps failing, the doctor's "
+                "wallet may be missing CLINICIAN_ROLE."
+            ),
+            "tx_hash": tx_hash,
+            "pending": True,
+        }, status=status.HTTP_502_BAD_GATEWAY)
 
     req.status = "APPROVED"
     req.tx_hash = tx_hash
     req.responded_at = timezone.now()
     req.save()
 
-    return Response({"status": "approved", "tx_hash": tx_hash, "pending": tx_hash.startswith("0x")})
+    return Response({"status": "approved", "tx_hash": tx_hash, "pending": False, "chain_logged": True})
 
 
 @api_view(["POST"])
@@ -2118,18 +2282,43 @@ def break_glass(request):
 
     wallet = doctor.wallet_address
     facility_id = doctor.facility_id or "UNKNOWN"
-    has_normal_access, _chain_ok = check_has_access(health_id, wallet)
-    if has_normal_access:
-        return Response({"error": "Doctor already has patient access"}, status=409)
+    # Check if doctor already holds active routine permission
+    has_routine = _on_chain_permission_active(health_id, wallet)
+    if has_routine:
+        return Response({
+            "status": "already_granted",
+            "message": "Doctor already has routine access permission for this patient.",
+            "has_access": True,
+            "emergency_access": False,
+        })
+
+    # Check if emergency access is already active
     active_emergency = AccessGrant.objects.filter(
         patient=patient,
         doctor=doctor,
         source="BREAK_GLASS",
         active=True,
         expires_at__gt=timezone.now(),
-    ).exists()
-    if active_emergency:
-        return Response({"error": "An emergency access window is already active"}, status=409)
+    ).first()
+    rem = emergency_access_remaining(health_id, wallet)
+    if active_emergency or rem > 0:
+        return Response({
+            "status": "success",
+            "message": "Emergency access is already active for this patient.",
+            "tx_hash": active_emergency.tx_hash if active_emergency else "",
+            "chain_logged": True,
+            "clinician_wallet": wallet,
+            "expires_at": (
+                active_emergency.expires_at.isoformat() if active_emergency
+                else (timezone.now() + timedelta(seconds=rem)).isoformat()
+            ),
+        })
+
+    # Ensure clinician role on-chain before executing break-glass
+    try:
+        ensure_clinician_role(wallet)
+    except Exception:
+        logger.warning("Could not auto-ensure clinician role for %s", wallet)
 
     try:
         tx = contract.functions.breakGlass(health_id, checksum_address(wallet), facility_id, reason)
@@ -2143,6 +2332,7 @@ def break_glass(request):
     AccessGrant.objects.create(
         patient=patient,
         doctor=doctor,
+        hospital=doctor.hospital,
         source="BREAK_GLASS",
         tx_hash=tx_hash[:66],
         active=True,
@@ -2161,6 +2351,88 @@ def break_glass(request):
         "tx_hash": tx_hash,
         "chain_logged": not tx_hash.startswith("PENDING"),
         "clinician_wallet": wallet,
+        "expires_at": (timezone.now() + timedelta(hours=1)).isoformat(),
+    })
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def revoke_emergency_access(request):
+    """Patient ends an active break-glass window before its one-hour expiry.
+
+    revokeEmergencyAccess(...) is operator-only, so the backend wallet signs it.
+    Access is only reported as ended when the chain (or the absence of a chain
+    window) backs it up: the doctor's liveness check reads hasAccess first, so a
+    local-only flip would leave the on-chain window standing.
+    """
+    patient = _patient_from_request(request)
+    if not patient:
+        return Response({"error": "Patient not found"}, status=404)
+
+    doctor_license = str(request.data.get("doctor_license", "")).strip()
+    doctor_wallet = str(request.data.get("doctor_wallet", "")).strip()
+
+    doctor = None
+    if doctor_license:
+        doctor = Doctor.objects.filter(license_no__iexact=doctor_license).first()
+        if doctor:
+            doctor_wallet = doctor.wallet_address
+    if not doctor and doctor_wallet:
+        doctor = Doctor.objects.filter(wallet_address__iexact=doctor_wallet).first()
+    if not doctor:
+        return Response(
+            {"error": "doctor_license or doctor_wallet is required"}, status=400
+        )
+
+    grant = AccessGrant.objects.filter(
+        patient=patient,
+        doctor=doctor,
+        source="BREAK_GLASS",
+        active=True,
+        expires_at__gt=timezone.now(),
+    ).first()
+    if not grant:
+        return Response(
+            {"error": "No active emergency access for that doctor"}, status=409
+        )
+
+    health_id = grant.patient.health_id
+    remaining = emergency_access_remaining(health_id, doctor.wallet_address)
+    chain_logged = False
+    tx_hash = ""
+    if remaining > 0:
+        try:
+            tx_hash = revoke_emergency_access_on_chain(
+                health_id, doctor.wallet_address
+            )
+            chain_logged = True
+        except Exception as exc:
+            # Never return provider text: RPC URLs can contain credentials.
+            logger.exception("Emergency revoke failed for %s", health_id)
+            return Response(
+                {
+                    "error": (
+                        "Emergency access could not be ended on-chain "
+                        f"({type(exc).__name__}). The window stays open until its "
+                        "expiry; retry in a moment."
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+    grant.active = False
+    grant.save(update_fields=["active"])
+    cache_invalidate(f"hasAccess:{health_id.strip().lower()}")
+
+    return Response({
+        "status": "success",
+        "message": (
+            "Emergency access ended and the revocation was logged on-chain."
+            if chain_logged
+            else "Emergency access ended. There was no active on-chain window to revoke."
+        ),
+        "tx_hash": tx_hash,
+        "chain_logged": chain_logged,
     })
 
 
@@ -2346,16 +2618,31 @@ def _deploy_block() -> int:
 
 def _health_id_topic(health_id: str) -> str:
     """Indexed string event params are stored on-chain as their keccak256
-    hash (a topic), NOT as plaintext. Filtering eth_getLogs by the plaintext
-    value therefore matches nothing — hash it first.
+    hash (a topic), NOT as plaintext — hash it first.
+
+    Solidity hashes the UTF-8 bytes directly (keccak256(bytes(s))), NOT the
+    ABI encoding of the string: keccak(abi.encode(s)) includes the offset and
+    length words and therefore never matches the topic in the log.
     """
     from eth_utils import keccak
-    from eth_abi import encode
     try:
-        encoded = encode(["string"], [health_id])
-        return "0x" + keccak(encoded).hex()
+        return "0x" + keccak(str(health_id).encode("utf-8")).hex()
     except Exception:
         return ""
+
+
+def _topic_matches(value, expected: bytes) -> bool:
+    """Match a `string indexed` event arg against its expected topic hash.
+
+    web3 hands those params back as the raw 32-byte topic hash (sometimes as
+    a hex string), never as decoded plaintext.
+    """
+    if isinstance(value, (bytes, bytearray)):
+        return bytes(value) == expected
+    if isinstance(value, str):
+        topic = _health_id_topic(value)
+        return bool(topic) and bytes.fromhex(topic[2:]) == expected
+    return False
 
 
 def _fetch_events(event_name, from_block=0, to_block="latest", argument_filters=None):
@@ -2382,12 +2669,23 @@ def _fetch_events(event_name, from_block=0, to_block="latest", argument_filters=
         indexed_inputs = [i for i in abi_event.get("inputs", []) if i.get("indexed")]
         topics_filters = {}
         plain_filters = {}
+        topic_filters = {}
+        topic_plain = {}  # expected topic hash -> plaintext value for it
         for k, v in (argument_filters or {}).items():
             inp = next((i for i in indexed_inputs if i["name"] == k), None)
             if inp and inp.get("type") == "string":
                 h = _health_id_topic(v)
                 if h:
-                    topics_filters[k] = h
+                    # web3 mis-encodes `string indexed` topics for eth_getLogs
+                    # (the node answers "data type size mismatch, expected 32")
+                    # and get_logs returns the value as its raw topic hash — so
+                    # the RPC is asked for all logs of this event and the topic
+                    # is matched here instead.
+                    raw = bytes.fromhex(h[2:])
+                    topic_filters[k] = raw
+                    topic_plain[raw] = v
+                else:
+                    plain_filters[k] = v
             elif inp:
                 topics_filters[k] = v  # address/uint indexed: usable as-is
             else:
@@ -2413,11 +2711,28 @@ def _fetch_events(event_name, from_block=0, to_block="latest", argument_filters=
                 # Non-indexed params arrive as plaintext — apply client-side filters.
                 if any(args.get(k) != v for k, v in plain_filters.items()):
                     continue
+                if any(
+                    not _topic_matches(args.get(k), expected)
+                    for k, expected in topic_filters.items()
+                ):
+                    continue
+                # Indexed string params come back as raw 32-byte topic hashes,
+                # which are neither readable nor JSON-serializable: restore the
+                # plaintext when we know it, hex-encode anything else.
+                readable_args = {}
+                for name, value in args.items():
+                    if isinstance(value, (bytes, bytearray)):
+                        plain = topic_plain.get(bytes(value))
+                        readable_args[name] = (
+                            plain if plain is not None else bytes(value).hex()
+                        )
+                    else:
+                        readable_args[name] = value
                 results.append({
                     "transaction_hash": log.transactionHash.hex(),
                     "block_number": log.blockNumber,
                     "event": event_name,
-                    "args": args,
+                    "args": readable_args,
                 })
             chunk_start = chunk_end + 1
         return results
@@ -2471,13 +2786,28 @@ def blockchain_events(request):
         "record_viewed": "RecordViewed",
         "break_glass_used": "BreakGlassUsed",
         "emergency_access_granted": "EmergencyAccessGranted",
+        "emergency_access_revoked": "EmergencyAccessRevoked",
+        "referral_accepted": "ReferralAccepted",
     }
+
+    canonical_event = None
+    if event_type:
+        norm = event_type.lower().replace("-", "_")
+        if norm in event_map:
+            canonical_event = event_map[norm]
+        else:
+            for k, v in event_map.items():
+                if v.lower() == norm or k == norm:
+                    canonical_event = v
+                    break
+            if not canonical_event and event_type in event_map.values():
+                canonical_event = event_type
 
     all_events = []
 
-    if event_type and event_type in event_map:
+    if canonical_event:
         # Fetch specific event type
-        contract_event = event_map[event_type]
+        contract_event = canonical_event
         argument_filters = {}
         if health_id:
             argument_filters["healthID"] = health_id
@@ -2539,6 +2869,8 @@ _ACTION_STORY = {
     "RecordViewed": ("VIEWED the records", "👁"),
     "BreakGlassUsed": ("used BREAK-GLASS emergency access", "🚨"),
     "EmergencyAccessGranted": ("received a 1-hour EMERGENCY window", "⏱"),
+    "EmergencyAccessRevoked": ("had EMERGENCY access REVOKED", "🔒"),
+    "ReferralAccepted": ("accepted transfer-of-care referral", "🏥"),
 }
 
 
@@ -2560,9 +2892,131 @@ def _who(args: dict) -> str:
     return f"{wallet[:10]}…"
 
 
+def _summarize_records(records_qs):
+    counts = {}
+    for r in records_qs.all():
+        t = r.record_type or "OTHER"
+        counts[t] = counts.get(t, 0) + 1
+    return counts
+
+
+def _serialize_record(r):
+    if not r:
+        return None
+    return {
+        "id": r.id,
+        "facility_id": r.facility_id,
+        "facility_name": r.facility_name,
+        "record_type": r.record_type,
+        "record_data": r.record_data,
+        "record_hash": r.record_hash,
+        "tx_hash": r.tx_hash,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    }
+
+
+def _summarize_measurements(measurements_qs):
+    counts = {}
+    for m in measurements_qs.all():
+        k = m.kind or "Other"
+        counts[k] = counts.get(k, 0) + 1
+    return counts
+
+
+def _serialize_measurement(m):
+    if not m:
+        return None
+    return {
+        "id": m.id,
+        "kind": m.kind,
+        "value": m.value,
+        "unit": m.unit,
+        "notes": m.notes,
+        "doctor": m.doctor.full_name if m.doctor else None,
+        "hospital": m.hospital.name if m.hospital else None,
+        "created_at": m.created_at.isoformat() if m.created_at else None,
+    }
+
+
+def _summarize_referrals(patient, referral_cls):
+    refs = referral_cls.objects.filter(patient=patient)
+    by_status = {}
+    for ref in refs:
+        st = ref.status or "UNKNOWN"
+        by_status[st] = by_status.get(st, 0) + 1
+    return {
+        "total": refs.count(),
+        "by_status": by_status,
+        "list": [{
+            "id": r.id,
+            "from_hospital": r.from_hospital.name if r.from_hospital else "",
+            "to_hospital": r.to_hospital.name if r.to_hospital else "",
+            "from_doctor": r.from_doctor.full_name if r.from_doctor else "",
+            "status": r.status,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        } for r in refs.order_by("-created_at")[:10]]
+    }
+
+
+def _count_blockchain_transactions(patient):
+    records_with_tx = patient.records.exclude(tx_hash="").exclude(tx_hash__startswith="PENDING").count()
+    measurements_with_tx = patient.measurements.exclude(tx_hash="").exclude(tx_hash__startswith="PENDING").count()
+    grants_with_tx = patient.grants.exclude(tx_hash="").exclude(tx_hash__startswith="PENDING").count()
+    referrals_with_tx = patient.referrals.exclude(tx_hash="").exclude(tx_hash__startswith="PENDING").count()
+    return records_with_tx + measurements_with_tx + grants_with_tx + referrals_with_tx
+
+
+def _get_recent_blockchain_events(patient, limit=10):
+    events = []
+    for r in patient.records.exclude(tx_hash="").exclude(tx_hash__startswith="PENDING").order_by("-created_at")[:limit]:
+        events.append({
+            "type": "RecordAdded",
+            "action": f"Medical record added ({r.record_type})",
+            "facility": r.facility_name,
+            "tx_hash": r.tx_hash,
+            "etherscan_url": f"https://sepolia.etherscan.io/tx/{r.tx_hash}",
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        })
+    for g in patient.grants.exclude(tx_hash="").exclude(tx_hash__startswith="PENDING").order_by("-created_at")[:limit]:
+        events.append({
+            "type": "BreakGlassUsed" if g.source == "BREAK_GLASS" else "AccessGranted",
+            "action": "Emergency access (break-glass)" if g.source == "BREAK_GLASS" else "Access granted",
+            "facility": g.hospital.name if g.hospital else (g.doctor.facility_id if g.doctor else ""),
+            "doctor": g.doctor.full_name if g.doctor else "",
+            "tx_hash": g.tx_hash,
+            "etherscan_url": f"https://sepolia.etherscan.io/tx/{g.tx_hash}",
+            "created_at": g.created_at.isoformat() if g.created_at else None,
+        })
+    events.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+    return events[:limit]
+
+
+def _get_journey(patient):
+    steps = []
+    if patient.created_at:
+        steps.append({
+            "step": "Registration",
+            "hospital": patient.hospital.name if patient.hospital else (patient.registered_by_facility or "Initial Facility"),
+            "date": patient.created_at.isoformat(),
+            "description": f"Registered with Health ID {patient.health_id}",
+        })
+    for ref in patient.referrals.order_by("created_at"):
+        from_name = ref.from_hospital.name if ref.from_hospital else "Facility"
+        to_name = ref.to_hospital.name if ref.to_hospital else "Facility"
+        steps.append({
+            "step": "Referral",
+            "from_hospital": from_name,
+            "to_hospital": to_name,
+            "status": ref.status,
+            "date": ref.created_at.isoformat() if ref.created_at else None,
+            "description": f"Referral from {from_name} to {to_name} [{ref.status}]",
+        })
+    return steps
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-def patient_dashboard(request, health_id):
+def patient_dashboard(request, health_id=""):
     """Comprehensive patient dashboard aggregating all data for a patient.
     
     Returns a unified view showing:
@@ -2574,7 +3028,15 @@ def patient_dashboard(request, health_id):
     - Blockchain activity summary
     - Patient journey (Hospital A → Hospital B flow)
     """
-    from django.contrib.auth.models import User
+    requestor_role = request.auth.get("role", "") if request.auth else ""
+    if requestor_role == "PATIENT":
+        token_health_id = request.auth.get("health_id", "")
+        if not health_id or health_id == "me":
+            health_id = token_health_id
+        elif token_health_id != health_id:
+            return Response({"error": "Not authorized"}, status=403)
+    elif not health_id:
+        return Response({"error": "health_id is required"}, status=400)
     
     # Get patient
     patient = Patient.objects.filter(health_id=health_id).first()
@@ -2590,7 +3052,7 @@ def patient_dashboard(request, health_id):
             "phone": patient.phone,
             "pin_hash": patient.pin_hash,
             "wallet_address": patient.wallet_address,
-            "hospital": patient.hospital,
+            "hospital": patient.hospital.name if patient.hospital else "",
             "registration_date": patient.created_at.isoformat() if patient.created_at else None,
         },
         
@@ -2598,14 +3060,14 @@ def patient_dashboard(request, health_id):
         "records": {
             "total": patient.records.count(),
             "by_type": _summarize_records(patient.records),
-            "latest": patient.records.order_by("-created_at").first() if patient.records.exists() else None,
+            "latest": _serialize_record(patient.records.order_by("-created_at").first()) if patient.records.exists() else None,
         },
         
         # Measurements summary (for pie chart)
         "measurements": {
             "total": patient.measurements.count(),
             "by_kind": _summarize_measurements(patient.measurements),
-            "latest": patient.measurements.order_by("-created_at").first() if patient.measurements.exists() else None,
+            "latest": _serialize_measurement(patient.measurements.order_by("-created_at").first()) if patient.measurements.exists() else None,
         },
         
         # Referrals
@@ -2617,7 +3079,7 @@ def patient_dashboard(request, health_id):
             "incoming": Referral.objects.filter(
                 patient=patient, 
                 to_hospital=patient.hospital
-            ).count(),
+            ).count() if patient.hospital else 0,
             "summary": _summarize_referrals(patient, Referral),
         },
         
@@ -2625,11 +3087,12 @@ def patient_dashboard(request, health_id):
         "access": {
             "active_grants": AccessGrant.objects.filter(
                 patient=patient, 
-                doctor__isnull=False
+                active=True,
+                expires_at__gt=timezone.now()
             ).count(),
             "active_revokes": AccessGrant.objects.filter(
                 patient=patient, 
-                active=True
+                active=False
             ).count(),
         },
         
@@ -2649,12 +3112,11 @@ def patient_dashboard(request, health_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def patient_activity_story(request, health_id):
-    """One unified, human-readable timeline of everything that happened to
-    this patient's data on-chain — who did what, when, verified by tx.
+    """Unified human-readable on-chain story for a patient.
 
-    Merges the on-chain audit trail (has every action) with the raw event
-    logs (has tx hashes) into a single story, e.g.:
-      "Dr. Alice (1212) VIEWED the records — verified on Etherscan"
+    Merges the on-chain audit trail with raw event logs.
+    Falls back to DB-sourced events when the blockchain node is unreachable,
+    so the Access History tab always shows meaningful data.
     """
     requestor_role = request.auth.get("role", "") if request.auth else ""
     if requestor_role == "PATIENT":
@@ -2677,25 +3139,144 @@ def patient_activity_story(request, health_id):
     else:
         return Response({"error": "Not authorized"}, status=403)
 
-    # 1) The on-chain audit trail — complete, authoritative, every action.
+    patient = Patient.objects.filter(health_id=health_id).first()
+    if not patient:
+        return Response({"error": "Patient not found"}, status=404)
+
+    # ------------------------------------------------------------------
+    # Helper: build story entirely from DB rows (used when chain is down)
+    # ------------------------------------------------------------------
+    def _db_story(pat):
+        items = []
+
+        # Registration event
+        if pat.created_at:
+            ts = int(pat.created_at.timestamp())
+            items.append({
+                "action": "PATIENT_REGISTERED",
+                "event": "PatientRegistered",
+                "who": pat.full_name,
+                "wallet": pat.wallet_address or "",
+                "role": "PATIENT",
+                "facility": pat.hospital.name if pat.hospital else (pat.registered_by_facility or ""),
+                "verb": _ACTION_STORY["PatientRegistered"][0],
+                "icon": _ACTION_STORY["PatientRegistered"][1],
+                "timestamp": ts,
+                "transaction_hash": None,
+                "etherscan_url": None,
+                "source": "db",
+            })
+
+        # Records added
+        for r in pat.records.order_by("-created_at"):
+            ts = int(r.created_at.timestamp()) if r.created_at else 0
+            tx = r.tx_hash if r.tx_hash and not r.tx_hash.startswith("PENDING") else None
+            items.append({
+                "action": "RECORD_ADDED",
+                "event": "RecordAdded",
+                "who": r.facility_name or r.facility_id or "Healthcare facility",
+                "wallet": "",
+                "role": "STAFF",
+                "facility": r.facility_name or r.facility_id or "",
+                "verb": "added a %s record (hash anchored on-chain)" % (r.record_type or "medical"),
+                "icon": _ACTION_STORY["RecordAdded"][1],
+                "timestamp": ts,
+                "transaction_hash": tx,
+                "etherscan_url": "https://sepolia.etherscan.io/tx/%s" % tx if tx else None,
+                "source": "db",
+            })
+
+        # Access grants / break-glass
+        for g in pat.grants.order_by("-created_at"):
+            ts = int(g.created_at.timestamp()) if g.created_at else 0
+            tx = g.tx_hash if g.tx_hash and not g.tx_hash.startswith("PENDING") else None
+            is_emergency = getattr(g, "source", "") == "BREAK_GLASS"
+            ev_name = "BreakGlassUsed" if is_emergency else "AccessGranted"
+            doctor_name = g.doctor.full_name if g.doctor else "A doctor"
+            facility_name = g.hospital.name if g.hospital else (g.doctor.facility_id if g.doctor else "")
+            who_str = "Dr. %s" % doctor_name
+            if facility_name:
+                who_str += " (%s)" % facility_name
+            items.append({
+                "action": "BREAK_GLASS" if is_emergency else "GRANTED_TO_DOCTOR",
+                "event": ev_name,
+                "who": who_str,
+                "wallet": g.doctor.wallet_address if g.doctor else "",
+                "role": "DOCTOR",
+                "facility": facility_name,
+                "verb": _ACTION_STORY[ev_name][0],
+                "icon": _ACTION_STORY[ev_name][1],
+                "timestamp": ts,
+                "transaction_hash": tx,
+                "etherscan_url": "https://sepolia.etherscan.io/tx/%s" % tx if tx else None,
+                "source": "db",
+            })
+
+        # Accepted referrals
+        for ref in pat.referrals.filter(status="ACCEPTED").order_by("-created_at"):
+            ts = int(ref.responded_at.timestamp()) if ref.responded_at else (
+                int(ref.created_at.timestamp()) if ref.created_at else 0)
+            tx = ref.tx_hash if ref.tx_hash and not ref.tx_hash.startswith("PENDING") else None
+            from_hosp = ref.from_hospital.name if ref.from_hospital else "Sending facility"
+            to_hosp = ref.to_hospital.name if ref.to_hospital else "Receiving facility"
+            items.append({
+                "action": "REFERRAL_ACCEPTED",
+                "event": "ReferralAccepted",
+                "who": ref.responded_by or to_hosp,
+                "wallet": "",
+                "role": "STAFF",
+                "facility": to_hosp,
+                "verb": "accepted referral from %s to %s" % (from_hosp, to_hosp),
+                "icon": _ACTION_STORY["ReferralAccepted"][1],
+                "timestamp": ts,
+                "transaction_hash": tx,
+                "etherscan_url": "https://sepolia.etherscan.io/tx/%s" % tx if tx else None,
+                "source": "db",
+            })
+
+        items.sort(key=lambda x: x["timestamp"], reverse=True)
+        return items
+
+    # ------------------------------------------------------------------
+    # 1) Try the on-chain audit trail
+    # ------------------------------------------------------------------
+    chain_available = True
+    trail = []
     try:
         trail = contract.functions.getAuditTrail(health_id).call()
     except Exception:
-        logger.exception("Could not load access history for patient %s", health_id)
-        return Response(
-            {"error": "Access history is temporarily unavailable. Please try again."},
-            status=503,
+        logger.warning(
+            "Blockchain unavailable for patient %s — falling back to DB story", health_id
         )
+        chain_available = False
 
-    # 2) Raw event logs — supply tx hashes per (action, actor, timestamp).
+    # ------------------------------------------------------------------
+    # 2) Chain down or empty trail → return DB story (never 503)
+    # ------------------------------------------------------------------
+    if not chain_available or not trail:
+        db_items = _db_story(patient)
+        return Response({
+            "health_id": health_id,
+            "story": db_items,
+            "count": len(db_items),
+            "source": "db",
+        })
+
+    # ------------------------------------------------------------------
+    # 3) Chain available — enrich audit entries with raw event tx hashes
+    # ------------------------------------------------------------------
     events_by_key: dict = {}
-    for evt_name in ["PatientRegistered", "RecordAdded", "AccessGranted",
-                     "AccessRevoked", "RecordViewed", "BreakGlassUsed",
-                     "EmergencyAccessGranted"]:
+    for evt_name in [
+        "PatientRegistered", "RecordAdded", "AccessGranted",
+        "AccessRevoked", "RecordViewed", "BreakGlassUsed",
+        "EmergencyAccessGranted", "EmergencyAccessRevoked", "ReferralAccepted",
+    ]:
         for ev in _fetch_events(evt_name, argument_filters={"healthID": health_id}):
             a = ev["args"]
-            actor = (a.get("grantedTo") or a.get("revokedFrom") or a.get("viewer")
-                     or a.get("clinician") or "")
+            actor = (
+                a.get("grantedTo") or a.get("revokedFrom") or a.get("viewer")
+                or a.get("clinician") or ""
+            )
             ts = a.get("timestamp")
             if ts is None:
                 try:
@@ -2703,11 +3284,10 @@ def patient_activity_story(request, health_id):
                     ts = blk.timestamp
                 except Exception:
                     ts = 0
-            key = (actor.lower(), round(ts / 120))  # 2-min bucket match
+            key = (actor.lower(), round(ts / 120))
             events_by_key.setdefault(key, ev)
 
     def _match_tx(action: str, accessor: str, ts: int) -> str:
-        """Find the tx hash of the event matching this audit entry."""
         action_to_event = {
             "PATIENT_REGISTERED": "PatientRegistered",
             "RECORD_ADDED": "RecordAdded",
@@ -2720,35 +3300,34 @@ def patient_activity_story(request, health_id):
         ev_name = action_to_event.get(action)
         if not ev_name:
             return ""
-        for (actor_key, bucket), ev in events_by_key.items():
-            if ev["event"] == ev_name and actor_key == (accessor or "").lower() \
-                    and abs(ev.get("args", {}).get("timestamp", ts) - ts) <= 120:
+        for (actor_key, _), ev in events_by_key.items():
+            if (ev["event"] == ev_name
+                    and actor_key == (accessor or "").lower()
+                    and abs(ev.get("args", {}).get("timestamp", ts) - ts) <= 120):
                 return ev["transaction_hash"]
-        # Fallback: match on event name + time bucket only (actor field
-        # names differ between the audit trail and raw events).
-        for (actor_key, bucket), ev in events_by_key.items():
+        for (_, __), ev in events_by_key.items():
             if ev["event"] == ev_name and abs(ev.get("args", {}).get("timestamp", ts) - ts) <= 120:
                 return ev["transaction_hash"]
         return ""
 
+    action_map = {
+        "PATIENT_REGISTERED": "PatientRegistered",
+        "RECORD_ADDED": "RecordAdded",
+        "GRANTED_TO_DOCTOR": "AccessGranted",
+        "REVOKED_DOCTOR": "AccessRevoked",
+        "VIEW": "RecordViewed",
+        "BREAK_GLASS": "BreakGlassUsed",
+        "EMERGENCY_ACCESS_REVOKED": "EmergencyAccessRevoked",
+    }
     story = []
     for e in trail:
         accessor, role, facility, action, ts = e[0], e[1], e[2], e[3], e[4]
         tx = _match_tx(action, accessor, ts)
-        # Map audit action → story fragment
-        action_map = {
-            "PATIENT_REGISTERED": "PatientRegistered",
-            "RECORD_ADDED": "RecordAdded",
-            "GRANTED_TO_DOCTOR": "AccessGranted",
-            "REVOKED_DOCTOR": "AccessRevoked",
-            "VIEW": "RecordViewed",
-            "BREAK_GLASS": "BreakGlassUsed",
-            "EMERGENCY_ACCESS_REVOKED": "EmergencyAccessRevoked",
-        }
         ev_name = action_map.get(action, "")
-        # The "who": resolve wallet → doctor/patient/staff name.
-        who = _who({"viewer": accessor, "clinician": accessor, "wallet": accessor,
-                    "grantedTo": accessor, "revokedFrom": accessor})
+        who = _who({
+            "viewer": accessor, "clinician": accessor, "wallet": accessor,
+            "grantedTo": accessor, "revokedFrom": accessor,
+        })
         verb = _ACTION_STORY.get(ev_name, (action.lower().replace("_", " "), "•"))
         story.append({
             "action": action,
@@ -2761,14 +3340,25 @@ def patient_activity_story(request, health_id):
             "icon": verb[1],
             "timestamp": ts,
             "transaction_hash": tx or None,
-            "etherscan_url": f"https://sepolia.etherscan.io/tx/{tx}" if tx else None,
+            "etherscan_url": ("https://sepolia.etherscan.io/tx/%s" % tx) if tx else None,
+            "source": "chain",
         })
+
+    # Merge DB events not already represented in the chain trail
+    db_items = _db_story(patient)
+    chain_timestamps = {s["timestamp"] for s in story}
+    for dbi in db_items:
+        if dbi["transaction_hash"] and not any(
+            abs(dbi["timestamp"] - ct) <= 120 for ct in chain_timestamps
+        ):
+            story.append(dbi)
 
     story.sort(key=lambda x: x["timestamp"], reverse=True)
     return Response({
         "health_id": health_id,
         "story": story,
         "count": len(story),
+        "source": "chain",
     })
 
 

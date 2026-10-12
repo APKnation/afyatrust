@@ -4,6 +4,7 @@ The contract object is created lazily so that auth/registration endpoints
 still work before CONTRACT_ADDRESS is configured.
 """
 import json
+import logging
 import os
 import threading
 import time
@@ -16,6 +17,8 @@ from web3 import Web3
 # Loading by explicit path makes this module CWD-independent.
 _ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 load_dotenv(_ENV_FILE)
+
+logger = logging.getLogger(__name__)
 
 w3 = Web3(Web3.HTTPProvider(os.getenv("SEPOLIA_RPC_URL", "")))
 
@@ -132,13 +135,13 @@ def check_has_access(health_id: str, wallet: str) -> tuple[bool, bool]:
 
 
 def cached_patient_wallet(health_id: str) -> str:
-    """patientWallet mapping with the same short TTL."""
+    """getPatient(...).wallet with the same short TTL."""
     key = f"patientWallet:{health_id.strip().lower()}"
     cached = cache_get(key)
     if cached is not None:
         return cached
     try:
-        wallet = contract.functions.patientWallet(health_id).call()
+        wallet = contract.functions.getPatient(health_id).call()[0]
     except Exception:
         return ""
     cache_set(key, wallet)
@@ -192,9 +195,16 @@ def _broadcast_transaction(function_call, signer_private_key: str = "", nonce_bl
 
 
 def send_transaction(function_call, signer_private_key: str = "") -> str:
-    """Sign, send, and wait for a transaction to be mined."""
+    """Sign, send, and wait for a transaction to be mined.
+
+    Raises when the receipt comes back with status 0 — a reverted transaction
+    must never be reported to callers as a success (that is how grants used to
+    "succeed" while the contract rejected them).
+    """
     tx_hash = _broadcast_transaction(function_call, signer_private_key)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+    if receipt.status != 1:
+        raise RuntimeError(f"transaction reverted: 0x{receipt.transactionHash.hex()}")
     return "0x" + receipt.transactionHash.hex()
 
 
@@ -219,6 +229,140 @@ def send_transaction_async(function_call, signer_private_key: str = "") -> None:
     ).start()
 
 
+# ---------------------------------------------------------------------------
+# Roles + emergency (break-glass) helpers
+#
+# The contract refuses breakGlass() — and patient-signed grants — for any
+# wallet without CLINICIAN_ROLE, so an approved doctor's custodial wallet must
+# receive that role or every emergency call reverts and only a local pending
+# grant is written.
+# ---------------------------------------------------------------------------
+
+
+def clinician_role_id() -> bytes:
+    """keccak256("CLINICIAN_ROLE") — the role break-glass requires."""
+    return Web3.keccak(text="CLINICIAN_ROLE")
+
+
+def admin_role_id() -> bytes:
+    return Web3.keccak(text="ADMIN_ROLE")
+
+
+def facility_role_id() -> bytes:
+    return Web3.keccak(text="FACILITY_ROLE")
+
+
+def operator_role_id() -> bytes:
+    return Web3.keccak(text="OPERATOR_ROLE")
+
+
+ADMIN_ROLE = Web3.keccak(text="ADMIN_ROLE")
+FACILITY_ROLE = Web3.keccak(text="FACILITY_ROLE")
+OPERATOR_ROLE = Web3.keccak(text="OPERATOR_ROLE")
+CLINICIAN_ROLE = Web3.keccak(text="CLINICIAN_ROLE")
+
+
+def ensure_backend_roles() -> dict:
+    """Verifies that the facility wallet has FACILITY_ROLE and OPERATOR_ROLE.
+    If the wallet holds ADMIN_ROLE, it automatically grants any missing role."""
+    signer = facility_address()
+    if not signer:
+        return {"status": "error", "message": "Facility wallet not configured"}
+    
+    results = {}
+    is_admin = has_role(signer, ADMIN_ROLE)
+    
+    for role_name, role_bytes in [("FACILITY_ROLE", FACILITY_ROLE), ("OPERATOR_ROLE", OPERATOR_ROLE), ("CLINICIAN_ROLE", CLINICIAN_ROLE)]:
+        has_it = has_role(signer, role_bytes)
+        if has_it is True:
+            results[role_name] = "already_granted"
+        elif has_it is False and is_admin:
+            try:
+                tx_hash = send_transaction(contract.functions.grantRole(signer, role_bytes))
+                results[role_name] = f"granted:{tx_hash}"
+            except Exception as e:
+                results[role_name] = f"error:{type(e).__name__}"
+        else:
+            results[role_name] = "missing" if has_it is False else "unknown"
+            
+    return results
+
+
+def has_role(account: str, role: bytes):
+    """bool, or None when the chain/contract is unreachable."""
+    if not account:
+        return None
+    try:
+        return bool(contract.functions.hasRole(checksum_address(account), role).call())
+    except Exception:
+        return None
+
+
+def ensure_clinician_role(wallet: str) -> tuple[str, str]:
+    """Give an approved doctor's wallet CLINICIAN_ROLE on-chain.
+
+    Returns (status, detail) with status in:
+      "granted"           role granted and verified on-chain
+      "already"           wallet already held the role
+      "no_permission"     the backend wallet is not an admin on the contract
+      "chain_unavailable" contract not configured / Sepolia unreachable
+      "invalid_wallet"    wallet address is missing or malformed
+      "failed"            the transaction did not succeed
+    """
+    wallet = checksum_address((wallet or "").strip())
+    try:
+        if not Web3.is_address(wallet):
+            return "invalid_wallet", "doctor has no valid wallet address"
+    except Exception:
+        return "invalid_wallet", "doctor has no valid wallet address"
+
+    try:
+        role = clinician_role_id()
+        granted = has_role(wallet, role)
+        if granted is True:
+            return "already", wallet
+        if granted is None:
+            return "chain_unavailable", "could not read roles from the contract"
+        signer = facility_address()
+        if not signer:
+            return "chain_unavailable", "FACILITY_PRIVATE_KEY is not configured"
+        if has_role(signer, admin_role_id()) is not True:
+            return (
+                "no_permission",
+                "backend wallet is not an admin; run "
+                "`npx hardhat run scripts/grant-clinician-role.js --network sepolia -- "
+                f"{wallet}`",
+            )
+        tx_hash = send_transaction(contract.functions.grantRole(wallet, role))
+        if has_role(wallet, role):
+            return "granted", tx_hash
+        return "failed", tx_hash
+    except Exception as exc:
+        # Never surface raw provider text: RPC URLs can contain credentials.
+        logger.exception("Could not grant CLINICIAN_ROLE to %s", wallet)
+        return "chain_unavailable", type(exc).__name__
+
+
+def emergency_access_remaining(health_id: str, wallet: str) -> int:
+    """Seconds left of an active emergency window; 0 when expired/unknown."""
+    try:
+        remaining = contract.functions.emergencyAccessRemaining(
+            health_id.strip(), checksum_address(wallet)
+        ).call()
+        return max(int(remaining), 0)
+    except Exception:
+        return 0
+
+
+def revoke_emergency_access_on_chain(health_id: str, clinician_wallet: str) -> str:
+    """Operator-side revokeEmergencyAccess(...) — returns the tx hash."""
+    return send_transaction(
+        contract.functions.revokeEmergencyAccess(
+            health_id.strip(), checksum_address(clinician_wallet)
+        )
+    )
+
+
 def ensure_gas(patient_address: str) -> str:
     """Custodial patient wallets start empty, so the facility tops up gas
     before the patient signs their own grant/revoke transaction."""
@@ -237,10 +381,18 @@ def ensure_gas(patient_address: str) -> str:
         "to": to,
         "value": w3.to_wei(0.01, "ether"),
         "nonce": w3.eth.get_transaction_count(facility.address),
-        "gas": 100_000,
         "chainId": w3.eth.chain_id,  # EIP-155 required by public RPCs
         **_eip1559_fees(),
     }
+    # Never hardcode the 21k transfer cost: the facility wallet carries an
+    # EIP-7702 delegation (EIP7702StatelessDeleGator), so a plain transfer
+    # executes ~205k gas of delegated code — a 100k cap runs out of gas and
+    # the receipt comes back with status 0 while the ETH never arrives.
+    try:
+        tx["gas"] = int(w3.eth.estimate_gas(tx) * 1.3)
+    except Exception:
+        logger.warning("estimate_gas failed for gas top-up; falling back to 400k")
+        tx["gas"] = 400_000
     signed = w3.eth.account.sign_transaction(tx, FACILITY_PRIVATE_KEY)
     tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
     print(f"ensure_gas: tx_hash {tx_hash.hex()}")

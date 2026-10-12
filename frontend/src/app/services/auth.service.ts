@@ -1,5 +1,4 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { Injectable, signal } from '@angular/core';
 
 export interface LoginResponse {
   access: string;
@@ -43,6 +42,13 @@ const KEY_LICENSE = 'afyatrust_license_no';
 const KEY_HOSPITAL = 'afyatrust_hospital_code';
 const KEY_USERNAME = 'afyatrust_username';
 
+interface AuthSessionState {
+  token: string | null;
+  healthId: string;
+  fullName: string;
+  role: string;
+}
+
 /**
  * Role-aware session store.
  * PATIENT: Health ID + PIN -> JWT (health_id claim).
@@ -50,15 +56,13 @@ const KEY_USERNAME = 'afyatrust_username';
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private tokenSubject = new BehaviorSubject<string | null>(localStorage.getItem(KEY_TOKEN));
-  private healthIdSubject = new BehaviorSubject<string>(localStorage.getItem(KEY_HEALTH_ID) || '');
-  private nameSubject = new BehaviorSubject<string>(localStorage.getItem(KEY_NAME) || '');
-  private roleSubject = new BehaviorSubject<string>(localStorage.getItem(KEY_ROLE) || '');
-
-  token$ = this.tokenSubject.asObservable();
-  healthId$ = this.healthIdSubject.asObservable();
-  fullName$ = this.nameSubject.asObservable();
-  role$ = this.roleSubject.asObservable();
+  /** One atomic session snapshot shared by guards, API calls and all workspaces. */
+  readonly session = signal<AuthSessionState>({
+    token: localStorage.getItem(KEY_TOKEN),
+    healthId: localStorage.getItem(KEY_HEALTH_ID) || '',
+    fullName: localStorage.getItem(KEY_NAME) || '',
+    role: localStorage.getItem(KEY_ROLE) || '',
+  });
 
   /** Store a PATIENT session after Health ID + PIN login. */
   setSession(res: LoginResponse) {
@@ -69,10 +73,7 @@ export class AuthService {
     localStorage.setItem(KEY_NAME, res.full_name);
     localStorage.setItem(KEY_WALLET, res.wallet_address);
     localStorage.setItem(KEY_ROLE, 'PATIENT');
-    this.tokenSubject.next(res.access);
-    this.healthIdSubject.next(res.health_id);
-    this.nameSubject.next(res.full_name);
-    this.roleSubject.next('PATIENT');
+    this.session.set({ token: res.access, healthId: res.health_id, fullName: res.full_name, role: 'PATIENT' });
   }
 
   /** Store a DOCTOR session after license + PIN login. */
@@ -85,10 +86,7 @@ export class AuthService {
     localStorage.setItem(KEY_WALLET, res.wallet_address);
     localStorage.setItem(KEY_NAME, res.full_name);
     localStorage.setItem(KEY_ROLE, 'DOCTOR');
-    this.tokenSubject.next(res.access);
-    this.healthIdSubject.next('');
-    this.nameSubject.next(res.full_name);
-    this.roleSubject.next('DOCTOR');
+    this.session.set({ token: res.access, healthId: '', fullName: res.full_name, role: 'DOCTOR' });
   }
 
   /** Store a HOSPITAL STAFF session (admin-created account). */
@@ -100,10 +98,7 @@ export class AuthService {
     localStorage.setItem(KEY_HOSPITAL, res.hospital_code);
     localStorage.setItem(KEY_NAME, res.full_name);
     localStorage.setItem(KEY_ROLE, 'STAFF');
-    this.tokenSubject.next(res.access);
-    this.healthIdSubject.next('');
-    this.nameSubject.next(res.full_name);
-    this.roleSubject.next('STAFF');
+    this.session.set({ token: res.access, healthId: '', fullName: res.full_name, role: 'STAFF' });
   }
 
   /** Store a session from the unified login, dispatching on the role claim. */
@@ -122,10 +117,7 @@ export class AuthService {
 
   logout() {
     this.clearStorage();
-    this.tokenSubject.next(null);
-    this.healthIdSubject.next('');
-    this.nameSubject.next('');
-    this.roleSubject.next('');
+    this.session.set({ token: null, healthId: '', fullName: '', role: '' });
   }
 
   private clearStorage() {
@@ -134,24 +126,24 @@ export class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!this.tokenSubject.value;
+    return !!this.session().token;
   }
 
   get token(): string | null {
-    return this.tokenSubject.value;
+    return this.session().token;
   }
 
   get healthId(): string {
-    return this.healthIdSubject.value;
+    return this.session().healthId;
   }
 
   get fullName(): string {
-    return this.nameSubject.value;
+    return this.session().fullName;
   }
 
   /** 'PATIENT' | 'DOCTOR' | '' */
   get role(): string {
-    return this.roleSubject.value;
+    return this.session().role;
   }
 
   get licenseNo(): string {

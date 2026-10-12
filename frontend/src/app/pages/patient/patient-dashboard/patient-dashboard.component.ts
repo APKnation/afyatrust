@@ -1,23 +1,26 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { NgIf, NgFor, SlicePipe, DatePipe } from '@angular/common';
+import { NgIf, NgFor, NgClass, SlicePipe, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService, PatientData, AccessRequest, DoctorOption, ActivityStoryItem, EmergencyAccessItem, ActiveGrantItem, IntegrityCheckResult, IntegrityReport } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 import { RecordChartComponent, RecordChartPoint } from '../../../components/shared/record-chart/record-chart.component';
+import { DashboardGaugeComponent } from '../../../components/shared/dashboard-gauge/dashboard-gauge.component';
+import { WorkspaceStateService } from '../../../services/workspace-state.service';
 
 @Component({
   selector: 'app-patient-dashboard',
-  imports: [NgIf, NgFor, SlicePipe, DatePipe, FormsModule, RecordChartComponent],
+  imports: [NgIf, NgFor, NgClass, SlicePipe, DatePipe, FormsModule, RecordChartComponent, DashboardGaugeComponent],
+  styles: [`:host { display: block; width: 100%; }`],
   template: `
     <!-- LOADING (instant — skeleton, disappears as soon as first bytes arrive) -->
-    <div *ngIf="loading && !data" class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40">
-      <div class="w-14 h-14 border-4 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-4"></div>
-      <p class="text-slate-600 text-sm font-medium">Loading your health records…</p>
+    <div *ngIf="loading && !data" role="status" aria-live="polite" aria-busy="true" class="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-4">
+      <div aria-hidden="true" class="w-10 h-10 border-4 border-primary-100 border-t-primary-600 rounded-full animate-spin mb-4"></div>
+      <p class="m-0 text-slate-700 text-sm font-semibold">Loading your health records…</p>
     </div>
 
     <!-- NOT LOGGED IN -->
-    <div *ngIf="!auth.isAuthenticated()" class="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40">
+    <div *ngIf="!auth.isAuthenticated()" class="min-h-screen flex items-center justify-center px-4 bg-slate-50">
       <div class="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200 p-8 text-center">
         <div class="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
         </div>
@@ -30,7 +33,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     </div>
 
     <!-- LOAD FAILED -->
-    <div *ngIf="errorMsg && !data" class="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40">
+    <div *ngIf="errorMsg && !data" role="alert" class="min-h-screen flex items-center justify-center px-4 bg-slate-50">
       <div class="max-w-md w-full bg-white rounded-2xl shadow-xl border border-slate-200 p-8 text-center">
         <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
         </div>
@@ -46,16 +49,14 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     <div *ngIf="data" class="min-h-screen bg-slate-50">
       <div class="flex flex-col lg:flex-row">
         <!-- SIDEBAR -->
-        <aside class="w-full lg:w-64 xl:w-72 bg-white border-r border-slate-100 lg:min-h-screen">
-          <div class="p-6">
-            <div class="mb-8">
+        <aside class="w-full border-b border-slate-200 bg-white lg:min-h-screen lg:w-64 lg:border-b-0 lg:border-r xl:w-72">
+          <div class="p-4 sm:p-6">
+            <div class="mb-5 lg:mb-8">
               <h2 class="text-xl font-bold text-slate-900 mb-1">{{ data.full_name }}</h2>
               <p class="text-sm text-slate-500 mb-3">Health ID: <span class="font-semibold text-slate-700">{{ data.health_id }}</span></p>
-              <div class="flex items-center gap-2 p-3 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
-                <div class="w-8 h-8 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center">
-                </div>
+              <div class="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white">
                 <div class="flex-1 min-w-0">
-                  <p class="text-xs text-slate-500">Custodial Wallet</p>
+                  <p class="text-xs text-slate-500">Secure account</p>
                   <code class="text-xs font-mono text-slate-700 truncate block">{{ walletVisible ? data.wallet_address : 'Hidden' }}</code>
                 </div>
                 <button type="button" (click)="walletVisible = !walletVisible"
@@ -67,25 +68,21 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
 
             <!-- NAVIGATION -->
-            <nav class="space-y-2">
-              <button *ngFor="let t of tabs"
+            <nav class="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible" aria-label="Patient dashboard sections">
+              <button *ngFor="let t of tabs" type="button"
                       (click)="setTab(t.id)"
-                      class="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group"
-                      [class]="tab === t.id ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md' : 'text-slate-700 hover:bg-slate-100'">
-                <span [class]="tab === t.id ? 'text-white' : 'text-slate-500 group-hover:text-primary-500'" [innerHTML]="getIcon(t.id)"></span>
+                      class="flex min-h-11 shrink-0 items-center gap-3 whitespace-nowrap rounded-md px-4 py-2.5 transition-all duration-200 group lg:w-full"
+                      [class]="tab === t.id ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md' : 'text-slate-700 hover:bg-slate-100'"
+                      [attr.aria-current]="tab === t.id ? 'page' : null">
                 <span class="font-medium">{{ t.label }}</span>
                 <span *ngIf="t.id === 'requests' && requests.length > 0" class="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{{ requests.length }}</span>
               </button>
             </nav>
 
             <!-- BOTTOM ACTIONS -->
-            <div class="mt-6 pt-4 border-t border-slate-200 space-y-2">
-              <button (click)="viewProfile()"
-                      class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-slate-100 transition-all duration-200 group">
-                <span class="font-medium">View Profile</span>
-              </button>
+            <div class="mt-3 flex gap-2 border-t border-slate-200 pt-3 lg:mt-6 lg:flex-col lg:pt-4">
               <button (click)="logoutAndRedirect()"
-                      class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-red-50 hover:text-red-600 transition-all duration-200 group">
+                      class="btn-logout flex min-h-11 items-center gap-3 rounded-md px-4 py-2.5 transition-all duration-200 group lg:w-full">
                 <span class="font-medium">Sign Out</span>
               </button>
             </div>
@@ -93,34 +90,14 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
         </aside>
 
         <!-- MAIN CONTENT -->
-        <main class="flex-1 px-4 py-6 lg:px-8 lg:py-8">
-          <!-- LAST TX BANNER -->
-          <div *ngIf="lastTx" class="mb-6 bg-white rounded-2xl border-l-4 shadow-lg overflow-hidden"
-               [class]="lastTx.pending ? 'border-l-amber-500' : 'border-l-emerald-500'">
-            <div class="p-5 flex flex-wrap items-center justify-between gap-4">
-              <div class="flex items-start gap-3">
-                <div class="w-10 h-10 rounded-xl flex items-center justify-center"
-                     [class]="lastTx.pending ? 'bg-amber-100' : 'bg-emerald-100'">
-                </div>
-                <div>
-                  <h3 class="font-semibold text-slate-900 mb-1">{{ lastTx.label }}</h3>
-                  <p class="text-sm text-slate-600">
-                    {{ lastTx.pending ? 'Transaction submitted — confirmation pending' : 'Written to Sepolia blockchain' }}
-                  </p>
-                </div>
-              </div>
-              <div class="flex items-center gap-3">
-                <code class="text-xs font-mono bg-slate-100 px-3 py-1.5 rounded-lg text-slate-700">{{ lastTx.tx_hash | slice:0:16 }}…</code>
-                <a *ngIf="!isPendingTx(lastTx.tx_hash)" [href]="etherscanUrl(lastTx.tx_hash)" target="_blank" rel="noopener" class="px-4 py-2 bg-white border border-slate-300 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2">
-                  View on Etherscan
-                </a>
-                <button (click)="lastTx = null" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-                </button>
-              </div>
-            </div>
+        <main class="mx-auto w-full min-w-0 max-w-[1480px] flex-1 px-4 py-6 lg:px-8 lg:py-8">
+          <div *ngIf="feedbackMessage" role="status" aria-live="polite"
+               class="fixed right-4 top-4 z-[100] flex max-w-[calc(100vw-2rem)] items-start gap-3 border px-4 py-3 shadow-lg sm:right-6 sm:top-6 sm:max-w-md"
+               [class]="feedbackError ? 'border-red-200 bg-red-50 text-red-800' : 'border-primary-200 bg-primary-50 text-primary-900'">
+            <p class="m-0 flex-1 text-sm font-medium">{{ feedbackMessage }}</p>
+            <button type="button" (click)="feedbackMessage = ''" aria-label="Dismiss message" class="min-h-6 border-0 bg-transparent px-1 text-lg leading-none">×</button>
           </div>
-
-      <!-- LAST ON-CHAIN ACTION (Etherscan-verifiable) -->
+      <!-- RECENT ACCOUNT UPDATE -->
       <div *ngIf="lastTx" class="mb-6 rounded-2xl border-l-4 p-5 bg-white shadow-sm border border-slate-100"
            [class]="lastTx.pending ? 'border-l-orange-500' : 'border-l-accent-500'">
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -128,16 +105,16 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <h2 class="m-0 text-sm font-bold text-ink">{{ lastTx.label }}</h2>
             <p class="m-0 text-xs text-muted">
               {{ lastTx.pending
-                ? 'Transaction submitted — the confirmation will appear in your Blockchain Transactions tab shortly.'
-                : 'Written to Sepolia — verify it on Etherscan.' }}
+                ? 'Your request was sent. We will update this message when it is confirmed.'
+                : 'Your activity has been recorded and can be reviewed here.' }}
             </p>
           </div>
           <div class="flex items-center gap-2">
-            <code class="rounded bg-gray-100 px-2 py-1 font-mono text-xs">{{ lastTx.tx_hash | slice:0:20 }}…</code>
+            <details class="text-xs"><summary class="cursor-pointer">Technical details</summary><code class="mt-1 block max-w-xs break-all rounded bg-gray-100 px-2 py-1 font-mono">{{ lastTx.tx_hash }}</code></details>
             <a *ngIf="!isPendingTx(lastTx.tx_hash)"
                [href]="etherscanUrl(lastTx.tx_hash)" target="_blank" rel="noopener"
                class="btn-secondary text-sm">
-              View on Etherscan
+              Open optional activity details
             </a>
             <button (click)="lastTx = null" aria-label="Dismiss"
                     class="cursor-pointer border-none bg-transparent text-lg leading-none text-slate-500 hover:text-slate-900 hover:bg-slate-100">×</button>
@@ -146,11 +123,11 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       </div>
 
       <!-- PENDING REQUESTS BANNER (visible on every tab) -->
-      <div *ngIf="requests.length > 0" class="card mb-6 border-l-4 border-l-accent-500 p-5">
+      <div *ngIf="requests.length > 0 && tab === 'dashboard'" class="card mb-6 border-l-4 border-l-accent-500 p-5">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 class="m-0 text-lg font-bold">Doctor waiting for your answer</h2>
-            <p class="m-0 text-sm text-muted">Approving grants 7 days of on-chain access. Rejecting blocks the doctor from your records.</p>
+            <p class="m-0 text-sm text-muted">Approving gives this doctor access for 7 days. You can review or remove access from Permissions.</p>
           </div>
           <button (click)="setTab('requests')"
                   class="btn-secondary text-sm">
@@ -184,14 +161,14 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-                  <span>Longitudinal Medical History & Care Journey</span>
+                  <span>Your Care History</span>
                   <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
                     <span class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-                    Multi-Hospital Chain
+                    Care across hospitals
                   </span>
                 </h1>
                 <p class="text-sm text-slate-500 mt-1 max-w-3xl leading-relaxed">
-                  Your complete healthcare story from where you began to where you were referred. Track every clinical measurement, diagnosis, and treatment with the responsible doctor, measured results, and the cryptographic proof anchored on Ethereum Sepolia.
+                  Review your care across hospitals, including visits, measurements, diagnoses, treatments, and the clinicians who recorded them. Verification details are available when recorded.
                 </p>
               </div>
             </div>
@@ -205,7 +182,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   </div>
                   <div>
                     <h2 class="text-sm font-bold text-white uppercase tracking-wider">Hospital Care Progression (Origin &rarr; Transfers)</h2>
-                    <p class="text-xs text-indigo-300">Continuous inter-hospital health record anchored across facilities</p>
+                    <p class="text-xs text-indigo-300">Your care history from each facility</p>
                   </div>
                 </div>
                 <span class="text-xs font-mono font-medium text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
@@ -237,25 +214,33 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
             <!-- 4 Summary Stat Cards -->
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+              <div class="dashboard-metric">
+                <span class="dashboard-metric-icon" aria-hidden="true">01</span><div>
                 <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Care Events</p>
                 <p class="text-2xl font-extrabold text-slate-900">{{ allMedicalHistoryItemsRaw.length }}</p>
                 <p class="text-xs text-slate-500 mt-0.5">Clinical encounters recorded</p>
+                </div>
               </div>
-              <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+              <div class="dashboard-metric">
+                <span class="dashboard-metric-icon" aria-hidden="true">02</span><div>
                 <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Facilities Visited</p>
                 <p class="text-2xl font-extrabold text-indigo-600">{{ totalCareFacilitiesCount }}</p>
                 <p class="text-xs text-slate-500 mt-0.5">Hospitals in your care journey</p>
+                </div>
               </div>
-              <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+              <div class="dashboard-metric">
+                <span class="dashboard-metric-icon" aria-hidden="true">03</span><div>
                 <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Doctors Engaged</p>
                 <p class="text-2xl font-extrabold text-teal-600">{{ totalDoctorsEngagedCount }}</p>
                 <p class="text-xs text-slate-500 mt-0.5">Attending physicians & staff</p>
+                </div>
               </div>
-              <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
-                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Blockchain Anchors</p>
+              <div class="dashboard-metric">
+                <span class="dashboard-metric-icon" aria-hidden="true">04</span><div>
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Records with verification</p>
                 <p class="text-2xl font-extrabold text-emerald-600">{{ onChainVerifiedEventsCount }}</p>
-                <p class="text-xs text-slate-500 mt-0.5">Sealed on Ethereum Sepolia</p>
+                <p class="text-xs text-slate-500 mt-0.5">Record details checked</p>
+                </div>
               </div>
             </div>
 
@@ -359,52 +344,12 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   </div>
                 </div>
 
-                <!-- Bottom Web3 Security Bar: HOW BLOCKCHAIN APPLIES HERE -->
-                <div class="mt-3 p-4 bg-slate-900 text-white rounded-xl border border-indigo-500/20">
-                  <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <div class="flex items-center gap-2">
-                      <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                      </svg>
-                      <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">How Blockchain Applies Here</span>
-                    </div>
-                    <span class="text-[11px] font-mono text-indigo-300">Ethereum Sepolia Proof</span>
-                  </div>
-
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-0.5">SHA-256 Record Hash (Integrity Fingerprint)</p>
-                      <div class="flex items-center gap-1.5">
-                        <code *ngIf="item.hash" class="font-mono text-emerald-300 bg-slate-950 px-2 py-1 rounded border border-slate-800 text-[11px] truncate select-all flex-1">
-                          {{ item.hash }}
-                        </code>
-                        <span *ngIf="!item.hash" class="text-slate-500 italic text-[11px]">Anchoring pending</span>
-                        <button *ngIf="item.hash" type="button" (click)="copyHash(item.hash)"
-                                class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-semibold border border-slate-700 flex-shrink-0 cursor-pointer">
-                          {{ copiedHash === item.hash ? 'Copied!' : 'Copy' }}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold mb-0.5">On-Chain Transaction & Verification</p>
-                      <div class="flex items-center gap-2">
-                        <a *ngIf="item.tx_hash && !item.tx_hash.startsWith('PENDING')"
-                           [href]="'https://sepolia.etherscan.io/tx/' + item.tx_hash"
-                           target="_blank" rel="noopener"
-                           class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px] transition-colors">
-                          <span>Verify Tx on Etherscan</span>
-                          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                        </a>
-                        <span *ngIf="!item.tx_hash || item.tx_hash.startsWith('PENDING')" class="text-amber-400 text-[11px] italic">
-                          Tx confirmation queued
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <p class="text-[11px] text-slate-400 mt-2.5 pt-2 border-t border-slate-800/80 leading-relaxed">
-                    <span class="text-slate-300 font-semibold">Decentralized Trust:</span> Clinical notes stay securely in the hospital database off-chain. Only this cryptographic SHA-256 hash lives on Ethereum Sepolia. If any party modifies this reading in the hospital database, the hash check fails immediately.
+                <div class="mt-3 rounded-xl border border-slate-200 bg-white p-4">
+                  <p class="text-sm font-semibold text-slate-900">Record review</p>
+                  <p class="mt-1 text-sm text-slate-700">
+                    <span *ngIf="item.verified">A record check is available for this entry.</span>
+                    <span *ngIf="!item.verified">A record check is not available yet.</span>
+                    This can help identify changes to saved information, but it does not confirm medical accuracy.
                   </p>
                 </div>
               </div>
@@ -420,7 +365,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
           </div>
 
-          <!-- MEASUREMENTS (Clinical Vitals with Blockchain Verification) -->
+          <!-- MEASUREMENTS (Clinical Vitals with Record Review) -->
           <div *ngIf="tab === 'measurements'" class="space-y-6 animate-fade-in">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
@@ -431,7 +376,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   </span>
                 </h1>
                 <p class="text-slate-600 text-sm mt-1">
-                  Clinical vital signs recorded by authorized attending doctors. Every reading is cryptographically anchored on Ethereum Sepolia.
+                  Clinical measurements recorded by your care team. Where available, you can review whether the saved record details have been checked.
                 </p>
               </div>
             </div>
@@ -446,7 +391,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                       <th class="px-5 py-3.5">Result</th>
                       <th class="px-5 py-3.5">Doctor Responsible</th>
                       <th class="px-5 py-3.5">Hospital</th>
-                      <th class="px-5 py-3.5">Blockchain Proof</th>
+                      <th class="px-5 py-3.5">Record check</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-100">
@@ -478,15 +423,15 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                              [href]="'https://sepolia.etherscan.io/tx/' + m.tx_hash"
                              target="_blank" rel="noopener"
                              class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold hover:bg-emerald-100 transition-colors">
-                            <span>Verified Tx</span>
+                            <span>Checked</span>
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
                           </a>
                           <span *ngIf="!m.tx_hash || m.tx_hash.startsWith('PENDING')" class="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                            Queued
+                            Being checked
                           </span>
                           <button *ngIf="m.record_hash" type="button" (click)="copyHash(m.record_hash)"
-                                  class="text-xs text-slate-500 hover:text-slate-800 underline font-mono cursor-pointer" title="Copy SHA-256 Hash">
-                            Hash
+                                  class="text-xs text-slate-500 hover:text-slate-800 underline font-mono cursor-pointer" title="Copy record reference">
+                            Reference
                           </button>
                         </div>
                       </td>
@@ -500,158 +445,62 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   <svg class="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
                 </div>
                 <h3 class="text-lg font-bold text-slate-900 mb-1">No Measurements Yet</h3>
-                <p class="text-sm text-slate-500">Clinical measurements recorded by doctors will appear here with cryptographic integrity proofs.</p>
+                <p class="text-sm text-slate-500">Measurements recorded by your care team will appear here with their available review status.</p>
               </div>
             </div>
           </div>
 
-          <!-- REFERRALS (Advanced UI) -->
-          <div *ngIf="tab === 'referrals'" class="space-y-6 animate-fade-in">
-
-            <!-- PAGE HEADER -->
-            <div class="flex flex-wrap items-start justify-between gap-4">
+          <!-- REFERRALS -->
+          <section *ngIf="tab === 'referrals'" class="space-y-6 animate-fade-in" aria-labelledby="referrals-title">
+            <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
               <div>
-                <div class="flex items-center gap-2 mb-2">
-                  <span class="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 text-white shadow-md">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" /></svg>
-                  </span>
-                  <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">My Referrals</h1>
+                <h1 id="referrals-title" class="text-2xl font-bold text-slate-900">My Referrals</h1>
+                <p class="mt-1 text-sm text-slate-600">Review referral requests, their destination, and response status.</p>
+              </div>
+              <button type="button" (click)="referralModal = true" class="btn-primary min-h-11 px-5">Request Referral</button>
+            </div>
+
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <article class="bg-white border border-slate-200 rounded-xl p-4"><p class="text-sm text-slate-600">Total referrals</p><p class="mt-2 text-2xl font-semibold text-slate-900">{{ data.referrals.length }}</p></article>
+              <article class="bg-white border border-slate-200 rounded-xl p-4"><p class="text-sm text-slate-600">Accepted</p><p class="mt-2 text-2xl font-semibold text-slate-900">{{ countReferralsByStatus('ACCEPTED') }}</p></article>
+              <article class="bg-white border border-slate-200 rounded-xl p-4"><p class="text-sm text-slate-600">Pending</p><p class="mt-2 text-2xl font-semibold text-slate-900">{{ countReferralsByStatus('PENDING') }}</p></article>
+              <article class="bg-white border border-slate-200 rounded-xl p-4"><p class="text-sm text-slate-600">Declined</p><p class="mt-2 text-2xl font-semibold text-slate-900">{{ countReferralsByStatus('DECLINED') }}</p></article>
+            </div>
+
+            <div *ngIf="data.referrals.length; else noReferrals" class="space-y-3">
+              <article *ngFor="let r of data.referrals" class="bg-white border border-slate-200 rounded-xl p-4 sm:p-5">
+                <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div class="min-w-0">
+                    <h2 class="text-base font-semibold text-slate-900 break-words">{{ r.to_hospital }}</h2>
+                    <p class="mt-1 text-sm text-slate-600">Referral #{{ r.id }} <span aria-hidden="true">·</span> Sent {{ (r.date || r.created_at) | date:'mediumDate' }}</p>
+                  </div>
+                  <span class="inline-flex w-fit items-center rounded-md border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700">{{ r.status }}</span>
                 </div>
-                <p class="text-slate-500 text-sm leading-relaxed">Track every hospital referral — on-chain secured and tamper-proof.</p>
-              </div>
-              <button (click)="referralModal = true"
-                      class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-semibold shadow-lg shadow-violet-200 hover:shadow-violet-300 hover:from-violet-600 hover:to-indigo-700 transition-all duration-200 active:scale-95">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                Request Referral
-              </button>
-            </div>
-
-            <!-- STATS BAR -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div class="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm">
-                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total</p>
-                <p class="text-2xl font-black text-slate-900">{{ data.referrals.length }}</p>
-              </div>
-              <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 shadow-sm">
-                <p class="text-xs font-semibold text-emerald-600 uppercase tracking-wider mb-1">Accepted</p>
-                <p class="text-2xl font-black text-emerald-700">{{ countReferralsByStatus('ACCEPTED') }}</p>
-              </div>
-              <div class="bg-amber-50 border border-amber-100 rounded-2xl p-4 shadow-sm">
-                <p class="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-1">Pending</p>
-                <p class="text-2xl font-black text-amber-700">{{ countReferralsByStatus('PENDING') }}</p>
-              </div>
-              <div class="bg-red-50 border border-red-100 rounded-2xl p-4 shadow-sm">
-                <p class="text-xs font-semibold text-red-500 uppercase tracking-wider mb-1">Declined</p>
-                <p class="text-2xl font-black text-red-600">{{ countReferralsByStatus('DECLINED') }}</p>
-              </div>
-            </div>
-
-            <!-- REFERRAL CARDS -->
-            <div *ngIf="data.referrals.length > 0" class="space-y-4">
-              <div *ngFor="let r of data.referrals; let i = index"
-                   class="group relative bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-violet-100 transition-all duration-300 overflow-hidden">
-
-                <!-- LEFT ACCENT STRIPE -->
-                <div class="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl"
-                     [class]="r.status === 'ACCEPTED' ? 'bg-emerald-500' : r.status === 'DECLINED' ? 'bg-red-400' : r.status === 'CANCELLED' ? 'bg-slate-400' : 'bg-amber-400'"></div>
-
-                <div class="pl-5 pr-5 pt-5 pb-4">
-                  <!-- TOP ROW -->
-                  <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
-                    <div class="flex items-start gap-3">
-                      <!-- Hospital icon -->
-                      <div class="flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-white shadow-md"
-                           [class]="r.status === 'ACCEPTED' ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' : r.status === 'DECLINED' ? 'bg-gradient-to-br from-red-400 to-red-600' : r.status === 'CANCELLED' ? 'bg-gradient-to-br from-slate-400 to-slate-600' : 'bg-gradient-to-br from-amber-400 to-orange-500'">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5m4 0H9" /></svg>
-                      </div>
-                      <div>
-                        <h3 class="font-bold text-slate-900 text-base leading-tight">{{ r.to_hospital }}</h3>
-                        <p class="text-xs text-slate-400 mt-0.5">Referral #{{ r.id }}  ·  {{ (r.date || r.created_at) | date:'MMM d, y' }}</p>
-                      </div>
-                    </div>
-
-                    <!-- STATUS PILL -->
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide"
-                          [class]="r.status === 'ACCEPTED' ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200' : r.status === 'DECLINED' ? 'bg-red-100 text-red-700 ring-1 ring-red-200' : r.status === 'CANCELLED' ? 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' : 'bg-amber-100 text-amber-700 ring-1 ring-amber-200'">
-                      <span class="w-1.5 h-1.5 rounded-full"
-                            [class]="r.status === 'ACCEPTED' ? 'bg-emerald-500' : r.status === 'DECLINED' ? 'bg-red-500' : r.status === 'CANCELLED' ? 'bg-slate-400' : 'bg-amber-500'"></span>
-                      {{ r.status }}
-                    </span>
-                  </div>
-
-                  <!-- REASON -->
-                  <div *ngIf="r.reason" class="mb-4 px-4 py-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Reason</p>
-                    <p class="text-sm text-slate-800 leading-relaxed">{{ r.reason }}</p>
-                  </div>
-
-                  <!-- TIMELINE MINI -->
-                  <div class="flex items-center gap-2 flex-wrap">
-                    <!-- Sent -->
-                    <div class="flex items-center gap-1.5 text-xs text-slate-500">
-                      <span class="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center">
-                        <svg class="w-3 h-3 text-indigo-600" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
-                      </span>
-                      Sent {{ (r.date || r.created_at) | date:'shortDate' }}
-                    </div>
-                    <!-- Arrow -->
-                    <svg class="w-3 h-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
-                    <!-- Response -->
-                    <div *ngIf="r.responded_at" class="flex items-center gap-1.5 text-xs text-slate-500">
-                      <span class="w-5 h-5 rounded-full flex items-center justify-center"
-                            [class]="r.status === 'ACCEPTED' ? 'bg-emerald-100' : 'bg-red-100'">
-                        <svg class="w-3 h-3" [class]="r.status === 'ACCEPTED' ? 'text-emerald-600' : 'text-red-500'" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
-                      </span>
-                      Responded {{ r.responded_at | date:'shortDate' }}
-                      <span *ngIf="r.responded_by" class="text-slate-400">by {{ r.responded_by }}</span>
-                    </div>
-                    <div *ngIf="!r.responded_at" class="flex items-center gap-1.5 text-xs text-amber-600">
-                      <span class="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center">
-                        <svg class="w-3 h-3 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      </span>
-                      Awaiting response…
-                    </div>
-                  </div>
-
-                  <!-- BOTTOM: FROM DOCTOR + ON-CHAIN BADGE -->
-                  <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                    <div class="text-xs text-slate-400 flex items-center gap-1">
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                      <span *ngIf="r.from_doctor">Referred by Dr. {{ r.from_doctor }}</span>
-                      <span *ngIf="!r.from_doctor && r.from_hospital">From {{ r.from_hospital }}</span>
-                      <span *ngIf="!r.from_doctor && !r.from_hospital">Self-requested</span>
-                    </div>
-                    <!-- On-chain badge placeholder -->
-                    <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100">
-                      <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                      Blockchain-secured
-                    </span>
-                  </div>
+                <div *ngIf="r.reason" class="mt-4 border-t border-slate-100 pt-3">
+                  <p class="text-xs font-medium uppercase tracking-wide text-slate-500">Reason</p>
+                  <p class="mt-1 text-sm leading-6 text-slate-800">{{ r.reason }}</p>
                 </div>
-              </div>
+                <div class="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-t border-slate-100 pt-3 text-sm text-slate-600">
+                  <p><span class="font-medium text-slate-700">From:</span> <span *ngIf="r.from_doctor">Dr. {{ r.from_doctor }}</span><span *ngIf="!r.from_doctor && r.from_hospital">{{ r.from_hospital }}</span><span *ngIf="!r.from_doctor && !r.from_hospital">Self-requested</span></p>
+                  <p *ngIf="r.responded_at">Responded {{ r.responded_at | date:'mediumDate' }}<span *ngIf="r.responded_by"> by {{ r.responded_by }}</span></p>
+                  <p *ngIf="!r.responded_at" class="text-slate-500">Awaiting hospital response</p>
+                </div>
+              </article>
             </div>
-
-            <!-- EMPTY STATE -->
-            <div *ngIf="data.referrals.length === 0"
-                 class="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-slate-200 shadow-sm">
-              <div class="w-20 h-20 rounded-full bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center mb-5 shadow-inner">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" /></svg>
+            <ng-template #noReferrals>
+              <div class="rounded-xl border border-slate-200 bg-white px-5 py-12 text-center">
+                <h2 class="text-lg font-semibold text-slate-900">No referrals yet</h2>
+                <p class="mx-auto mt-2 max-w-md text-sm text-slate-600">When a referral is created for you, its destination and status will appear here.</p>
+                <button type="button" (click)="referralModal = true" class="btn-primary mt-5 min-h-11 px-5">Request a referral</button>
               </div>
-              <h3 class="text-lg font-bold text-slate-800 mb-1">No Referrals Yet</h3>
-              <p class="text-sm text-slate-400 text-center max-w-xs mb-6">When a doctor or hospital refers you to another facility, it will appear here — secured on-chain.</p>
-              <button (click)="referralModal = true"
-                      class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-600 text-white text-sm font-semibold shadow-lg shadow-violet-200 hover:shadow-violet-300 transition-all duration-200 active:scale-95">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-                Request your first referral
-              </button>
-            </div>
-          </div>
+            </ng-template>
+          </section>
 
           <!-- PERMISSIONS -->
           <div *ngIf="tab === 'permissions'" class="space-y-6 animate-fade-in">
             <div>
               <h1 class="text-2xl font-bold text-slate-900 mb-2">Grant Access to a Doctor</h1>
-              <p class="text-slate-600">Search for a doctor by name or license number, then grant time-limited on-chain access.</p>
+              <p class="text-slate-600">Search for a doctor by name or license number, then choose how long they may view your records.</p>
             </div>
 
             <!-- LIVE BREAK-GLASS WINDOW (emergency access) -->
@@ -664,7 +513,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               </div>
               <p class="mt-2 text-sm text-red-800">
                 A doctor opened your record under break-glass because you could not
-                communicate or give consent. Every view is logged on-chain, the window
+                communicate or give consent. Each access is recorded in your activity history, and the window
                 closes automatically after one hour, and you can end it sooner.
               </p>
               <div *ngFor="let e of walletGrants?.emergency" class="mt-3 rounded-xl border border-red-200 bg-white p-4">
@@ -736,7 +585,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 </span>
               </div>
               <p class="text-sm text-slate-600 mb-4">
-                These doctors currently hold authorized on-chain permissions to view your medical records. You can revoke access at any time.
+                These doctors currently have permission to view your medical records. You can remove their access at any time.
               </p>
               <div class="space-y-3">
                 <div *ngFor="let g of walletGrants?.active_grants" class="rounded-xl border border-slate-200 bg-slate-50 p-4 flex flex-wrap items-center justify-between gap-3">
@@ -748,9 +597,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                     <p class="text-xs text-slate-500 mt-1">
                       Granted: {{ g.created_at | date:'mediumDate' }} • Expires: <span class="font-medium text-slate-700">{{ g.expires_at | date:'medium' }}</span>
                     </p>
-                    <p *ngIf="g.tx_hash" class="text-[11px] font-mono text-slate-400 mt-0.5 truncate max-w-xs">
-                      Tx: {{ g.tx_hash }}
-                    </p>
+                    <details *ngIf="g.tx_hash" class="mt-1"><summary class="min-h-10 cursor-pointer text-xs text-slate-500">Show technical details</summary><code class="block max-w-xs break-all text-[11px] text-slate-500">{{ g.tx_hash }}</code></details>
                   </div>
                   <div>
                     <button type="button" (click)="revokeRoutineAccess(g)" [disabled]="busy"
@@ -764,14 +611,14 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
             <div class="card">
               <p class="text-sm text-slate-600">
-                <span class="font-semibold text-slate-700">Note:</span> Access expires automatically after the granted duration. Revocations are permanently logged on the blockchain.
+                <span class="font-semibold text-slate-700">Note:</span> Access ends after the period you selected. Changes to access appear in your activity history.
               </p>
             </div>
           </div>          <!-- REQUESTS -->
           <div *ngIf="tab === 'requests'" class="space-y-6 animate-fade-in">
             <div>
               <h1 class="text-2xl font-bold text-slate-900 mb-2">Access Requests</h1>
-              <p class="text-slate-600">Doctors requesting access to your medical records. Approval grants 7 days of on-chain access.</p>
+              <p class="text-slate-600">Review doctors requesting access to your medical records. Approving gives access for 7 days.</p>
             </div>
             <div *ngFor="let req of requests" class="card">
               <div class="flex flex-wrap items-start justify-between gap-4">
@@ -798,295 +645,69 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <p class="text-slate-600">You're all caught up!</p>
             </div>
           </div>
-          <!-- WALLET -->
-          <div *ngIf="tab === 'wallet' && walletActivity" class="space-y-6 animate-fade-in">
-            <!-- Header with Network Badge -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <!-- CUSTODIAL WALLET -->
+          <section *ngIf="tab === 'wallet' && walletActivity" class="space-y-6 animate-fade-in" aria-labelledby="wallet-title">
+            <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
               <div>
-                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-                  <span>Custodial Blockchain Wallet</span>
-                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Sepolia Live
-                  </span>
-                </h1>
-                <p class="text-sm text-slate-500 mt-1 max-w-2xl">
-                  Your self-sovereign on-chain identity on Ethereum Sepolia. All clinical hashes, access grants, and audit events are cryptographically bound to this address without requiring MetaMask.
-                </p>
+                <h1 id="wallet-title" class="text-2xl font-bold text-slate-900">Your secure account</h1>
+                <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-600">A secure account reference used by the service to keep track of record activity. You can review your activity below.</p>
               </div>
-              <div class="flex items-center gap-2 self-start sm:self-auto">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                  <svg class="w-3.5 h-3.5 text-indigo-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd"/></svg>
-                  Gasless (Sponsored)
-                </span>
-              </div>
+              <details class="text-sm text-slate-600"><summary class="min-h-11 cursor-pointer">Technical account details</summary><p class="mt-1">This account uses a test environment.</p></details>
             </div>
 
-            <!-- Hero Web3 Custodial Card -->
-            <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white p-6 sm:p-8 shadow-2xl border border-indigo-900/40">
-              <!-- Decorative background glows -->
-              <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"></div>
-              <div class="absolute -left-16 -bottom-16 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-              <div class="relative z-10 flex flex-col justify-between min-h-[190px]">
-                <!-- Card Header -->
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-cyan-400 p-0.5 shadow-lg shadow-indigo-500/20">
-                      <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-                        <svg class="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                        </svg>
-                      </div>
-                    </div>
-                    <div>
-                      <p class="text-xs font-semibold uppercase tracking-wider text-indigo-300/80">AfyaTrust Sovereign Identity</p>
-                      <p class="text-xs text-slate-400">Sepolia Network (Chain ID 11155111)</p>
-                    </div>
-                  </div>
-                  <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/30">
-                    <svg class="w-3 h-3 text-indigo-400" fill="currentColor" viewBox="0 0 320 512"><path d="M311.9 260.8L160 353.6 8 260.8 160 0l151.9 260.8zM160 383.4L8 290.6 160 512l152-221.4-152 92.8z"/></svg>
-                    Ethereum Custodial
-                  </span>
+            <section class="rounded-xl border border-slate-200 bg-white p-4 sm:p-6" aria-labelledby="wallet-address-title">
+              <div class="flex flex-col gap-4">
+                <div>
+                  <h2 id="wallet-address-title" class="text-base font-semibold text-slate-900">Account details</h2>
+                  <p class="mt-1 text-sm text-slate-600">This service-managed account helps associate activity with your health record. It is not your medical record.</p>
                 </div>
-
-                <!-- Card Body: Wallet Address Display -->
-                <div class="my-6">
-                  <p class="text-xs text-slate-400 uppercase tracking-widest mb-1.5 font-medium">Custodial Wallet Address</p>
-                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/80 backdrop-blur-md rounded-2xl p-4 border border-indigo-500/20">
-                    <div class="min-w-0 flex-1">
-                      <p *ngIf="walletVisible" class="font-mono text-sm sm:text-base text-emerald-400 tracking-wider break-all font-medium select-all">
-                        {{ walletActivity.wallet_address }}
-                      </p>
-                      <p *ngIf="!walletVisible" class="font-mono text-sm sm:text-base text-slate-400 tracking-widest">
-                        {{ walletActivity.wallet_address | slice:0:6 }}••••••••••••••••••••••••••••••••{{ walletActivity.wallet_address | slice:-4 }}
-                      </p>
-                    </div>
-                    <div class="flex items-center gap-2 flex-shrink-0">
-                      <button type="button" (click)="walletVisible = !walletVisible"
-                              class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path *ngIf="!walletVisible" stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                          <path *ngIf="walletVisible" stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>
-                        </svg>
-                        {{ walletVisible ? 'Hide' : 'Reveal' }}
-                      </button>
-                      <button type="button" (click)="copyWalletAddress()"
-                              class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer">
-                        <svg *ngIf="!copiedWallet" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                        </svg>
-                        <svg *ngIf="copiedWallet" class="w-3.5 h-3.5 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                        </svg>
-                        {{ copiedWallet ? 'Copied!' : 'Copy' }}
-                      </button>
-                      <a [href]="'https://sepolia.etherscan.io/address/' + walletActivity.wallet_address"
-                         target="_blank" rel="noopener"
-                         class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-indigo-300 border border-slate-700 transition-colors flex items-center gap-1">
-                        <span>Explorer</span>
-                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                      </a>
+                <details class="border-t border-slate-100 pt-3">
+                  <summary class="min-h-11 cursor-pointer text-sm font-medium text-slate-700">View optional account reference</summary>
+                  <div class="flex flex-col gap-3 pt-2 lg:flex-row lg:items-center">
+                    <code *ngIf="walletVisible" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-800 break-all select-all">{{ walletActivity.wallet_address }}</code>
+                    <code *ngIf="!walletVisible" class="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700 break-all">{{ walletActivity.wallet_address | slice:0:6 }}••••••••••••••••••••••••••••••••{{ walletActivity.wallet_address | slice:-4 }}</code>
+                    <div class="flex flex-wrap gap-2">
+                      <button type="button" (click)="walletVisible = !walletVisible" class="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700">{{ walletVisible ? 'Hide reference' : 'Show reference' }}</button>
+                      <button type="button" (click)="copyWalletAddress()" class="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700">{{ copiedWallet ? 'Copied' : 'Copy reference' }}</button>
+                      <a [href]="'https://sepolia.etherscan.io/address/' + walletActivity.wallet_address" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700">Open account activity details</a>
                     </div>
                   </div>
-                </div>
-
-                <!-- Card Footer -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-800/80 text-xs">
-                  <div>
-                    <span class="text-slate-500 uppercase tracking-wider block text-[10px]">Account Holder</span>
-                    <span class="font-semibold text-slate-200 capitalize text-sm">{{ walletActivity.full_name }}</span>
-                  </div>
-                  <div>
-                    <span class="text-slate-500 uppercase tracking-wider block text-[10px]">Health ID</span>
-                    <span class="font-mono font-semibold text-indigo-300 text-sm">#{{ walletActivity.health_id }}</span>
-                  </div>
-                  <div class="col-span-2 sm:col-span-1">
-                    <span class="text-slate-500 uppercase tracking-wider block text-[10px]">Key Encryption</span>
-                    <span class="font-semibold text-emerald-400 text-sm flex items-center gap-1">
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                      AES-256-GCM Vault
-                    </span>
-                  </div>
-                </div>
+                </details>
+                <dl class="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-100 pt-4">
+                  <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Account holder</dt><dd class="mt-1 text-sm font-medium text-slate-900">{{ walletActivity.full_name }}</dd></div>
+                  <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Health ID</dt><dd class="mt-1 break-all font-mono text-sm text-slate-900">#{{ walletActivity.health_id }}</dd></div>
+                  <div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Account management</dt><dd class="mt-1 text-sm font-medium text-slate-900">Managed by the service</dd></div>
+                </dl>
               </div>
+            </section>
+
+            <div class="grid grid-cols-2 xl:grid-cols-4 gap-3">
+              <article class="rounded-xl border border-slate-200 bg-white p-4"><p class="text-sm text-slate-600">Recorded events</p><p class="mt-2 text-2xl font-semibold text-slate-900">{{ walletActivity.activityCount }}</p><p class="mt-1 text-xs text-slate-500">Account activity</p></article>
+              <article class="rounded-xl border border-slate-200 bg-white p-4"><p class="text-sm text-slate-600">Active grants</p><p class="mt-2 text-2xl font-semibold text-slate-900">{{ walletGrants?.activeCount || 0 }}</p><p class="mt-1 text-xs text-slate-500">Current doctor permissions</p></article>
+              <article class="rounded-xl border border-slate-200 bg-white p-4"><p class="text-sm text-slate-600">All-time grants</p><p class="mt-2 text-2xl font-semibold text-slate-900">{{ walletGrants?.totalGrantsEver || 0 }}</p><p class="mt-1 text-xs text-slate-500">Permissions issued</p></article>
+              <article class="rounded-xl border border-slate-200 bg-white p-4"><p class="text-sm text-slate-600">Pending requests</p><p class="mt-2 text-2xl font-semibold text-slate-900">{{ walletActivity.pendingOperations }}</p><p class="mt-1 text-xs text-slate-500">Waiting for a response</p></article>
             </div>
 
-            <!-- 4 Stat Metric Cards -->
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <!-- Stat 1: On-Chain & Ledger Events -->
-              <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                <div class="flex items-center justify-between mb-3">
-                  <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Events Logged</span>
-                  <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                    </svg>
-                  </div>
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <section class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5 space-y-4" aria-labelledby="wallet-activity-title">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div><h2 id="wallet-activity-title" class="text-base font-semibold text-slate-900">Account activity</h2><p class="mt-1 text-sm text-slate-600">Most recent event and permission updates.</p></div>
+                  <button type="button" (click)="loadWalletProfile()" class="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">Refresh</button>
                 </div>
-                <p class="text-3xl font-extrabold text-slate-900">{{ walletActivity.activityCount }}</p>
-                <p class="text-xs text-slate-500 mt-1">Actions on Sepolia & ledger</p>
-              </div>
-
-              <!-- Stat 2: Active Access Grants -->
-              <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                <div class="flex items-center justify-between mb-3">
-                  <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Grants</span>
-                  <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                  </div>
-                </div>
-                <p class="text-3xl font-extrabold text-emerald-600">{{ walletGrants?.activeCount || 0 }}</p>
-                <p class="text-xs text-slate-500 mt-1">Doctors with active access</p>
-              </div>
-
-              <!-- Stat 3: Total Grants Ever -->
-              <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                <div class="flex items-center justify-between mb-3">
-                  <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">All-Time Grants</span>
-                  <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-                    </svg>
-                  </div>
-                </div>
-                <p class="text-3xl font-extrabold text-blue-600">{{ walletGrants?.totalGrantsEver || 0 }}</p>
-                <p class="text-xs text-slate-500 mt-1">Authorizations issued</p>
-              </div>
-
-              <!-- Stat 4: Pending Operations -->
-              <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
-                   [class.ring-2]="walletActivity.pendingOperations > 0"
-                   [class.ring-amber-400]="walletActivity.pendingOperations > 0">
-                <div class="flex items-center justify-between mb-3">
-                  <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Pending Requests</span>
-                  <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                  </div>
-                </div>
-                <p class="text-3xl font-extrabold" [class.text-amber-600]="walletActivity.pendingOperations > 0" [class.text-slate-900]="walletActivity.pendingOperations === 0">
-                  {{ walletActivity.pendingOperations }}
-                </p>
-                <p class="text-xs text-slate-500 mt-1">Requests waiting for response</p>
-              </div>
+                <div class="border-t border-slate-100 pt-3"><p class="text-xs font-medium uppercase tracking-wide text-slate-500">Last recorded event</p><p class="mt-1 text-sm text-slate-900">{{ walletActivity.lastActivityAt ? (walletActivity.lastActivityAt * 1000 | date:'medium') : 'No activity recorded yet' }}</p></div>
+                <div class="border-t border-slate-100 pt-3"><div class="flex flex-wrap items-center justify-between gap-2"><p class="text-xs font-medium uppercase tracking-wide text-slate-500">Latest activity reference</p></div><details *ngIf="walletActivity.lastTxHash" class="mt-2"><summary class="min-h-11 cursor-pointer text-sm text-slate-600">Show technical reference</summary><code class="block break-all rounded-lg bg-slate-50 p-3 text-xs text-slate-800 select-all">{{ walletActivity.lastTxHash }}</code></details><p *ngIf="!walletActivity.lastTxHash" class="mt-1 text-sm text-slate-600">No confirmation details available.</p></div>
+                <div *ngIf="walletGrants" class="border-t border-slate-100 pt-3"><div class="flex flex-wrap items-center justify-between gap-2"><p class="text-xs font-medium uppercase tracking-wide text-slate-500">Most recent access grant</p><span *ngIf="walletGrants.expiringSoon > 0" class="text-sm text-slate-700">{{ walletGrants.expiringSoon }} expiring soon</span></div><p class="mt-1 text-sm font-medium text-slate-900">{{ walletGrants.lastGrantDoctor || 'No grants issued yet' }}</p><p *ngIf="walletGrants.lastGrantAt" class="mt-1 text-sm text-slate-600">Issued {{ walletGrants.lastGrantAt | date:'medium' }}</p></div>
+              </section>
+              <section class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5" aria-labelledby="wallet-management-title">
+                <h2 id="wallet-management-title" class="text-base font-semibold text-slate-900">How wallet management works</h2>
+                <dl class="mt-4 divide-y divide-slate-100">
+                  <div class="py-3"><dt class="text-sm font-medium text-slate-900">Custody</dt><dd class="mt-1 text-sm leading-6 text-slate-600">The platform manages the wallet account for this service. You do not need a browser wallet to use it.</dd></div>
+                  <div class="py-3"><dt class="text-sm font-medium text-slate-900">Network</dt><dd class="mt-1 text-sm leading-6 text-slate-600">This account uses a test environment. Some technical account details may be visible when you open the external activity page.</dd></div>
+                  <div class="py-3"><dt class="text-sm font-medium text-slate-900">Medical record privacy</dt><dd class="mt-1 text-sm leading-6 text-slate-600">The wallet view shows address and activity details. Manage clinician permissions from the Permissions section.</dd></div>
+                </dl>
+              </section>
             </div>
-
-            <!-- Two-Column Information Section -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <!-- Left: Live Activity & On-Chain Audit Details -->
-              <div class="card space-y-4">
-                <div class="flex items-center justify-between">
-                  <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                    </svg>
-                    Recent On-Chain Activity
-                  </h2>
-                  <button type="button" (click)="loadWalletProfile()" class="text-xs text-primary-700 hover:underline font-semibold cursor-pointer">
-                    Refresh
-                  </button>
-                </div>
-
-                <div class="space-y-3">
-                  <!-- Last Activity Timestamp -->
-                  <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-                    <p class="text-xs text-slate-500 mb-0.5">Last On-Chain Event</p>
-                    <p class="text-sm font-semibold text-slate-900">
-                      {{ walletActivity.lastActivityAt ? (walletActivity.lastActivityAt * 1000 | date:'medium') : 'No activity recorded yet' }}
-                    </p>
-                  </div>
-
-                  <!-- Last Tx Hash -->
-                  <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-                    <div class="flex items-center justify-between mb-1">
-                      <p class="text-xs text-slate-500">Latest Transaction Hash</p>
-                      <a *ngIf="walletActivity.lastTxHash && !walletActivity.lastTxHash.toLowerCase().startsWith('pending')"
-                         [href]="'https://sepolia.etherscan.io/tx/' + walletActivity.lastTxHash"
-                         target="_blank" rel="noopener"
-                         class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                        <span>Sepolia Etherscan</span>
-                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                      </a>
-                    </div>
-                    <code *ngIf="walletActivity.lastTxHash" class="text-xs font-mono text-slate-800 break-all select-all block bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
-                      {{ walletActivity.lastTxHash }}
-                    </code>
-                    <p *ngIf="!walletActivity.lastTxHash" class="text-xs text-slate-500 italic">
-                      None recorded yet
-                    </p>
-                  </div>
-
-                  <!-- Most Recent Access Grant -->
-                  <div *ngIf="walletGrants" class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-                    <div class="flex items-center justify-between mb-1">
-                      <p class="text-xs text-slate-500">Most Recent Grant</p>
-                      <span *ngIf="walletGrants.expiringSoon > 0" class="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                        {{ walletGrants.expiringSoon }} expiring soon
-                      </span>
-                    </div>
-                    <p class="text-sm font-semibold text-slate-900">
-                      {{ walletGrants.lastGrantDoctor || 'No grants issued yet' }}
-                    </p>
-                    <p *ngIf="walletGrants.lastGrantAt" class="text-xs text-slate-500 mt-0.5">
-                      Issued on {{ walletGrants.lastGrantAt | date:'medium' }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Right: Custodial Security & Architecture -->
-              <div class="card space-y-4">
-                <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                  </svg>
-                  Custodial Security Architecture
-                </h2>
-
-                <div class="space-y-3 text-sm">
-                  <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                    </div>
-                    <div>
-                      <p class="font-semibold text-slate-900 text-xs">Zero MetaMask Requirement</p>
-                      <p class="text-xs text-slate-600 mt-0.5">
-                        Your private key is protected by encrypted hardware-grade vaulting. You sign in with your Health ID and 4-digit PIN while retaining full blockchain guarantees.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                    </div>
-                    <div>
-                      <p class="font-semibold text-slate-900 text-xs">Gasless Relayed Execution</p>
-                      <p class="text-xs text-slate-600 mt-0.5">
-                        All on-chain gas costs on Ethereum Sepolia are sponsored by the hospital network relayer. You never have to purchase or hold ETH.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                    </div>
-                    <div>
-                      <p class="font-semibold text-slate-900 text-xs">Immediate Access Revocation</p>
-                      <p class="text-xs text-slate-600 mt-0.5">
-                        You maintain full custody over who views your medical data. You can grant or revoke doctor permissions instantly from the Permissions tab.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          </section>
 
           <!-- PROFILE -->
           <div *ngIf="tab === 'profile' && profileInfo" class="space-y-6 animate-fade-in">
@@ -1116,7 +737,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <div class="flex items-center justify-between gap-2">
-                    <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Wallet address</p>
+                    <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Account reference</p>
                     <button type="button" (click)="walletVisible = !walletVisible"
                             class="text-xs font-semibold text-primary-700 hover:underline"
                             [attr.aria-expanded]="walletVisible">
@@ -1199,241 +820,44 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
           </div>
 
-          <!-- REFERRAL SECURITY (blockchain-secured cross-hospital flow) -->
-          <div *ngIf="tab === 'referral-security'" class="space-y-6 animate-fade-in">
-            <div>
-              <h1 class="text-2xl font-bold text-slate-900 mb-2">Referral Security</h1>
-              <p class="text-slate-600 leading-relaxed">
-                When you are referred from one hospital to another, the blockchain
-                secures your data every step of the way — so no one can change your
-                records in between. Each record's hash is anchored on Sepolia by the
-                sending hospital, the referral acceptance is immutably timestamped,
-                and every view by the receiving hospital is logged forever.
-              </p>
-            </div>
+          <!-- REFERRAL SECURITY -->
+          <section *ngIf="tab === 'referral-security'" class="space-y-6 animate-fade-in" aria-labelledby="referral-security-title">
+            <header>
+              <h1 id="referral-security-title" class="text-2xl font-bold text-slate-900">Referral Security</h1>
+              <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">Review available referral confirmations, record verification details, and receiving-facility access events.</p>
+            </header>
 
-            <!-- How it works -->
-            <div class="card">
-              <h2 class="text-lg font-bold text-slate-900 mb-4">How the blockchain protects your data during a referral</h2>
-              <div class="space-y-4">
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">1. Hospital A anchors your record hashes on Sepolia</p>
-                  <p class="text-sm text-slate-600">
-                    Before you leave, Hospital A writes the SHA-256 hash of each of
-                    your records to the blockchain. The actual clinical data stays at
-                    Hospital A — only the hash and a verification pointer go on-chain.
-                    Once written, no one (not even Hospital A) can change that hash.
-                  </p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">2. You are referred to Hospital B</p>
-                  <p class="text-sm text-slate-600">
-                    When Hospital B accepts your referral, the acceptance is logged
-                    on-chain with the exact block timestamp, the clinician who accepted,
-                    and both hospitals' IDs. This is immutable proof of the transfer of
-                    care — it cannot be rewritten later.
-                  </p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">3. Hospital B verifies your records by hash</p>
-                  <p class="text-sm text-slate-600">
-                    Hospital B does not trust Hospital A's word — it verifies each
-                    record by recomputing the hash of the off-chain data and comparing
-                    it to the on-chain anchor. If anyone had changed even one byte of
-                    your data in between, the hash would not match and the tampering
-                    would be detected.
-                  </p>
-                </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">4. Every view by Hospital B is logged on-chain</p>
-                  <p class="text-sm text-slate-600">
-                    When a doctor at Hospital B views your records, a
-                    <code>RecordViewed</code> event is written on-chain with the viewer,
-                    the facility, and the timestamp. This creates a permanent,
-                    transparent audit trail of who accessed your data and when — across
-                    hospitals.
-                  </p>
-                </div>
+            <section class="rounded-xl border border-slate-200 bg-white p-4 sm:p-5" aria-labelledby="referral-process-title">
+              <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div><h2 id="referral-process-title" class="text-base font-semibold text-slate-900">What you can review here</h2><p class="mt-1 text-sm text-slate-600">Each section reflects the information currently available for a referral.</p></div>
+                <span class="text-xs text-slate-500">Secure activity records</span>
               </div>
+              <ol class="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <li class="rounded-lg border border-slate-200 bg-slate-50 p-4"><span class="text-xs font-semibold uppercase tracking-wide text-slate-500">01 · Referral</span><p class="mt-2 text-sm font-semibold text-slate-900">Sending and receiving facilities</p><p class="mt-1 text-sm leading-5 text-slate-600">See the referral reason, status, and response details.</p></li>
+                <li class="rounded-lg border border-slate-200 bg-slate-50 p-4"><span class="text-xs font-semibold uppercase tracking-wide text-slate-500">02 · Record checks</span><p class="mt-2 text-sm font-semibold text-slate-900">Record review details</p><p class="mt-1 text-sm leading-5 text-slate-600">See what information has been checked and when.</p></li>
+                <li class="rounded-lg border border-slate-200 bg-slate-50 p-4"><span class="text-xs font-semibold uppercase tracking-wide text-slate-500">03 · Access events</span><p class="mt-2 text-sm font-semibold text-slate-900">Receiving-facility views</p><p class="mt-1 text-sm leading-5 text-slate-600">Review recorded access events and their timestamps.</p></li>
+              </ol>
+            </section>
+
+            <div *ngIf="referralSecurity?.referrals?.length; else noReferralSecurity" class="space-y-4">
+              <article *ngFor="let r of referralSecurity!.referrals" class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <header class="border-b border-slate-200 p-4 sm:p-5">
+                  <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div class="min-w-0"><p class="text-xs font-medium uppercase tracking-wide text-slate-500">Referral #{{ r.id }}</p><h2 class="mt-1 break-words text-lg font-semibold text-slate-900">{{ r.from_hospital }} <span aria-label="to">→</span> {{ r.to_hospital }}</h2><p class="mt-1 text-sm text-slate-600">{{ r.reason || 'No reason recorded' }}</p></div><span class="inline-flex w-fit items-center rounded-md border border-slate-300 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">{{ r.status }}</span></div>
+                  <dl class="mt-4 grid grid-cols-1 gap-3 border-t border-slate-100 pt-3 sm:grid-cols-3"><div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Sent</dt><dd class="mt-1 text-sm text-slate-800">{{ r.created_at | date:'medium' }}</dd></div><div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Response</dt><dd class="mt-1 text-sm text-slate-800">{{ r.responded_at ? (r.responded_at | date:'medium') : 'No response recorded' }}</dd></div><div><dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Responded by</dt><dd class="mt-1 text-sm text-slate-800">{{ r.responded_by || 'Not recorded' }}</dd></div></dl>
+                </header>
+                <div class="grid grid-cols-1 gap-4 p-4 sm:p-5 xl:grid-cols-3">
+                  <section class="min-w-0 rounded-lg border border-slate-200 p-4" aria-label="Referral status"><h3 class="text-sm font-semibold text-slate-900">Referral status</h3><p *ngIf="r.on_chain_referral_accepted" class="mt-2 text-sm leading-5 text-slate-700">The receiving facility has recorded its response.</p><p *ngIf="!r.on_chain_referral_accepted && r.tx_hash && r.tx_hash.toLowerCase().startsWith('pending')" class="mt-2 text-sm leading-5 text-slate-700">The referral confirmation is still being processed.</p><p *ngIf="!r.on_chain_referral_accepted && (!r.tx_hash || !r.tx_hash.toLowerCase().startsWith('pending'))" class="mt-2 text-sm leading-5 text-slate-600">No confirmation details are available for this referral yet.</p><div *ngIf="r.on_chain_referral_tx_hash" class="mt-3 border-t border-slate-100 pt-3"><details class="mt-3 border-t border-slate-100 pt-3"><summary class="min-h-11 cursor-pointer text-sm font-medium text-slate-600">Technical details</summary><code class="mt-1 block break-all text-xs text-slate-800">{{ r.on_chain_referral_tx_hash }}</code><a *ngIf="!r.on_chain_referral_tx_hash.toLowerCase().startsWith('pending')" [href]="'https://sepolia.etherscan.io/tx/' + r.on_chain_referral_tx_hash" target="_blank" rel="noopener noreferrer" class="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-slate-700 underline underline-offset-2">Open external activity page</a></details></div></section>
+
+                  <section class="min-w-0 rounded-lg border border-slate-200 p-4" aria-label="Transferred record checks"><h3 class="text-sm font-semibold text-slate-900">Record checks <span class="font-normal text-slate-500">({{ r.from_hospital_records.length }})</span></h3><p *ngIf="!r.from_hospital_records.length" class="mt-2 text-sm text-slate-600">No record checks are available for this referral.</p><div *ngFor="let rec of r.from_hospital_records" class="mt-3 border-t border-slate-100 pt-3 first:border-0 first:pt-0"><div class="flex flex-wrap items-start justify-between gap-2"><div><p class="text-sm font-medium text-slate-900">{{ rec.record_type || 'Clinical record' }}</p><p class="mt-1 text-xs text-slate-600">Recorded {{ rec.on_chain_timestamp ? (rec.on_chain_timestamp * 1000 | date:'medium') : (rec.created_at | date:'medium') }}</p></div><span class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700">{{ rec.verified ? 'Matches earlier details' : 'Not yet checked' }}</span></div><details class="mt-2"><summary class="min-h-11 cursor-pointer py-2 text-sm font-medium text-slate-700">View optional record reference</summary><code class="block break-all rounded-md bg-slate-50 p-2 text-xs text-slate-800">{{ rec.record_hash }}</code><a *ngIf="rec.metadata_uri" [href]="rec.metadata_uri" target="_blank" rel="noopener noreferrer" class="mt-2 inline-flex min-h-11 items-center text-sm text-slate-700 underline underline-offset-2">Open verification link</a></details></div></section>
+
+                  <section class="min-w-0 rounded-lg border border-slate-200 p-4" aria-label="Receiving facility access events"><h3 class="text-sm font-semibold text-slate-900">Access events <span class="font-normal text-slate-500">({{ r.receiving_hospital_views.length }})</span></h3><p *ngIf="!r.receiving_hospital_views.length" class="mt-2 text-sm text-slate-600">No record views are listed for the receiving facility.</p><div *ngFor="let v of r.receiving_hospital_views" class="mt-3 border-t border-slate-100 pt-3 first:border-0 first:pt-0"><p class="break-all text-sm font-medium text-slate-900">{{ v.accessor }}</p><p class="mt-1 text-sm text-slate-600">{{ v.role }} <span *ngIf="v.facility_id">· {{ v.facility_id }}</span></p><p class="mt-1 text-xs text-slate-500">{{ v.timestamp * 1000 | date:'medium' }}</p></div></section>
+                </div>
+              </article>
             </div>
 
-            <!-- Your referral story -->
-            <div *ngIf="referralSecurity && referralSecurity.referrals.length" class="space-y-6">
-              <h2 class="text-lg font-bold text-slate-900">Your referral story on-chain</h2>
-
-              <div *ngFor="let r of referralSecurity.referrals" class="card">
-                <!-- Referral header -->
-                <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p class="text-sm text-muted mb-1">Referral</p>
-                    <h3 class="text-xl font-bold text-slate-900">
-                      {{ r.from_hospital }} → {{ r.to_hospital }}
-                      <span class="text-sm font-normal text-muted">({{ r.patient_name }})</span>
-                    </h3>
-                    <p class="text-sm text-slate-600 mt-1">
-                      {{ r.reason || 'No reason recorded' }}
-                    </p>
-                    <div class="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted">
-                      <span>Sent {{ r.created_at | date:'medium' }}</span>
-                      <span *ngIf="r.responded_at">· Responded {{ r.responded_at | date:'medium' }}</span>
-                      <span>· {{ r.status }}</span>
-                      <span *ngIf="r.responded_by">· by {{ r.responded_by }}</span>
-                    </div>
-                  </div>
-                  <span class="rounded-full px-3 py-1 text-xs font-bold"
-                        [class.bg-accent-500]="r.status === 'ACCEPTED'" [class.text-white]="r.status === 'ACCEPTED'"
-                        [class.bg-red-500]="r.status === 'DECLINED'" [class.text-white]="r.status === 'DECLINED'"
-                        [class.bg-primary-300]="r.status === 'PENDING'" [class.text-ink]="r.status === 'PENDING'">
-                    {{ r.status }}
-                  </span>
-                </div>
-
-                <!-- On-chain referral acceptance proof -->
-                <div class="mb-5 p-4 bg-indigo-50 rounded-xl border border-indigo-200">
-                  <p class="text-xs font-semibold text-indigo-800 uppercase tracking-wide mb-2">
-                    Transfer of care — on-chain proof
-                  </p>
-                  <div *ngIf="r.on_chain_referral_accepted" class="space-y-2">
-                    <p class="text-sm text-indigo-900">
-                      This referral was accepted and immutably recorded on Sepolia.
-                      No one can change this later.
-                    </p>
-                    <div class="flex flex-wrap items-center gap-2 text-xs">
-                      <span class="font-semibold text-indigo-900">Transaction:</span>
-                      <code class="rounded bg-white/60 px-1.5 py-0.5 font-mono text-indigo-900">
-                        {{ r.on_chain_referral_tx_hash | slice:0:24 }}…
-                      </code>
-                      <a *ngIf="r.on_chain_referral_tx_hash && !r.on_chain_referral_tx_hash.toLowerCase().startsWith('pending')"
-                         [href]="'https://sepolia.etherscan.io/tx/' + r.on_chain_referral_tx_hash"
-                         target="_blank" rel="noopener"
-                         class="text-indigo-700 hover:underline">
-                        View on Etherscan
-                      </a>
-                    </div>
-                  </div>
-                  <p *ngIf="!r.on_chain_referral_accepted && r.tx_hash && r.tx_hash.toLowerCase().startsWith('pending')"
-                     class="text-sm text-amber-800">
-                    The on-chain referral acceptance is pending confirmation on Sepolia.
-                  </p>
-                  <p *ngIf="!r.on_chain_referral_accepted && (!r.tx_hash || !r.tx_hash.toLowerCase().startsWith('pending'))"
-                     class="text-sm text-slate-600">
-                    This referral was accepted in the system but has not yet been anchored
-                    on-chain (or the chain is unreachable in this demo).
-                  </p>
-                </div>
-
-                <!-- Records anchored by the sending hospital -->
-                <div *ngIf="r.from_hospital_records.length" class="mb-5">
-                  <div class="flex items-center gap-2 mb-3">
-                    <p class="text-sm font-semibold text-slate-900">
-                      Records anchored by {{ r.from_hospital }}
-                      <span class="text-xs font-normal text-muted">(before your referral)</span>
-                    </p>
-                  </div>
-                  <p class="text-xs text-slate-500 mb-3">
-                    These are the SHA-256 hashes Hospital A wrote to Sepolia. Hospital B
-                    will verify each record by recomputing the hash — if the data was
-                    changed in between, the hash would not match.
-                  </p>
-                  <div class="space-y-2">
-                    <div *ngFor="let rec of r.from_hospital_records" class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                        <div>
-                          <span class="text-xs text-muted uppercase tracking-wide">Type</span>
-                          <p class="text-sm font-semibold text-slate-900">{{ rec.record_type || '—' }}</p>
-                        </div>
-                        <div class="text-right">
-                          <span class="text-xs text-muted uppercase tracking-wide">Anchored</span>
-                          <p class="text-xs text-slate-900">
-                            {{ rec.on_chain_timestamp ? (rec.on_chain_timestamp * 1000 | date:'medium') : (rec.created_at | date:'medium') }}
-                          </p>
-                        </div>
-                      </div>
-                      <div class="p-2 bg-white rounded-lg border border-slate-200 font-mono text-xs break-all">
-                        <span class="text-slate-500">hash:</span>
-                        <span class="text-slate-900">{{ rec.record_hash | slice:0:32 }}…</span>
-                      </div>
-                      <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                        <span class="font-semibold" [class.text-accent-700]="rec.verified"
-                              [class.text-muted]="!rec.verified">
-                          {{ rec.verified ? 'On-chain verified ✓' : 'Pending' }}
-                        </span>
-                        <span *ngIf="rec.metadata_uri" class="text-muted">
-                          ·
-                          <a [href]="rec.metadata_uri" target="_blank" rel="noopener" class="text-accent-700 hover:underline break-all">
-                            verify ↗
-                          </a>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Views by the receiving hospital (immutable audit) -->
-                <div *ngIf="r.receiving_hospital_views.length" class="mb-5">
-                  <div class="flex items-center gap-2 mb-3">
-                    <p class="text-sm font-semibold text-slate-900">
-                      Views by {{ r.to_hospital }} (on-chain audit)
-                    </p>
-                  </div>
-                  <p class="text-xs text-slate-500 mb-3">
-                    Every time a clinician at {{ r.to_hospital }} viewed your records,
-                    it was logged on-chain. This is permanent — it cannot be deleted or
-                    changed.
-                  </p>
-                  <div class="space-y-2">
-                    <div *ngFor="let v of r.receiving_hospital_views" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
-                        <div>
-                          <span class="text-muted uppercase tracking-wide">Accessor</span>
-                          <p class="text-sm font-semibold text-slate-900">
-                            {{ v.accessor | slice:0:16 }}…
-                          </p>
-                        </div>
-                        <div class="text-right">
-                          <span class="text-muted uppercase tracking-wide">Viewed at</span>
-                          <p class="text-sm text-slate-900">
-                            {{ v.timestamp * 1000 | date:'medium' }}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Verification summary -->
-                <div class="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                  <p class="text-sm font-semibold text-emerald-900 mb-1">
-                    Why this means your data was not tampered with
-                  </p>
-                  <p class="text-sm text-emerald-800">
-                    The hash Hospital A wrote on-chain is a cryptographic fingerprint
-                    of your exact records. Hospital B verifies each record by recomputing
-                    the hash of the data it receives and comparing it to the on-chain
-                    anchor. If anyone — including Hospital A, Hospital B, or a third
-                    party — had changed even a single byte of your clinical data in
-                    between the referral, the hash would not match and the tampering
-                    would be immediately detected. The on-chain referral-acceptance
-                    timestamp and the view events give you a permanent, immutable record
-                    of exactly when your care was transferred and who accessed your
-                    records.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div *ngIf="referralSecurity && !referralSecurity.referrals.length" class="card">
-              <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              </div>
-              <h3 class="text-lg font-bold text-slate-900 mb-2">No referrals yet</h3>
-              <p class="text-slate-600">
-                When you are referred from one hospital to another, this page will show
-                the blockchain-secured proof of your transfer of care — the records
-                anchored by the sending hospital, the on-chain referral acceptance, and
-                every view by the receiving hospital.
-              </p>
-            </div>
-          </div>
+            <ng-template #noReferralSecurity><div *ngIf="referralSecurity; else referralSecurityUnavailable" class="rounded-xl border border-slate-200 bg-white px-5 py-12 text-center"><h2 class="text-lg font-semibold text-slate-900">No referral security records yet</h2><p class="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-600">When referral security details become available, this page will show confirmation status, record proofs, and any recorded access events.</p></div></ng-template>
+            <ng-template #referralSecurityUnavailable><div class="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-700" role="status">Referral security details could not be loaded. Reopen this section to try again.</div></ng-template>
+          </section>
 
           <!-- HOW IT WORKS -->
           <div *ngIf="tab === 'how-it-works'" class="space-y-6 animate-fade-in">
@@ -1450,7 +874,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p class="text-sm font-semibold text-slate-900 mb-1">1. Secure Registration</p>
                   <p class="text-sm text-slate-600">
-                    Register at any participating hospital. You'll receive a Health ID and a secure custodial wallet.
+                    Register at a participating hospital to receive a Health ID and secure account.
                     Set up your 4-digit PIN — no cryptocurrency or MetaMask needed.
                   </p>
                 </div>
@@ -1465,7 +889,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   <p class="text-sm font-semibold text-slate-900 mb-1">3. Track Everything</p>
                   <p class="text-sm text-slate-600">
                     See a complete audit trail of who accessed your records, when, and why. All access events
-                    are permanently logged on the blockchain for transparency.
+                    are recorded in your activity history so you can review them.
                   </p>
                 </div>
               </div>
@@ -1485,14 +909,14 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   <p class="text-sm font-semibold text-slate-900 mb-1">2. Cross-Hospital Collaboration</p>
                   <p class="text-sm text-slate-600">
                     Refer patients to other hospitals and share verified medical histories. Every referral
-                    and access is tracked on-chain for accountability.
+                    and access activity is recorded for your review.
                   </p>
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p class="text-sm font-semibold text-slate-900 mb-1">3. Data Integrity</p>
                   <p class="text-sm text-slate-600">
-                    Record hashes are stored on the blockchain. This ensures medical data hasn't been
-                    tampered with when transferring between facilities.
+                    Available record checks can help identify changes when information is shared
+                    between facilities. They do not confirm that a diagnosis or treatment is medically correct.
                   </p>
                 </div>
               </div>
@@ -1502,10 +926,10 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <h2 class="text-lg font-bold text-slate-900 mb-4">Security & Privacy</h2>
               <div class="space-y-4">
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-900 mb-1">Blockchain Technology</p>
+                  <p class="text-sm font-semibold text-slate-900 mb-1">How records are checked</p>
                   <p class="text-sm text-slate-600">
-                    Built on Ethereum Sepolia testnet. Only cryptographic hashes and audit events are stored on-chain.
-                    Actual medical records remain securely at the originating facilities.
+                    Built on secure activity service testnet. Only limited record-checking details are shared with the secure activity service.
+                    Your medical records remain with the care facilities that created them.
                   </p>
                 </div>
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -1518,8 +942,8 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
                   <p class="text-sm font-semibold text-slate-900 mb-1">Full Transparency</p>
                   <p class="text-sm text-slate-600">
-                    Every access, grant, revoke, and view is permanently recorded. You can verify all
-                    transactions on Etherscan for complete peace of mind.
+                    Every access, grant, revoke, and view is recorded. You can verify all
+                    activity details when they are available.
                   </p>
                 </div>
               </div>
@@ -1528,14 +952,40 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
           <!-- HEALTH SUMMARY -->
           <div *ngIf="tab === 'dashboard'" class="space-y-6 animate-fade-in">
-            <div>
-              <h1 class="text-2xl font-bold text-slate-900 mb-2">Dashboard</h1>
-              <p class="text-slate-600">
-                A quick overview of your medical history across all hospitals — your most-
-                used medicines, most frequent measurements, common diagnoses, and which
-                hospitals you visit most.
-              </p>
-            </div>
+            <header class="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p class="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Patient workspace</p>
+                <h1 class="mb-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Your health overview</h1>
+                <p class="m-0 max-w-2xl text-sm text-slate-600">Review your care history, measurements, and record access from one place.</p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" (click)="setTab('records')" class="btn-secondary">Medical history</button>
+                <button type="button" (click)="setTab('permissions')" class="btn-secondary">Manage access</button>
+              </div>
+            </header>
+
+            <section aria-label="Health summary" class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <article class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5">
+                <p class="mb-2 text-sm text-slate-500">Care events</p>
+                <p class="m-0 text-3xl font-semibold tracking-tight text-slate-900">{{ allMedicalHistoryItemsRaw.length }}</p>
+                <p class="mb-0 mt-2 text-xs text-slate-500">Across your medical history</p>
+              </article>
+              <article class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5">
+                <p class="mb-2 text-sm text-slate-500">Measurements</p>
+                <p class="m-0 text-3xl font-semibold tracking-tight text-slate-900">{{ healthSummary ? healthSummary.total_measurements : '—' }}</p>
+                <p class="mb-0 mt-2 text-xs text-slate-500">Clinical readings recorded</p>
+              </article>
+              <article class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5">
+                <p class="mb-2 text-sm text-slate-500">Facilities visited</p>
+                <p class="m-0 text-3xl font-semibold tracking-tight text-slate-900">{{ totalCareFacilitiesCount }}</p>
+                <p class="mb-0 mt-2 text-xs text-slate-500">In your care journey</p>
+              </article>
+              <article class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5">
+                <p class="mb-2 text-sm text-slate-500">Requests to review</p>
+                <p class="m-0 text-3xl font-semibold tracking-tight text-slate-900">{{ requests.length }}</p>
+                <p class="mb-0 mt-2 text-xs text-slate-500">Access requests from clinicians</p>
+              </article>
+            </section>
 
             <!-- Emergency (break-glass) alert -->
             <div *ngIf="walletGrants?.emergency?.length"
@@ -1558,35 +1008,30 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </div>
 
             <!-- AUDIT LOGS CALLOUT CARD -->
-            <section class="rounded-2xl overflow-hidden border border-indigo-100 shadow-md">
-              <!-- Gradient header -->
-              <div class="bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-4 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="text-xl">📋</span>
-                  <h2 class="text-white font-bold text-base">Audit Logs &amp; Access Activity</h2>
-                </div>
+            <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+                <h2 class="m-0 text-base font-bold text-slate-900">Audit logs &amp; access activity</h2>
                 <button type="button" (click)="setTab('activity')"
-                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-indigo-700 text-xs font-bold hover:bg-indigo-50 transition-colors shadow-sm">
+                        class="btn-secondary text-xs">
                   View all logs
-                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                 </button>
               </div>
-              <div class="bg-white px-5 py-4">
-                <p class="text-sm text-slate-600 mb-3">Every doctor who views your records, every permission grant or revocation, and every emergency break-glass event is permanently recorded here with blockchain proof.</p>
+              <div class="px-5 py-4">
+                <p class="text-sm text-slate-600 mb-3">Review record views, permission changes, and emergency access entries here. Some entries include extra verification details.</p>
 
                 <!-- Quick stats -->
                 <div class="grid grid-cols-3 gap-3 mb-4">
-                  <div class="bg-indigo-50 rounded-xl p-3 text-center">
-                    <p class="text-lg font-extrabold text-indigo-700">{{ story.length }}</p>
-                    <p class="text-xs text-indigo-500 mt-0.5">Total Events</p>
+                  <div class="rounded-xl border border-slate-200 bg-white p-3 text-center">
+                    <p class="text-lg font-semibold text-slate-900">{{ story.length }}</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Total events</p>
                   </div>
-                  <div class="bg-blue-50 rounded-xl p-3 text-center">
-                    <p class="text-lg font-extrabold text-blue-700">{{ accessEvents.length }}</p>
-                    <p class="text-xs text-blue-500 mt-0.5">Doctor Views</p>
+                  <div class="rounded-xl border border-slate-200 bg-white p-3 text-center">
+                    <p class="text-lg font-semibold text-slate-900">{{ accessEvents.length }}</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Doctor views</p>
                   </div>
-                  <div class="bg-red-50 rounded-xl p-3 text-center">
-                    <p class="text-lg font-extrabold text-red-600">{{ breakGlassCount }}</p>
-                    <p class="text-xs text-red-400 mt-0.5">Break-Glass</p>
+                  <div class="rounded-xl border border-slate-200 bg-white p-3 text-center">
+                    <p class="text-lg font-semibold text-slate-900">{{ breakGlassCount }}</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Emergency access</p>
                   </div>
                 </div>
 
@@ -1594,14 +1039,13 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 <p *ngIf="storyLoading && story.length === 0" class="text-sm text-slate-500" role="status">Loading events…</p>
                 <div *ngIf="!storyError && story.length > 0" class="divide-y divide-slate-100">
                   <div *ngFor="let event of story | slice:0:4" class="flex items-start gap-3 py-2.5 first:pt-0">
-                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-sm flex-shrink-0 mt-0.5" [class]="storyDot(event)">{{ event.icon }}</div>
                     <div class="min-w-0 flex-1">
-                      <p class="text-sm text-slate-800 font-semibold truncate">{{ event.who || (event.wallet | slice:0:20) }}</p>
+                      <p class="text-sm text-slate-800 font-semibold truncate">{{ event.who || 'Care team member' }}</p>
                       <p class="text-xs text-slate-500 truncate">{{ event.verb }}</p>
                       <p class="text-xs text-slate-400">{{ event.timestamp * 1000 | date:'medium' }}</p>
                     </div>
                     <a *ngIf="event.etherscan_url" [href]="event.etherscan_url" target="_blank" rel="noopener"
-                       class="flex-shrink-0 text-xs text-indigo-600 hover:underline font-semibold">⛓ Proof</a>
+                       class="flex-shrink-0 text-xs text-slate-700 hover:underline font-semibold">Additional check details</a>
                   </div>
                 </div>
                 <p *ngIf="!storyLoading && !storyError && story.length === 0" class="text-sm text-slate-500">
@@ -1611,19 +1055,25 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                   {{ storyError }} — <button type="button" (click)="loadStory()" class="underline font-semibold">Retry</button>
                 </div>
 
-                <button type="button" (click)="setTab('activity')"
-                        class="mt-4 w-full py-2 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors">
-                  Open Audit Logs &amp; Activity →
-                </button>
               </div>
             </section>
 
-            <div *ngIf="healthSummary" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div *ngIf="healthSummary" class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div class="lg:col-span-2">
               <app-record-chart
                 title="Recorded conditions and record types"
                 description="Frequency of entries in your medical history."
                 [data]="diagnosisChartData"
                 emptyMessage="No diagnosis or record-type entries are available." />
+              </div>
+              <app-dashboard-gauge
+                title="Record checks"
+                description="Records with available earlier details to compare against."
+                [numerator]="onChainVerifiedEventsCount"
+                [denominator]="allMedicalHistoryItemsRaw.length"
+                [loading]="loading"
+                centerLabel="checked"
+                footer="Verification checks record integrity, not clinical accuracy." />
               <app-record-chart
                 title="Measurement history"
                 description="How often each measurement appears in your records."
@@ -1772,70 +1222,56 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           <div *ngIf="tab === 'activity'" class="space-y-6 animate-fade-in">
 
             <!-- PAGE HEADER -->
-            <div class="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl p-6 text-white shadow-xl">
-              <div class="flex flex-wrap items-start justify-between gap-4">
+            <header class="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-5">
                 <div>
-                  <div class="flex items-center gap-2 mb-2">
-                    <span class="text-2xl">📋</span>
-                    <h1 class="text-2xl font-extrabold tracking-tight">Audit Logs &amp; Access Activity</h1>
-                  </div>
-                  <p class="text-indigo-100 leading-relaxed max-w-xl">
-                    Every doctor view, permission grant or revocation, clinical measurement, and emergency break-glass event is permanently recorded here — with immutable blockchain proof on the Sepolia network.
+                  <p class="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Privacy and transparency</p>
+                  <h1 class="mb-1 text-2xl font-bold tracking-tight text-slate-900">Audit logs &amp; activity</h1>
+                  <p class="m-0 max-w-2xl text-sm leading-relaxed text-slate-600">
+                    Review who accessed your records and when. Some actions may include additional verification details.
                   </p>
-                  <p class="text-indigo-200 text-sm mt-2">{{ story.length }} event(s) logged &nbsp;&bull;&nbsp; Newest first</p>
                 </div>
-                <button (click)="loadStory()" [disabled]="storyLoading"
-                        class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-sm font-semibold transition-colors disabled:opacity-50 border border-white/30">
-                  <svg class="w-4 h-4" [class.animate-spin]="storyLoading" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                  Refresh
+                <button type="button" (click)="loadStory()" [disabled]="storyLoading" class="btn-secondary">
+                  {{ storyLoading ? 'Refreshing…' : 'Refresh activity' }}
                 </button>
-              </div>
+            </header>
 
-              <!-- STAT PILLS -->
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5">
-                <div class="bg-white/15 rounded-xl p-3 text-center">
-                  <p class="text-xl font-extrabold">{{ story.length }}</p>
-                  <p class="text-xs text-indigo-200 mt-0.5">Total Events</p>
-                </div>
-                <div class="bg-white/15 rounded-xl p-3 text-center">
-                  <p class="text-xl font-extrabold">{{ recordViewedCount }}</p>
-                  <p class="text-xs text-indigo-200 mt-0.5">Doctor Views</p>
-                </div>
-                <div class="bg-white/15 rounded-xl p-3 text-center">
-                  <p class="text-xl font-extrabold">{{ breakGlassCount }}</p>
-                  <p class="text-xs text-indigo-200 mt-0.5">Break-Glass</p>
-                </div>
-                <div class="bg-white/15 rounded-xl p-3 text-center">
-                  <p class="text-xl font-extrabold">{{ onChainCount }}</p>
-                  <p class="text-xs text-indigo-200 mt-0.5">On-Chain Proofs</p>
-                </div>
-              </div>
-            </div>
+            <section aria-label="Activity summary" class="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <article class="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p class="mb-1 text-xs font-medium text-slate-500">Total events</p>
+                  <p class="m-0 text-2xl font-semibold tabular-nums text-slate-900">{{ story.length }}</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p class="mb-1 text-xs font-medium text-slate-500">Doctor views</p>
+                  <p class="m-0 text-2xl font-semibold tabular-nums text-slate-900">{{ recordViewedCount }}</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p class="mb-1 text-xs font-medium text-slate-500">Emergency access</p>
+                  <p class="m-0 text-2xl font-semibold tabular-nums text-slate-900">{{ breakGlassCount }}</p>
+                </article>
+                <article class="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p class="mb-1 text-xs font-medium text-slate-500">Records with extra checks</p>
+                  <p class="m-0 text-2xl font-semibold tabular-nums text-slate-900">{{ onChainCount }}</p>
+                </article>
+            </section>
 
             <!-- BLOCKCHAIN INFO BANNER -->
-            <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 flex items-start gap-3">
-              <svg class="w-5 h-5 text-indigo-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
               <div class="text-sm">
-                <p class="font-semibold text-indigo-800">How Blockchain Applies Here</p>
-                <p class="text-indigo-700 mt-1">Doctors cannot read your data without your explicit approval or an emergency break-glass declaration. Every access is hashed and anchored on the <span class="font-semibold">Sepolia</span> testnet — making tampering cryptographically detectable. Click <em>Verify on Etherscan</em> on any event to inspect the raw transaction.</p>
+                <p class="m-0 font-semibold text-slate-900">How access is recorded</p>
+                <p class="mb-0 mt-1 text-slate-600">Access usually requires your approval. Emergency access is recorded in your activity history.</p>
               </div>
             </div>
 
             <!-- FILTER PILLS -->
             <div class="flex flex-wrap gap-2">
-              <button *ngFor="let f of [
-                {id:'all', label:'All Logs', icon:'🗂'},
-                {id:'views', label:'Doctor Views', icon:'👁'},
-                {id:'permissions', label:'Permissions & Grants', icon:'🔐'},
-                {id:'measurements', label:'Clinical Measurements', icon:'📊'},
-                {id:'emergency', label:'Emergency Break-Glass', icon:'🚨'}
-              ]"
+              <button *ngFor="let f of storyFilterPills"
                 (click)="storyFilter = f.id"
-                class="px-3 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 border"
+                class="min-h-11 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors"
+                [attr.aria-pressed]="storyFilter === f.id"
                 [ngClass]="storyFilter === f.id
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
-                  : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'">
-                {{ f.icon }} {{ f.label }}
+                  ? 'border-slate-900 bg-slate-900 text-white'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900'">
+                {{ f.label }}
                 <span *ngIf="f.id !== 'all'" class="ml-1 text-xs opacity-75">({{ auditCategoryCount(f.id) }})</span>
               </button>
             </div>
@@ -1844,8 +1280,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <div *ngIf="storyLoading && story.length === 0" class="space-y-4">
               <div *ngFor="let _ of [1,2,3]" class="bg-white rounded-2xl border border-slate-100 p-5 animate-pulse">
                 <div class="flex gap-4">
-                  <div class="w-10 h-10 rounded-full bg-slate-200 flex-shrink-0"></div>
-                  <div class="flex-1 space-y-2">
+                  <div class="min-w-0 flex-1 space-y-2">
                     <div class="h-4 bg-slate-200 rounded w-3/4"></div>
                     <div class="h-3 bg-slate-100 rounded w-1/2"></div>
                   </div>
@@ -1855,91 +1290,63 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
             <!-- DB-ONLY MODE NOTICE -->
             <div *ngIf="storySource === 'db' && story.length > 0"
-                 class="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
-              <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                 role="status" class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
               <div>
-                <p class="text-sm font-semibold text-amber-800">Showing database records (blockchain temporarily unreachable)</p>
-                <p class="text-xs text-amber-700 mt-0.5">Events with verified on-chain tx hashes still show Etherscan links. Full on-chain history will appear when the node reconnects.</p>
+                <p class="text-sm font-semibold text-amber-800">Some verification details are temporarily unavailable</p>
+                <p class="text-xs text-amber-700 mt-0.5">You can still review the activity available here. Additional verification details will return when the service reconnects.</p>
               </div>
             </div>
 
             <!-- PERSISTENT ERROR -->
             <div *ngIf="storyError && story.length === 0"
-                 class="flex flex-col items-center gap-3 p-8 bg-red-50 border border-red-100 rounded-2xl text-center">
-              <svg class="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                 role="alert" class="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
               <p class="text-sm font-semibold text-red-700">{{ storyError }}</p>
               <button type="button" (click)="loadStory()" class="text-sm font-bold text-red-600 underline hover:text-red-800">Try again</button>
             </div>
 
             <!-- TIMELINE -->
-            <div *ngIf="auditFilteredStory.length > 0" class="relative">
-              <div class="absolute left-5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-indigo-200 via-slate-200 to-transparent"></div>
-              <div *ngFor="let s of auditFilteredStory" class="relative flex gap-4 mb-5">
-                <!-- DOT -->
-                <div class="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg shadow-md" [class]="storyDot(s)">
-                  {{ s.icon }}
-                </div>
-                <!-- CARD -->
-                <div class="flex-1 bg-white rounded-2xl shadow-sm border border-slate-100 p-5 hover:shadow-md transition-all duration-200">
+            <section *ngIf="auditFilteredStory.length > 0" aria-label="Filtered audit events" class="space-y-3">
+              <article *ngFor="let s of auditFilteredStory" class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
                   <div class="flex flex-wrap items-start justify-between gap-3">
                     <div class="flex-1 min-w-0">
                       <!-- Event type badge -->
                       <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
-                        <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border"
-                              [ngClass]="{
-                                'bg-red-50 text-red-700 border-red-200': s.event === 'BreakGlassUsed' || s.event === 'EmergencyAccessGranted',
-                                'bg-emerald-50 text-emerald-700 border-emerald-200': s.event === 'AccessGranted',
-                                'bg-orange-50 text-orange-700 border-orange-200': s.event === 'AccessRevoked',
-                                'bg-blue-50 text-blue-700 border-blue-200': s.event === 'RecordViewed',
-                                'bg-violet-50 text-violet-700 border-violet-200': s.event === 'MeasurementRecorded',
-                                'bg-indigo-50 text-indigo-700 border-indigo-200': s.event === 'ReferralAccepted',
-                                'bg-slate-50 text-slate-600 border-slate-200': !['BreakGlassUsed','EmergencyAccessGranted','AccessGranted','AccessRevoked','RecordViewed','MeasurementRecorded','ReferralAccepted'].includes(s.event)
-                              }">{{ s.event }}</span>
-                        <span *ngIf="s.role" class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{{ s.role }}</span>
-                        <span *ngIf="s['source'] === 'db'" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-100">DB-backed</span>
+                        <span *ngIf="s.event" class="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700">{{ auditEventLabel(s.event) }}</span>
+                        <span *ngIf="s.role" class="px-1.5 py-1 text-[11px] font-medium text-slate-500">{{ s.role }}</span>
+                        <span *ngIf="('source' in s) && s.source === 'db'" class="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-800">Database record</span>
                       </div>
-                      <p class="text-slate-900 leading-relaxed">
-                        <span class="font-bold">{{ s.who || (s.wallet | slice:0:18) }}</span>
+                      <p class="mb-0 text-sm leading-relaxed text-slate-900 sm:text-base">
+                        <span class="font-bold">{{ s.who || 'Care team member' }}</span>
                         <span> {{ s.verb }}</span>
                       </p>
-                      <div class="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-500">
+                      <div class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
                         <span>{{ s.timestamp * 1000 | date:'medium' }}</span>
                         <span *ngIf="s.facility">&bull; {{ s.facility }}</span>
                       </div>
                       <!-- TX hash preview -->
-                      <p *ngIf="s.transaction_hash" class="mt-2 font-mono text-[10px] text-slate-400 bg-slate-50 px-2 py-1 rounded-lg break-all">
-                        Tx: {{ s.transaction_hash }}
-                      </p>
+                      <details *ngIf="s.transaction_hash" class="mt-2"><summary class="min-h-11 cursor-pointer text-xs text-slate-500">Show technical reference</summary><code class="block break-all rounded-lg bg-slate-50 px-3 py-2 font-mono text-[11px] text-slate-500">{{ s.transaction_hash }}</code></details>
                     </div>
-                    <!-- ACTION BUTTON -->
-                    <div class="flex flex-col gap-1.5">
+                    <div class="flex shrink-0 flex-col gap-1.5">
                       <a *ngIf="s.etherscan_url" [href]="s.etherscan_url" target="_blank" rel="noopener"
-                         class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
-                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
-                        Verify on Etherscan
+                         class="btn-secondary text-xs">
+                        Open optional activity details
                       </a>
-                      <span *ngIf="!s.etherscan_url"
-                            class="flex-shrink-0 text-xs text-slate-400 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 text-center">
-                        Pending on-chain
-                      </span>
+                      <span *ngIf="!s.etherscan_url" class="text-xs text-slate-500">Activity recorded</span>
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
+              </article>
+            </section>
 
             <!-- EMPTY AFTER FILTER -->
             <div *ngIf="!storyLoading && !storyError && story.length > 0 && auditFilteredStory.length === 0"
-                 class="flex flex-col items-center justify-center py-12 bg-white rounded-2xl border border-dashed border-slate-200">
-              <div class="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center text-2xl mb-3">🔍</div>
-              <p class="text-slate-600 font-semibold">No events in this category</p>
-              <button (click)="storyFilter = 'all'" class="mt-2 text-sm text-indigo-600 hover:underline">Clear filter</button>
+                  class="flex flex-col items-center justify-center py-12 bg-white rounded-2xl border border-dashed border-slate-200">
+               <p class="text-slate-600 font-semibold">No events in this category</p>
+               <button type="button" (click)="storyFilter = 'all'" class="mt-2 text-sm font-semibold text-slate-700 underline hover:text-slate-900">Clear filter</button>
             </div>
 
             <!-- EMPTY STATE (no events at all) -->
             <div *ngIf="!storyLoading && !storyError && story.length === 0"
                  class="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
-              <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">🔐</div>
               <h3 class="text-lg font-bold text-slate-900 mb-2">No Activity Yet</h3>
               <p class="text-slate-500 text-sm text-center max-w-xs">Audit events will appear here the first time a doctor requests or is granted access to your records.</p>
             </div>
@@ -1947,77 +1354,64 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <!-- ═══════════════════════════════════════════════════════════ -->
             <!-- DATA INTEGRITY VERIFICATION PANEL                          -->
             <!-- ═══════════════════════════════════════════════════════════ -->
-            <div class="mt-4">
+            <section class="mt-2 space-y-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
               <!-- SECTION HEADER -->
-              <div class="flex items-center justify-between mb-4">
+              <div class="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 class="text-lg font-extrabold text-slate-900 flex items-center gap-2">
-                    <span class="text-xl">🔬</span> Data Integrity Verification
-                  </h2>
-                  <p class="text-sm text-slate-500 mt-0.5">Prove your medical data has never been silently altered</p>
+                  <h2 class="mb-1 text-lg font-bold text-slate-900">Record review</h2>
+                  <p class="m-0 text-sm text-slate-500">Check whether saved records match their earlier verification details.</p>
                 </div>
-                <button (click)="runIntegrityCheck()" [disabled]="integrityLoading"
-                        class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors disabled:opacity-60 shadow-md">
-                  <svg class="w-4 h-4" [class.animate-spin]="integrityLoading" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                  {{ integrityLoading ? 'Checking…' : 'Run Integrity Check' }}
+                <button type="button" (click)="runIntegrityCheck()" [disabled]="integrityLoading" class="btn-secondary w-full sm:w-auto">
+                  {{ integrityLoading ? 'Reviewing…' : 'Review saved records' }}
                 </button>
               </div>
 
-              <!-- HOW IT WORKS EXPLAINER (always visible) -->
-              <div class="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-5">
-                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2 mb-3">
-                  <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                  How tamper detection works
-                </h3>
+              <details class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <summary class="cursor-pointer text-sm font-semibold text-slate-800">What this record check means</summary>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-slate-600">
                   <div class="flex gap-2.5">
-                    <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center flex-shrink-0 text-xs">1</div>
                     <div>
-                      <p class="font-semibold text-slate-700">Payload Re-hash</p>
-                      <p class="mt-0.5">Re-computes <code class="bg-white px-1 rounded border border-slate-200 text-indigo-600">SHA-256</code> of the current database record. If the data was silently edited, this hash will differ from the original.</p>
+                      <p class="font-semibold text-slate-700">Compare saved record details</p>
+                      <p class="mt-0.5">The service checks whether the saved record details still match the earlier reference. A difference may mean the information changed and should be reviewed.</p>
                     </div>
                   </div>
                   <div class="flex gap-2.5">
-                    <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center flex-shrink-0 text-xs">2</div>
                     <div>
-                      <p class="font-semibold text-slate-700">DB Hash Comparison</p>
-                      <p class="mt-0.5">Compares re-computed hash against the <code class="bg-white px-1 rounded border border-slate-200 text-indigo-600">record_hash</code> field stored in the database at the time of anchoring.</p>
+                      <p class="font-semibold text-slate-700">Compare with earlier record</p>
+                      <p class="mt-0.5">The current record is compared with the reference saved when it was first recorded.</p>
                     </div>
                   </div>
                   <div class="flex gap-2.5">
-                    <div class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center flex-shrink-0 text-xs">3</div>
                     <div>
-                      <p class="font-semibold text-slate-700">On-chain Cross-check</p>
-                      <p class="mt-0.5">Queries the <code class="bg-white px-1 rounded border border-slate-200 text-indigo-600">getRecords()</code> function on Sepolia to confirm the stored hash also exists in the immutable blockchain registry.</p>
+                      <p class="font-semibold text-slate-700">Additional record check</p>
+                      <p class="mt-0.5">When available, the service also checks the record reference in its independent activity system.</p>
                     </div>
                   </div>
                 </div>
                 <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div *ngFor="let badge of [
-                    {status:'VERIFIED', icon:'✅', label:'Verified', desc:'Payload + chain match'},
-                    {status:'TAMPERED_PAYLOAD', icon:'🔴', label:'Tampered', desc:'DB data was altered'},
-                    {status:'CHAIN_MISMATCH', icon:'⚠️', label:'Chain Mismatch', desc:'Hash not found on-chain'},
-                    {status:'UNANCHORED', icon:'⏳', label:'Unanchored', desc:'Not yet on-chain'}
+                    {status:'VERIFIED', label:'Matches earlier details', desc:'No difference found'},
+                    {status:'TAMPERED_PAYLOAD', label:'Needs review', desc:'A difference was found'},
+                    {status:'CHAIN_MISMATCH', label:'Could not confirm', desc:'Earlier details were unavailable'},
+                    {status:'UNANCHORED', label:'Not yet checked', desc:'No earlier reference available'}
                   ]" class="flex items-start gap-1.5 p-2 bg-white rounded-xl border border-slate-200">
-                    <span class="text-base flex-shrink-0">{{ badge.icon }}</span>
                     <div>
                       <p class="text-[11px] font-bold text-slate-700">{{ badge.label }}</p>
                       <p class="text-[10px] text-slate-500">{{ badge.desc }}</p>
                     </div>
                   </div>
                 </div>
-              </div>
+              </details>
 
               <!-- LOADING STATE -->
-              <div *ngIf="integrityLoading" class="flex flex-col items-center py-12 gap-3">
+              <div *ngIf="integrityLoading" role="status" aria-live="polite" class="flex flex-col items-center py-12 gap-3">
                 <div class="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-                <p class="text-sm text-slate-600 font-medium">Re-hashing records and cross-checking blockchain…</p>
-                <p class="text-xs text-slate-400">This may take a few seconds while we query the Sepolia network.</p>
+                <p class="text-sm text-slate-600 font-medium">Checking your saved record details…</p>
+                <p class="text-xs text-slate-400">This may take a few seconds.</p>
               </div>
 
               <!-- ERROR -->
-              <div *ngIf="integrityError && !integrityLoading" class="p-4 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-700 flex items-center gap-3">
-                <svg class="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/></svg>
+              <div *ngIf="integrityError && !integrityLoading" role="alert" class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
                 {{ integrityError }}
               </div>
 
@@ -2026,30 +1420,28 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
                 <!-- TAMPER ALERT BANNER -->
                 <div *ngIf="!integrityReport.integrity_ok"
-                     class="mb-5 p-5 bg-red-600 text-white rounded-2xl shadow-xl flex items-start gap-4 animate-pulse">
-                  <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-2xl flex-shrink-0">🚨</div>
+                     class="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-red-900">
                   <div>
-                    <h3 class="font-extrabold text-lg mb-1">DATA INTEGRITY VIOLATION DETECTED</h3>
-                    <p class="text-red-100 text-sm leading-relaxed">
-                      <strong>{{ integrityReport.summary.tampered }} record(s)</strong> no longer match their original blockchain hash.
-                      This means someone modified the clinical data in the database AFTER it was anchored on Sepolia.
+                    <h3 class="font-extrabold text-lg mb-1">A record needs review</h3>
+                    <p class="text-sm leading-relaxed text-red-800">
+                      <strong>{{ integrityReport.summary.tampered }} record(s)</strong> do not match their earlier saved details.
+                      This difference may mean the saved clinical information changed. Please review the affected record with your care provider.
                       The records flagged in red below are the affected items.
                     </p>
-                    <p class="text-red-200 text-xs mt-2">Checked at: {{ integrityReport.checked_at | date:'medium' }}</p>
+                    <p class="mt-2 text-xs text-red-700">Checked at: {{ integrityReport.checked_at | date:'medium' }}</p>
                   </div>
                 </div>
 
                 <!-- ALL CLEAR BANNER -->
                 <div *ngIf="integrityReport.integrity_ok"
-                     class="mb-5 p-5 bg-emerald-600 text-white rounded-2xl shadow-md flex items-start gap-4">
-                  <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-2xl flex-shrink-0">✅</div>
+                     class="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4 text-slate-900">
                   <div>
-                    <h3 class="font-extrabold text-lg mb-1">All Records Verified — No Tampering Detected</h3>
-                    <p class="text-emerald-100 text-sm">
+                    <h3 class="font-extrabold text-lg mb-1">Record check complete</h3>
+                    <p class="text-sm text-slate-600">
                       <strong>{{ integrityReport.summary.verified }}</strong> of {{ integrityReport.summary.total }} items confirmed intact.
-                      Every clinical record and measurement matches its original SHA-256 hash anchored on Sepolia.
+                      The checked records match their earlier saved details. This check does not confirm the clinical accuracy of the information.
                     </p>
-                    <p class="text-emerald-200 text-xs mt-2">Checked at: {{ integrityReport.checked_at | date:'medium' }}</p>
+                    <p class="mt-2 text-xs text-slate-500">Checked at: {{ integrityReport.checked_at | date:'medium' }}</p>
                   </div>
                 </div>
 
@@ -2059,31 +1451,30 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                     <p class="text-2xl font-extrabold text-slate-800">{{ integrityReport.summary.total }}</p>
                     <p class="text-xs text-slate-500 mt-1">Total Checked</p>
                   </div>
-                  <div class="bg-emerald-50 rounded-2xl border border-emerald-200 p-4 text-center shadow-sm">
-                    <p class="text-2xl font-extrabold text-emerald-700">{{ integrityReport.summary.verified }}</p>
-                    <p class="text-xs text-emerald-600 mt-1">✅ Verified</p>
+                  <div class="rounded-xl border border-slate-200 bg-white p-4 text-center">
+                    <p class="text-2xl font-semibold text-slate-900">{{ integrityReport.summary.verified }}</p>
+                    <p class="mt-1 text-xs text-slate-500">Matches earlier details</p>
                   </div>
                   <div [ngClass]="integrityReport.summary.tampered > 0 ? 'bg-red-50 border-red-300 animate-pulse' : 'bg-slate-50 border-slate-200'"
                        class="rounded-2xl border p-4 text-center shadow-sm">
                     <p class="text-2xl font-extrabold" [ngClass]="integrityReport.summary.tampered > 0 ? 'text-red-700' : 'text-slate-400'">
                       {{ integrityReport.summary.tampered }}
                     </p>
-                    <p class="text-xs mt-1" [ngClass]="integrityReport.summary.tampered > 0 ? 'text-red-600' : 'text-slate-400'">🔴 Tampered</p>
+                    <p class="text-xs mt-1" [ngClass]="integrityReport.summary.tampered > 0 ? 'text-red-600' : 'text-slate-400'">Needs review</p>
                   </div>
-                  <div class="bg-amber-50 rounded-2xl border border-amber-200 p-4 text-center shadow-sm">
-                    <p class="text-2xl font-extrabold text-amber-700">{{ integrityReport.summary.unanchored }}</p>
-                    <p class="text-xs text-amber-600 mt-1">⏳ Unanchored</p>
+                  <div class="rounded-xl border border-slate-200 bg-white p-4 text-center">
+                    <p class="text-2xl font-semibold text-slate-900">{{ integrityReport.summary.unanchored }}</p>
+                    <p class="mt-1 text-xs text-slate-500">Not yet checked</p>
                   </div>
                 </div>
 
                 <!-- CHAIN UNAVAILABLE NOTICE -->
-                <div *ngIf="!integrityReport.chain_available" class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-sm">
-                  <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                  <p class="text-amber-800">Blockchain node unreachable. Only DB-level payload checks were performed. On-chain cross-verification skipped.</p>
+              <div *ngIf="!integrityReport.chain_available" role="status" class="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm">
+                  <p class="text-amber-800">Some additional checks could not be completed right now. The results shown may be limited.</p>
                 </div>
 
                 <!-- PER-ITEM LIST (Records + Measurements combined) -->
-                <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">Per-record Detail</h3>
+                <h3 class="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">Record check results</h3>
                 <div class="space-y-3">
                   <div *ngFor="let item of integrityReport.records.concat(integrityReport.measurements)"
                        class="bg-white rounded-2xl border p-4 shadow-sm"
@@ -2092,13 +1483,12 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                       <div class="flex-1 min-w-0">
                         <!-- Header row -->
                         <div class="flex items-center gap-2 mb-1.5">
-                          <span class="text-base">{{ integrityBadgeIcon(item.status) }}</span>
                           <span class="font-bold text-slate-900 text-sm">
                             {{ item.type === 'record' ? (item.record_type || 'Medical Record') : (item.kind + ' ' + item.value + (item.unit || '')) }}
                           </span>
                           <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border"
                                 [ngClass]="integrityBadgeClass(item.status)">
-                            {{ item.status.replace('_', ' ') }}
+                            {{ integrityStatusLabel(item.status) }}
                           </span>
                         </div>
 
@@ -2117,16 +1507,16 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                           {{ item.description }}
                         </p>
 
-                        <!-- Hash comparison (only show mismatch or on critical) -->
+                        <!-- Reference comparison (only show mismatch or on critical) -->
                         <div *ngIf="item.severity === 'critical' || item.status !== 'VERIFIED'" class="mt-3 space-y-1.5">
                           <div class="flex items-start gap-2">
-                            <span class="text-[10px] font-bold text-slate-500 w-24 flex-shrink-0 mt-0.5">STORED HASH</span>
+                            <span class="text-[10px] font-bold text-slate-500 w-24 flex-shrink-0 mt-0.5">EARLIER REFERENCE</span>
                             <code class="text-[10px] font-mono bg-slate-100 px-2 py-1 rounded break-all text-slate-600 flex-1">{{ item.stored_hash || '—' }}</code>
                           </div>
                           <div class="flex items-start gap-2">
                             <span class="text-[10px] font-bold flex-shrink-0 w-24 mt-0.5"
                                   [ngClass]="item.payload_hash_matches ? 'text-emerald-600' : 'text-red-600'">
-                              {{ item.payload_hash_matches ? 'RE-HASH ✓' : 'RE-HASH ✗' }}
+                              {{ item.payload_hash_matches ? 'MATCH ✓' : 'DIFFERENT ✗' }}
                             </span>
                             <code class="text-[10px] font-mono px-2 py-1 rounded break-all flex-1"
                                   [ngClass]="item.payload_hash_matches ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700 font-bold'">
@@ -2139,12 +1529,11 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                       <!-- Actions -->
                       <div class="flex flex-col gap-1.5 flex-shrink-0">
                         <a *ngIf="item.etherscan_url" [href]="item.etherscan_url" target="_blank" rel="noopener"
-                           class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
-                          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                          Verify on Etherscan
+                           class="btn-secondary text-xs">
+                          Open optional activity details
                         </a>
                         <span class="text-[10px] text-slate-400 text-center">
-                          {{ item.chain_checked ? '⛓ Chain checked' : '⚡ DB only' }}
+                          {{ item.chain_checked ? 'Chain checked' : 'Database only' }}
                         </span>
                       </div>
                     </div>
@@ -2153,7 +1542,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
               </div><!-- /integrityReport -->
 
-            </div><!-- /integrity panel -->
+            </section>
 
           </div><!-- /tab === activity -->
 
@@ -2162,14 +1551,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     </div>
 
     <!-- FOOTER -->
-    <footer class="border-t border-gray-200 mt-12 bg-white">
-      <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
-        <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
-        <div class="flex gap-5">
-          <span class="text-muted">&copy; 2024</span>
-        </div>
-      </div>
-    </footer>
 
     <!-- ACCESS-REQUEST NOTIFICATIONS -->
     <div class="fixed top-20 right-4 z-[60] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-3">
@@ -2190,7 +1571,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <button (click)="approveFromToast(n)" class="btn-accent w-full sm:w-auto">Approve</button>
             <button (click)="rejectFromToast(n)" class="flex-1 px-3 py-2 bg-white border border-red-500 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-50 transition-colors">Reject</button>
           </div>
-          <p class="text-center text-xs text-slate-500 mt-2">Grants 7 days of on-chain access</p>
+          <p class="text-center text-xs text-slate-500 mt-2">Access lasts 7 days</p>
         </div>
       </div>
     </div>
@@ -2227,7 +1608,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             <svg class="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             <p class="text-xs text-indigo-700 leading-relaxed">
               Choose the hospital and reason. The receiving hospital's staff must <strong>accept</strong> before the referral is active.
-              Every acceptance is anchored on-chain for immutable proof.
+              Referral confirmations and record views may appear here when available.
             </p>
           </div>
 
@@ -2306,24 +1687,39 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     { id: 'permissions', label: 'Permissions' },
     { id: 'requests', label: 'Requests' },
     { id: 'activity', label: 'Audit Logs & Activity' },
-    { id: 'wallet', label: 'Custodial Wallet' },
+    { id: 'wallet', label: 'Secure account' },
     { id: 'profile', label: 'Profile' },
     { id: 'referral-security', label: 'Referral Security' },
     { id: 'how-it-works', label: 'How it works' },
   ] as const;
 
-  data: PatientData | null = null;
-  requests: AccessRequest[] = [];
-  story: ActivityStoryItem[] = [];
+  get data(): PatientData | null { return this.workspaceState.patientRecords.data; }
+  set data(value: PatientData | null) { value ? this.workspaceState.patientRecords.set(value) : this.workspaceState.patientRecords.clear(); }
+  get requests(): AccessRequest[] { return this.workspaceState.patientRequests.data ?? []; }
+  set requests(value: AccessRequest[]) { this.workspaceState.patientRequests.set(value); }
+  get story(): ActivityStoryItem[] { return this.workspaceState.patientActivity.data ?? []; }
+  set story(value: ActivityStoryItem[]) { this.workspaceState.patientActivity.set(value); }
   storyLoading = false;
   storyError = '';
   storySource: 'chain' | 'db' | '' = '';
   loading = false;
   busy = false;
   errorMsg = '';
+  feedbackMessage = '';
+  feedbackError = false;
+  private feedbackTimer: any = null;
   historyFilter: 'all' | 'records' | 'measurements' | 'hospitals' = 'all';
   /** Filter pills for Audit Logs & Activity tab */
   storyFilter: 'all' | 'views' | 'permissions' | 'measurements' | 'emergency' = 'all';
+
+  /** Filter pill definitions for the audit logs UI */
+  storyFilterPills: { id: 'all' | 'views' | 'permissions' | 'measurements' | 'emergency', label: string }[] = [
+    { id: 'all', label: 'All Logs' },
+    { id: 'views', label: 'Doctor Views' },
+    { id: 'permissions', label: 'Permissions & Grants' },
+    { id: 'measurements', label: 'Clinical Measurements' },
+    { id: 'emergency', label: 'Emergency Break-Glass' },
+  ];
 
   /** Integrity verification state */
   integrityReport: IntegrityReport | null = null;
@@ -2331,7 +1727,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   integrityError = '';
 
   /** Most recent on-chain action performed by this patient (grant/approve),
-   * surfaced as a banner with a direct Etherscan link. */
+   * surfaced as a banner with a direct external activity page link. */
   lastTx: { label: string; tx_hash: string; pending: boolean } | null = null;
   grant = { doctor_license: '', doctor_name: '', doctor_wallet: '', days: 7 };
 
@@ -2356,17 +1752,30 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   busyRequest: number | null = null;
   private dismissedIds = new Set<number>();
   private pollTimer: any = null;
+  private pollInFlight = false;
 
   constructor(
     private api: ApiService,
     private auth: AuthService,
     private router: Router,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private workspaceState: WorkspaceStateService
   ) {}
 
   /** Angular 22 is zoneless by default — re-render after async mutations. */
   private syncView() {
     this.cdr.detectChanges();
+  }
+
+  private notify(message: string, error = false) {
+    this.feedbackMessage = message;
+    this.feedbackError = error;
+    if (this.feedbackTimer) clearTimeout(this.feedbackTimer);
+    this.feedbackTimer = setTimeout(() => {
+      this.feedbackMessage = '';
+      this.syncView();
+    }, 5000);
+    this.syncView();
   }
 
   setTab(id: 'dashboard' | 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'how-it-works') {
@@ -2425,7 +1834,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     // 1. Registered facility if any
     if (this.data.hospital) {
       facilityMap.set(this.data.hospital, {
-        firstVisit: this.data.records[0]?.date || (this.data['created_at'] || ''),
+        firstVisit: this.data.records && this.data.records.length > 0 ? this.data.records[0]?.date || '' : '',
         count: 1,
         role: 'Origin Facility',
       });
@@ -2553,8 +1962,8 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
         timestamp: ts,
         notes: ref.reason,
         status: ref.status,
-        tx_hash: ref['tx_hash'],
-        verified: !!ref['tx_hash'] && !ref['tx_hash'].startsWith('PENDING'),
+        tx_hash: ('tx_hash' in ref ? ref.tx_hash : null),
+        verified: ('tx_hash' in ref ? typeof ref.tx_hash === 'string' && !!ref.tx_hash && !ref.tx_hash.startsWith('PENDING') : false),
       });
     }
 
@@ -2728,7 +2137,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     const who = e.doctor_name ? `Dr. ${e.doctor_name}` : 'this doctor';
     if (!confirm(
       `End ${who}'s emergency access now? ` +
-      'The revocation is logged on-chain and they lose access immediately.'
+      'Access has been removed. This change will appear in your activity history.'
     )) return;
     this.emergencyBusy = true;
     this.syncView();
@@ -2737,10 +2146,10 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
         doctor_license: e.doctor_license,
         doctor_wallet: e.doctor_wallet,
       });
-      alert(res?.message || 'Emergency access ended.');
+      this.notify(res?.message || 'Emergency access ended.');
       await this.loadGrantSummary();
     } catch (err: any) {
-      alert('Error: ' + (err?.error?.error || err?.message || 'Could not end emergency access'));
+      this.notify(err?.error?.error || err?.message || 'Could not end emergency access', true);
     } finally {
       this.emergencyBusy = false;
       this.syncView();
@@ -2753,7 +2162,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     const doc = g.doctor_name ? `Dr. ${g.doctor_name}` : 'this doctor';
     if (!confirm(
       `Revoke ${doc}'s access to your medical records? ` +
-      'The revocation will be confirmed and logged on-chain.'
+      'Your request to remove access is being processed.'
     )) return;
     this.busy = true;
     this.syncView();
@@ -2762,12 +2171,12 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
         doctor_license: g.doctor_license,
         doctor_wallet: g.doctor_wallet,
       });
-      alert(res?.message || 'Access revoked successfully.');
+      this.notify(res?.message || 'Access revoked successfully.');
       await this.loadGrantSummary();
       const fresh = await this.api.myRecords();
       this.data = fresh;
     } catch (err: any) {
-      alert('Error: ' + (err?.error?.error || err?.message || 'Could not revoke access'));
+      this.notify(err?.error?.error || err?.message || 'Could not revoke access', true);
     } finally {
       this.busy = false;
       this.syncView();
@@ -2892,7 +2301,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     total_measurements: number;
   } | null = null;
 
-  /** Load the referral security tab: blockchain-secured referral story. */
+  /** Load the referral security tab: secure referral story. */
   private async loadReferralSecurity() {
     try {
       this.referralSecurity = await this.api.patientReferralTimeline();
@@ -3177,6 +2586,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit() {
+    this.workspaceState.bindSession(this.auth.token);
     if (!this.auth.isPatient) {
       this.router.navigate(['/login']);
       return;
@@ -3195,6 +2605,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     if (this.pollTimer) clearInterval(this.pollTimer);
+    if (this.feedbackTimer) clearTimeout(this.feedbackTimer);
     if (this.doctorSearchTimer) clearTimeout(this.doctorSearchTimer);
     this.stopEmergencyTicker();
   }
@@ -3207,37 +2618,6 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       this.sendHospitals = [];
     }
     this.syncView();
-  }
-
-  /** Sidebar icons (inline SVG, 20×20) */
-  getIcon(tabId: string): string {
-    const s = 'width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
-    switch (tabId) {
-      case 'dashboard':
-        return `<svg ${s}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>`;
-      case 'records':
-        return `<svg ${s}><path d="M9 12h6m-6 4h6M7 8h.01M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"/></svg>`;
-      case 'measurements':
-        return `<svg ${s}><path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-8"/></svg>`;
-      case 'referrals':
-        return `<svg ${s}><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>`;
-      case 'permissions':
-        return `<svg ${s}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`;
-      case 'requests':
-        return `<svg ${s}><path d="M18 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586"/><path d="M14 4H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l4-4h5a2 2 0 002-2V6a2 2 0 00-2-2z"/></svg>`;
-      case 'activity':
-        return `<svg ${s}><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>`;
-      case 'wallet':
-        return `<svg ${s}><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><path d="M1 10h22"/></svg>`;
-      case 'profile':
-        return `<svg ${s}><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
-      case 'referral-security':
-        return `<svg ${s}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`;
-      case 'how-it-works':
-        return `<svg ${s}><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>`;
-      default:
-        return '';
-    }
   }
 
   /** Filtered story items for the Audit Logs tab */
@@ -3256,25 +2636,6 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Color + style of the timeline dot per event type. */
-  storyDot(s: ActivityStoryItem): string {
-    switch ((s.event || '').toLowerCase()) {
-      case 'breakglassused':
-      case 'accessrevoked':
-        return 'bg-red-100 text-red-700 ring-4 ring-red-50';
-      case 'accessgranted':
-        return 'bg-emerald-100 text-emerald-700 ring-4 ring-emerald-50';
-      case 'recordviewed':
-        return 'bg-blue-100 text-blue-700 ring-4 ring-blue-50';
-      case 'recordadded':
-        return 'bg-indigo-100 text-indigo-700 ring-4 ring-indigo-50';
-      case 'patientregistered':
-        return 'bg-purple-100 text-purple-700 ring-4 ring-purple-50';
-      default:
-        return 'bg-slate-100 text-slate-700 ring-4 ring-slate-50';
-    }
-  }
-
   /** Load the unified on-chain activity story (who did what, when). */
   async loadStory() {
     if (!this.data?.health_id || this.storyLoading) return;
@@ -3282,9 +2643,14 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.storyError = '';
     this.syncView();
     try {
-      const res = await this.api.patientActivityStory(this.data.health_id);
-      this.story = res.story;
-      this.storySource = (res as any).source === 'db' ? 'db' : 'chain';
+      await this.workspaceState.patientActivity.load(
+        async () => {
+          const response = await this.api.patientActivityStory(this.data!.health_id);
+          this.storySource = (response as any).source === 'db' ? 'db' : 'chain';
+          return response.story;
+        },
+        true,
+      );
       // A PENDING grant just mined? Update the banner to show the live link.
       if (this.lastTx?.pending && this.story.some((s) => s.transaction_hash === this.lastTx!.tx_hash)) {
         this.lastTx.pending = false;
@@ -3296,6 +2662,23 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       this.storyLoading = false;
       this.syncView();
     }
+  }
+
+  integrityStatusLabel(status: string): string {
+    const labels: Record<string, string> = { VERIFIED: 'Matches earlier details', TAMPERED_PAYLOAD: 'Needs review', CHAIN_MISMATCH: 'Could not confirm', UNANCHORED: 'Not yet checked' };
+    return labels[status] ?? 'Check status unavailable';
+  }
+
+  auditEventLabel(event: string): string {
+    const labels: Record<string, string> = {
+      RecordViewed: 'Medical record viewed',
+      PatientDashboardViewed: 'Patient account viewed',
+      AccessGranted: 'Access granted',
+      AccessRevoked: 'Access removed',
+      EmergencyAccessUsed: 'Emergency access used',
+      ReferralAccepted: 'Referral accepted',
+    };
+    return labels[event] ?? event.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
   }
 
   get accessEvents(): ActivityStoryItem[] {
@@ -3328,17 +2711,6 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
       case 'UNANCHORED': return 'bg-amber-100 text-amber-800 border-amber-200';
       case 'CHAIN_UNAVAILABLE': return 'bg-slate-100 text-slate-600 border-slate-200';
       default: return 'bg-slate-100 text-slate-600 border-slate-200';
-    }
-  }
-
-  integrityBadgeIcon(status: IntegrityCheckResult['status']): string {
-    switch (status) {
-      case 'VERIFIED': return '✅';
-      case 'TAMPERED_PAYLOAD': return '🔴';
-      case 'CHAIN_MISMATCH': return '⚠️';
-      case 'UNANCHORED': return '⏳';
-      case 'CHAIN_UNAVAILABLE': return '🔌';
-      default: return '❓';
     }
   }
 
@@ -3377,27 +2749,28 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
    */
   private startPolling() {
     this.pollTimer = setInterval(async () => {
-      let changed = false;
+      if (this.pollInFlight) return;
+      this.pollInFlight = true;
       // Keep the dashboard access preview and full history fresh.
       if (this.tab === 'activity' || this.tab === 'dashboard') void this.loadStory();
       try {
-        this.requests = await this.api.myRequests();
-        this.syncNotifications();
-        changed = true;
-      } catch {
-        // offline tick — retry on the next cycle
+        const [requests, records] = await Promise.allSettled([
+          this.workspaceState.patientRequests.load(() => this.api.myRequests(), true),
+          this.workspaceState.patientRecords.load(() => this.api.myRecords(), true),
+        ]);
+        if (requests.status === 'fulfilled') {
+          this.requests = requests.value;
+          this.syncNotifications();
+        }
+        if (records.status === 'fulfilled') {
+          this.data = records.value;
+          this.computeHealthSummary();
+          this.errorMsg = '';
+        }
+        this.syncView();
+      } finally {
+        this.pollInFlight = false;
       }
-      // Silent background refresh: never toggles the loading spinner.
-      try {
-        const fresh = await this.api.myRecords();
-        this.data = fresh;
-        this.computeHealthSummary();
-        this.errorMsg = '';
-        changed = true;
-      } catch {
-        // offline tick — the current data stays on screen
-      }
-      if (changed) this.syncView();
     }, 15000);
   }
 
@@ -3428,7 +2801,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     try {
       // Records first — render the dashboard as soon as the core payload
       // arrives instead of waiting on the (non-critical) request list.
-      const data = await this.api.myRecords();
+      const data = await this.workspaceState.patientRecords.load(() => this.api.myRecords());
       this.data = data;
       this.computeHealthSummary();
       void this.loadStory();
@@ -3451,7 +2824,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
     // Requests are non-blocking: the dashboard is already visible.
     try {
-      this.requests = await this.api.myRequests();
+      await this.workspaceState.patientRequests.load(() => this.api.myRequests());
       this.syncNotifications();
     } catch {
       // non-critical — retry happens on the next poll tick
@@ -3470,7 +2843,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   async grantAccess() {
     if (!this.grant.doctor_license) {
-      alert('Pick a doctor from the list first.');
+      this.notify('Pick a doctor from the list first.', true);
       return;
     }
     this.busy = true;
@@ -3478,13 +2851,14 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     try {
       const doctorLabel = this.selectedDoctor?.full_name || this.grant.doctor_name || this.grant.doctor_license;
       const res: any = await this.api.grantAccess(this.grant);
-      this.showLastTx(`Access granted to Dr. ${doctorLabel}`, res?.tx_hash, res?.pending);
+      this.showLastTx(`Access given to Dr. ${doctorLabel}`, res?.tx_hash, res?.pending);
+      this.notify(res?.pending ? 'Your request was submitted and is waiting for confirmation.' : 'Doctor access granted.');
       this.grant = { doctor_license: '', doctor_name: '', doctor_wallet: '', days: 7 };
       this.selectedDoctor = null;
       this.doctorQuery = '';
       void this.reload();
     } catch (e: any) {
-      alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
+      this.notify(e?.error?.error || e?.message || 'Could not grant access.', true);
     } finally {
       this.busy = false;
       this.syncView();
@@ -3496,10 +2870,11 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.syncView();
     try {
       const res: any = await this.api.approveRequest(req.id);
-      this.showLastTx(`Access granted to Dr. ${req.doctor_name} for 7 days`, res?.tx_hash, res?.pending);
+      this.showLastTx(`Access given to Dr. ${req.doctor_name} for 7 days`, res?.tx_hash, res?.pending);
+      this.notify(res?.pending ? 'Your approval was submitted and is waiting for confirmation.' : 'Access request approved.');
       void this.reload();
     } catch (e: any) {
-      alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
+      this.notify(e?.error?.error || e?.message || 'Could not approve the request.', true);
     } finally {
       this.busyRequest = null;
       this.syncView();
@@ -3511,9 +2886,10 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.syncView();
     try {
       await this.api.rejectRequest(req.id);
+      this.notify('Access request rejected.');
       await this.reload();
     } catch (e: any) {
-      alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
+      this.notify(e?.error?.error || e?.message || 'Could not reject the request.', true);
     } finally {
       this.busyRequest = null;
       this.syncView();
@@ -3589,11 +2965,6 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.grant.doctor_license = this.selectedDoctor?.license_no ?? '';
     this.grant.doctor_name = this.selectedDoctor?.full_name ?? '';
     this.grant.doctor_wallet = this.selectedDoctor?.wallet_address ?? '';
-  }
-
-  /** Switch to profile tab within the dashboard. */
-  viewProfile() {
-    this.setTab('profile');
   }
 
   /** Count referrals matching a specific status string (case-insensitive). */

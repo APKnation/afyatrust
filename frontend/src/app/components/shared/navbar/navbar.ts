@@ -47,7 +47,7 @@ import { AuthService } from '../../../services/auth.service';
               <span class="h-4 w-px bg-gray-200" aria-hidden="true"></span>
               <a routerLink="/account" class="text-sm font-medium text-primary-700 no-underline hover:underline">Account</a>
               <button (click)="signOut()"
-                      class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
+                      class="btn-logout cursor-pointer rounded-lg px-2.5 py-1.5 text-sm">Sign out</button>
             </div>
 
             <!-- Doctor chip -->
@@ -57,7 +57,7 @@ import { AuthService } from '../../../services/auth.service';
               <span class="h-4 w-px bg-gray-200" aria-hidden="true"></span>
               <a routerLink="/account" class="text-sm font-medium text-primary-700 no-underline hover:underline">Account</a>
               <button (click)="signOut()"
-                      class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
+                      class="btn-logout cursor-pointer rounded-lg px-2.5 py-1.5 text-sm">Sign out</button>
             </div>
 
             <!-- Staff chip -->
@@ -66,7 +66,7 @@ import { AuthService } from '../../../services/auth.service';
               <span class="h-4 w-px bg-gray-200" aria-hidden="true"></span>
               <a routerLink="/account" class="text-sm font-medium text-primary-700 no-underline hover:underline">Account</a>
               <button (click)="signOut()"
-                      class="cursor-pointer rounded-lg bg-ink px-2.5 py-1.5 text-sm text-white transition-opacity hover:opacity-80">Sign out</button>
+                      class="btn-logout cursor-pointer rounded-lg px-2.5 py-1.5 text-sm">Sign out</button>
             </div>
 
             <!-- Visitor CTAs -->
@@ -112,7 +112,7 @@ import { AuthService } from '../../../services/auth.service';
         <a *ngIf="auth.isAuthenticated()" routerLink="/account" (click)="menuOpen = false"
            class="mt-2 block rounded-md px-4 py-3 text-center font-medium text-primary-700 no-underline hover:underline">Account settings</a>
         <button *ngIf="auth.isAuthenticated()" (click)="signOut()"
-                class="mt-2 w-full cursor-pointer rounded-lg bg-ink px-4 py-3 font-semibold text-white">Sign out</button>
+                class="btn-logout mt-2 w-full cursor-pointer rounded-lg px-4 py-3 font-semibold">Sign out</button>
         <ng-container *ngIf="!auth.isAuthenticated()">
           <a routerLink="/login" (click)="menuOpen = false"
              class="mt-2 block rounded-md px-4 py-3 text-center font-medium text-ink no-underline hover:bg-slate-50">Sign in</a>

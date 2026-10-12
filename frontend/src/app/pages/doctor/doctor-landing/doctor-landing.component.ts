@@ -8,6 +8,8 @@ import {
 } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 import { RecordChartComponent, RecordChartPoint } from '../../../components/shared/record-chart/record-chart.component';
+import { DashboardGaugeComponent } from '../../../components/shared/dashboard-gauge/dashboard-gauge.component';
+import { WorkspaceStateService } from '../../../services/workspace-state.service';
 
 /**
  * Doctor workspace (PIN-login, JWT-identified).
@@ -20,10 +22,11 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
  */
 @Component({
   selector: 'app-doctor-dashboard',
-  imports: [NgIf, NgFor, DatePipe, SlicePipe, FormsModule, RecordChartComponent],
+  imports: [NgIf, NgFor, DatePipe, SlicePipe, FormsModule, RecordChartComponent, DashboardGaugeComponent],
+  styles: [`:host { display: block; width: 100%; }`],
   template: `
     <!-- Full-width shell: sidebar hugs the left edge; content fills the rest. -->
-    <div class="flex w-full items-start gap-6 px-4 py-8 sm:px-6">
+    <div class="flex min-h-screen w-full items-stretch gap-0 bg-slate-50">
       <!-- Mobile backdrop for the sidebar drawer -->
       <div *ngIf="sidebarOpen" (click)="sidebarOpen = false" aria-hidden="true"
            class="fixed inset-0 z-[60] bg-ink/50 lg:hidden"></div>
@@ -32,17 +35,23 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       <aside
         [class.translate-x-0]="sidebarOpen"
         [class.-translate-x-full]="!sidebarOpen"
-        class="fixed inset-y-0 left-0 z-[70] w-64 max-w-[80vw] overflow-y-auto bg-white p-5 shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:block lg:w-56 lg:max-w-none lg:shrink-0 lg:translate-x-0 lg:rounded-none lg:p-6 lg:border-r lg:border-slate-100">
+        class="fixed inset-y-0 left-0 z-[70] w-64 max-w-[80vw] overflow-y-auto bg-white p-5 shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:block lg:min-h-screen lg:w-56 lg:max-w-none lg:shrink-0 lg:translate-x-0 lg:rounded-none lg:p-6 lg:border-r lg:border-slate-200">
         <div class="mb-4 flex items-center justify-between lg:hidden">
           <span class="eyebrow">Workspace</span>
           <button (click)="sidebarOpen = false" aria-label="Close menu"
                   class="cursor-pointer border-none bg-transparent text-xl leading-none text-slate-500 hover:text-slate-900 hover:bg-slate-100">×</button>
         </div>
 
+        <div class="mb-8 hidden items-center gap-3 lg:flex">
+          <div><p class="m-0 text-base font-bold text-slate-900">AfyaTrust</p><p class="m-0 text-[11px] text-slate-500">Clinical workspace</p></div>
+        </div>
+        <p class="mb-2 hidden px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 lg:block">Workspace</p>
+
         <nav class="flex flex-col gap-1" aria-label="Dashboard sections">
-          <button *ngFor="let t of tabs" (click)="setTab(t.id)"
+          <button *ngFor="let t of tabs" type="button" (click)="setTab(t.id)"
                   class="flex cursor-pointer items-center justify-between gap-2 rounded-lg border-none px-3.5 py-2.5 text-left text-[15px] transition-colors"
-                  [class]="tab === t.id ? 'bg-primary-500 text-white font-semibold shadow-sm' : 'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'">
+                  [class]="tab === t.id ? 'bg-primary-500 text-white font-semibold shadow-sm' : 'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'"
+                  [attr.aria-current]="tab === t.id ? 'page' : null">
             <span>{{ t.label }}</span>
             <span *ngIf="t.id === 'referrals' && pendingIncoming > 0"
                   class="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingIncoming }}</span>
@@ -58,72 +67,36 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
         <!-- BOTTOM ACTIONS -->
         <div class="mt-6 pt-4 border-t border-slate-200 space-y-2">
-          <button (click)="viewProfile()"
-                  class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-slate-100 transition-all duration-200 group">
-            <span class="font-medium">View Profile</span>
-          </button>
           <button (click)="logoutAndRedirect()"
-                  class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-700 hover:bg-red-50 hover:text-red-600 transition-all duration-200 group">
+                  class="btn-logout w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group">
             <span class="font-medium">Sign Out</span>
           </button>
         </div>
       </aside>
 
-      <!-- ================= MAIN CONTENT ================= -->
-      <div class="min-w-0 max-w-6xl flex-1">
-      <!-- Mobile: hamburger opens the sidebar drawer -->
-      <div class="mb-4 flex items-center gap-3 lg:hidden">
-        <button (click)="sidebarOpen = true" aria-label="Open menu" [attr.aria-expanded]="sidebarOpen"
-                class="flex h-10 w-10 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-surface shadow-card">
-          <span class="h-0.5 w-5 rounded bg-ink"></span>
-          <span class="h-0.5 w-5 rounded bg-ink"></span>
-        </button>
-        <span class="text-sm font-bold text-ink">{{ currentTabLabel }}</span>
-      </div>
-
-      <!-- Hero header -->
-      <div class="card mb-6 p-6 sm:p-8">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <span class="eyebrow mb-2">Clinical Workspace</span>
-            <h1 class="mb-1 text-2xl font-bold text-ink sm:text-3xl">Dr. {{ auth.fullName }}</h1>
-            <p class="m-0 text-sm text-muted">
-              <span *ngIf="hospitalName">{{ hospitalName }}</span>
-              <span *ngIf="hospitalName" class="mx-2 text-gray-300">|</span>
-              License <strong class="text-ink">{{ license }}</strong>
-            </p>
+        <div class="mx-auto w-full min-w-0 max-w-[1480px] flex-1 px-4 py-4 sm:px-6 lg:px-8 lg:py-5">
+          <div *ngIf="feedbackMessage" role="status" aria-live="polite"
+               class="fixed right-4 top-4 z-[100] flex max-w-[calc(100vw-2rem)] items-start gap-3 border px-4 py-3 shadow-lg sm:right-6 sm:top-6 sm:max-w-md"
+               [class]="feedbackError ? 'border-red-200 bg-red-50 text-red-800' : 'border-primary-200 bg-primary-50 text-primary-900'">
+            <p class="m-0 flex-1 text-sm font-medium">{{ feedbackMessage }}</p>
+            <button type="button" (click)="feedbackMessage = ''" aria-label="Dismiss message" class="min-h-6 border-0 bg-transparent px-1 text-lg leading-none">×</button>
           </div>
-          <span class="rounded-full bg-accent-100 px-3.5 py-1.5 text-xs font-bold uppercase tracking-wide text-accent-800">
-            Verified clinician
-          </span>
-        </div>
-
-        <!-- DOCTOR WALLET PANEL -->
-        <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Custodial Wallet Address</p>
-            <div class="flex flex-wrap items-center gap-2">
-              <code *ngIf="walletVisible" class="flex-1 text-xs font-mono break-all text-slate-800">{{ walletAddress }}</code>
-              <span *ngIf="!walletVisible" class="flex-1 text-xs text-slate-500">Hidden</span>
-              <button type="button" (click)="walletVisible = !walletVisible"
-                      class="flex-shrink-0 px-3 py-1.5 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition-colors"
-                      [attr.aria-expanded]="walletVisible">
-                {{ walletVisible ? 'Hide wallet' : 'View wallet' }}
+          <header class="mb-7 flex min-h-16 items-center justify-between gap-3 border-b border-slate-200 pb-4">
+            <div class="flex min-w-0 items-center gap-3">
+              <button type="button" (click)="sidebarOpen = true" aria-label="Open navigation" [attr.aria-expanded]="sidebarOpen"
+                      class="flex h-10 w-10 shrink-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white lg:hidden">
+                <span class="h-0.5 w-5 rounded bg-ink"></span><span class="h-0.5 w-5 rounded bg-ink"></span>
               </button>
-              <button *ngIf="walletVisible" type="button" (click)="doctorCopyWallet()"
-                      class="flex-shrink-0 px-3 py-1.5 bg-primary-500 text-white text-xs font-semibold rounded-lg hover:bg-primary-600 transition-colors shadow-sm">
-                Copy
-              </button>
+              <div class="min-w-0">
+                <p class="m-0 hidden text-[10px] font-bold uppercase tracking-[0.16em] text-primary-700 sm:block">AfyaTrust · Care operations</p>
+                <p class="m-0 truncate text-base font-bold text-slate-900 sm:text-lg">{{ currentTabLabel }}</p>
+              </div>
             </div>
-          </div>
-          <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">On-Chain Identity</p>
-            <p class="text-xs text-slate-600">
-              This address was auto-generated when your account was created. It is used to sign access grants and record views on Sepolia — no MetaMask required.
-            </p>
-          </div>
-        </div>
-      </div>
+            <div class="flex shrink-0 items-center gap-2 sm:gap-3">
+              <span class="hidden rounded-full border border-accent-200 bg-accent-50 px-3 py-1.5 text-xs font-semibold text-accent-800 sm:inline-flex">Verified clinician</span>
+              <div class="hidden text-right sm:block"><p class="m-0 text-xs font-semibold text-slate-800">Dr. {{ auth.fullName }}</p><p class="m-0 text-[11px] text-slate-500">{{ hospitalName || 'Clinical practice' }}</p></div>
+            </div>
+          </header>
 
       <!-- LAST ON-CHAIN ACTION (break-glass, etc.) — Etherscan-verifiable -->
       <div *ngIf="lastTx" class="mb-6 rounded-2xl border-l-4 p-5 bg-white shadow-sm border border-slate-100"
@@ -175,51 +148,55 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
       <!-- ================= DASHBOARD (overview + charts) ================= -->
       <div *ngIf="tab === 'dashboard'" class="animate-fade-in">
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 class="text-xl font-bold text-slate-900 mb-1">Practice Dashboard</h2>
-            <p class="m-0 text-sm text-muted">
-              Overview of your work across all hospitals you operate in. Every doctor
-              sees the same panels, scoped to their own patients and actions.
-            </p>
+            <p class="mb-1 text-xs font-bold uppercase tracking-[0.14em] text-primary-700">Practice overview</p>
+            <h1 class="m-0 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Your care at a glance</h1>
+            <p class="mb-0 mt-1 text-sm text-muted">A live view of your patients, clinical activity, and care coordination.</p>
           </div>
           <button (click)="loadDashboard()" [disabled]="loadingDashboard"
                   class="btn-secondary">
-            Refresh
+            {{ loadingDashboard ? 'Updating…' : 'Refresh' }}
           </button>
         </div>
 
         <!-- STAT CARDS -->
-        <div class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <div class="card p-5">
-            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Total patients</p>
-            <p class="text-3xl font-bold text-ink">{{ dashboard?.total_patients ?? 0 }}</p>
-            <p class="m-0 mt-1 text-xs text-muted">{{ dashboard?.active_patients ?? 0 }} with active access</p>
+        <div class="mb-6 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div class="doctor-overview-stat">
+            <div class="mb-5 flex items-center justify-between"><span class="doctor-overview-icon"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="doctor-stat-tag">Care team</span></div>
+            <p class="doctor-stat-label">Patients under your care</p><div class="flex items-end justify-between gap-2"><p class="doctor-stat-value">{{ loadingDashboard ? '…' : (dashboard?.total_patients ?? 0) }}</p><span class="mb-1 text-xs font-semibold text-primary-700">{{ dashboard?.active_patients ?? 0 }} active</span></div>
           </div>
-          <div class="card p-5">
-            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Measurements taken</p>
-            <p class="text-3xl font-bold text-ink">{{ dashboard?.total_measurements ?? 0 }}</p>
-            <p class="m-0 mt-1 text-xs text-muted">clinical readings you recorded</p>
+          <div class="doctor-overview-stat">
+            <div class="mb-5 flex items-center justify-between"><span class="doctor-overview-icon"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span><span class="doctor-stat-tag">Clinical</span></div>
+            <p class="doctor-stat-label">Measurements recorded</p><p class="doctor-stat-value">{{ loadingDashboard ? '…' : (dashboard?.total_measurements ?? 0) }}</p>
           </div>
-          <div class="card p-5">
-            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Actions</p>
-            <p class="text-3xl font-bold text-ink">{{ dashboard?.total_actions ?? 0 }}</p>
-            <p class="m-0 mt-1 text-xs text-muted">requests, measurements, referrals, break-glass</p>
+          <div class="doctor-overview-stat">
+            <div class="mb-5 flex items-center justify-between"><span class="doctor-overview-icon"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M3 12h18"/></svg></span><span class="doctor-stat-tag">Audit trail</span></div>
+            <p class="doctor-stat-label">Recorded care actions</p><p class="doctor-stat-value">{{ loadingDashboard ? '…' : (dashboard?.total_actions ?? 0) }}</p>
           </div>
-          <div class="card p-5">
-            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Referrals</p>
-            <p class="text-3xl font-bold text-ink">{{ dashboard?.referrals?.sent ?? 0 }}</p>
-            <p class="m-0 mt-1 text-xs text-muted">{{ dashboard?.referrals?.incoming_pending ?? 0 }} incoming awaiting response</p>
+          <div class="doctor-overview-stat">
+            <div class="mb-5 flex items-center justify-between"><span class="doctor-overview-icon"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span><span class="doctor-stat-tag">Coordination</span></div>
+            <p class="doctor-stat-label">Referrals sent</p><div class="flex items-end justify-between gap-2"><p class="doctor-stat-value">{{ loadingDashboard ? '…' : (dashboard?.referrals?.sent ?? 0) }}</p><span class="mb-1 text-xs font-semibold text-amber-700">{{ dashboard?.referrals?.incoming_pending ?? 0 }} to review</span></div>
           </div>
         </div>
 
         <!-- CHARTS -->
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-3">
+          <div class="xl:col-span-2">
           <app-record-chart
             title="Which diseases exist more (rate)"
             description="Share of your patients whose records mention each condition."
             [data]="diseaseChartData"
             emptyMessage="No diagnosis entries in your patients' records yet." />
+          </div>
+          <app-dashboard-gauge
+            title="Patient access"
+            description="Patients with active permission in your care workspace."
+            [numerator]="dashboard?.active_patients ?? 0"
+            [denominator]="dashboard?.total_patients ?? 0"
+            [loading]="loadingDashboard"
+            centerLabel="active"
+            footer="Access follows patient consent and expiry rules." />
           <app-record-chart
             title="Measurements by type"
             description="Readings you recorded, grouped by measurement kind."
@@ -237,19 +214,13 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             emptyMessage="No access requests yet." />
         </div>
 
-        <!-- Secondary numbers -->
-        <div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Break-glass uses</p>
-            <p class="text-xl font-bold text-ink">{{ dashboard?.break_glass_uses ?? 0 }}</p>
-          </div>
-          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Referrals sent (pending)</p>
-            <p class="text-xl font-bold text-ink">{{ dashboard?.referrals?.sent_pending ?? 0 }}</p>
-          </div>
-          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Incoming referrals</p>
-            <p class="text-xl font-bold text-ink">{{ dashboard?.referrals?.incoming_pending ?? 0 }}</p>
+        <div class="mt-5">
+          <div class="mb-3 flex items-center justify-between gap-2"><h2 class="m-0 text-sm font-bold text-slate-800">Quick actions</h2><span class="text-xs text-slate-500">Go directly to a task</span></div>
+          <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <button type="button" (click)="setTab('find')" class="doctor-quick-action"><span class="doctor-quick-action-icon">01</span><span class="min-w-0 flex-1"><strong>Find a patient</strong><small>Open a consent-checked record</small></span><span aria-hidden="true" class="text-lg text-primary-700">›</span></button>
+            <button type="button" (click)="setTab('measurements')" class="doctor-quick-action"><span class="doctor-quick-action-icon">02</span><span class="min-w-0 flex-1"><strong>Record measurement</strong><small>Add a clinical reading</small></span><span aria-hidden="true" class="text-lg text-primary-700">›</span></button>
+            <button type="button" (click)="setTab('referrals')" class="doctor-quick-action"><span class="doctor-quick-action-icon">03</span><span class="min-w-0 flex-1"><strong>Manage referrals</strong><small>{{ dashboard?.referrals?.incoming_pending ?? 0 }} incoming to review</small></span><span aria-hidden="true" class="text-lg text-primary-700">›</span></button>
+            <button type="button" (click)="setTab('requests')" class="doctor-quick-action"><span class="doctor-quick-action-icon">04</span><span class="min-w-0 flex-1"><strong>Access requests</strong><small>{{ dashboard?.access_requests?.pending ?? 0 }} awaiting patient response</small></span><span aria-hidden="true" class="text-lg text-primary-700">›</span></button>
           </div>
         </div>
       </div>
@@ -270,8 +241,8 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           </button>
         </div>
 
-        <div *ngFor="let p of patients" (click)="openPatient(p)"
-             class="card mb-4 flex cursor-pointer flex-wrap items-center justify-between gap-3 p-5 transition-transform hover:-translate-y-0.5">
+        <button *ngFor="let p of patients" type="button" (click)="openPatient(p)"
+             class="card mb-4 flex w-full cursor-pointer flex-wrap items-center justify-between gap-3 p-5 text-left transition-transform hover:-translate-y-0.5">
           <div>
             <p class="m-0 font-bold text-ink">{{ p.full_name }}</p>
             <p class="m-0 text-sm text-muted">Health ID: {{ p.health_id }}</p>
@@ -285,7 +256,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </p>
             <p *ngIf="p.expires_at" class="m-0 text-xs text-muted">until {{ p.expires_at | date:'medium' }}</p>
           </div>
-        </div>
+        </button>
         <div *ngIf="patients.length === 0 && !loadingPatients" class="card p-10 text-center">
           <h3 class="mb-1 text-lg font-bold">No patients yet</h3>
           <p class="m-0 text-muted">Use Find Patient to request access to a record.</p>
@@ -325,21 +296,22 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <span class="mt-1 block text-xs text-red-800">
                 Explain why the patient cannot communicate or give consent and why immediate access is necessary. The detailed reason stays off-chain; its hash is recorded on-chain for audit.
               </span>
-              <label class="mt-3 flex items-start gap-2 text-sm font-medium text-red-900">
-                <input type="checkbox" [(ngModel)]="emergencyPatientUnableToConsent"
-                       class="mt-1 rounded border-red-300" />
+              <label for="emergency-consent-confirm" class="mt-3 flex min-h-11 items-start gap-2 text-sm font-medium text-red-900">
+                <input id="emergency-consent-confirm" type="checkbox" [(ngModel)]="emergencyPatientUnableToConsent"
+                       class="mt-1 h-4 w-4 rounded border-red-300" />
                 <span>I confirm the patient cannot communicate or consent and immediate access is necessary.</span>
-              </div>
-              <textarea [(ngModel)]="emergencyReasonInput" rows="3"
-                        placeholder="Example: Patient is unconscious after a serious accident; immediate allergy and medication history is needed."
-                        class="mt-2 w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm text-slate-900"
-                        [attr.aria-label]="'Emergency reason for patient ' + healthId"></textarea>
+              </label>
+              <label for="emergency-reason-input" class="mt-3 block text-sm font-semibold text-red-900">Emergency reason</label>
+              <textarea id="emergency-reason-input" [(ngModel)]="emergencyReasonInput" rows="3" required
+                        placeholder="Explain why immediate access is necessary."
+                        class="mt-1 w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm text-slate-900"
+                        [attr.aria-describedby]="'emergency-reason-help' + healthId"></textarea>
+              <p [id]="'emergency-reason-help' + healthId" class="mt-1 text-xs text-red-800">The detailed reason stays off-chain; its hash is recorded on-chain for audit.</p>
               <button type="button" (click)="breakGlass()"
                       [disabled]="!emergencyPatientUnableToConsent || !emergencyReasonInput.trim() || emergencyBusy"
-                      class="mt-3 cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
+                      class="mt-2 min-h-11 cursor-pointer rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50">
                 {{ emergencyBusy ? 'Recording emergency access…' : 'Use emergency access for 1 hour' }}
               </button>
-            </label>
             <p *ngIf="requestStatusFor(healthId) === 'REJECTED'" class="mb-0 mt-2 text-xs font-semibold text-red-700">
               The patient rejected a previous request for this record.
             </p>
@@ -626,10 +598,11 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           </div>
         </div>
       </div>
+      </div>
 
       <!-- ================= MEASUREMENTS ================= -->
-      <div *ngIf="tab === 'measurements'" class="animate-fade-in">
-        <h2 class="text-xl font-bold text-slate-900 mb-1">Disease Measurements</h2>
+      <section *ngIf="tab === 'measurements'" aria-labelledby="measurements-heading" class="animate-fade-in">
+        <h1 id="measurements-heading" class="text-xl font-bold text-slate-900 mb-1">Measurements</h1>
         <p class="mb-4 text-sm text-muted">Record a clinical reading, then watch the trend for any measurement type.</p>
 
         <!-- Add measurement -->
@@ -741,7 +714,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
             </p>
           </div>
         </div>
-      </div>
+      </section>
 
       <!-- ================= MY REQUESTS ================= -->
       <div *ngIf="tab === 'requests'" class="animate-fade-in">
@@ -1001,15 +974,6 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
       </div>
     </div>
 
-    <!-- FOOTER -->
-    <footer class="border-t border-gray-200 mt-12 bg-white">
-      <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
-        <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
-        <div class="flex gap-5">
-          <span class="text-muted">&copy; 2024</span>
-        </div>
-      </div>
-    </footer>
   `,
 })
 export class DoctorLandingComponent implements OnDestroy, OnInit {
@@ -1036,11 +1000,13 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   walletVisible = false;
 
   // patients
-  patients: AssignedPatient[] = [];
+  get patients(): AssignedPatient[] { return this.workspaceState.doctorPatients.data ?? []; }
+  set patients(value: AssignedPatient[]) { this.workspaceState.doctorPatients.set(value); }
   loadingPatients = false;
 
   // dashboard overview
-  dashboard: DoctorDashboard | null = null;
+  get dashboard(): DoctorDashboard | null { return this.workspaceState.doctorDashboard.data; }
+  set dashboard(value: DoctorDashboard | null) { value ? this.workspaceState.doctorDashboard.set(value) : this.workspaceState.doctorDashboard.clear(); }
   loadingDashboard = false;
   get diseaseChartData(): RecordChartPoint[] {
     return (this.dashboard?.diseases ?? []).map((d) => ({
@@ -1125,9 +1091,13 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   requestSent = false;
   loading = false;
   resChainChecked = false;
+  feedbackMessage = '';
+  feedbackError = false;
+  private feedbackTimer: any = null;
 
   // my access requests (patient responses)
-  myRequests: AccessRequest[] = [];
+  get myRequests(): AccessRequest[] { return this.workspaceState.doctorRequests.data ?? []; }
+  set myRequests(value: AccessRequest[]) { this.workspaceState.doctorRequests.set(value); }
   pendingRequestCount = 0;
 
   // measurements
@@ -1151,10 +1121,12 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   busyRef = false;
   refMsg = '';
   refOk = false;
-  referralsSent: ReferralItem[] = [];
+  get referralsSent(): ReferralItem[] { return this.workspaceState.doctorReferrals.data ?? []; }
+  set referralsSent(value: ReferralItem[]) { this.workspaceState.doctorReferrals.set(value); }
 
   // incoming referral notifications (toasts + referrals tab)
-  incomingAll: ReferralItem[] = [];
+  get incomingAll(): ReferralItem[] { return this.workspaceState.doctorIncoming.data ?? []; }
+  set incomingAll(value: ReferralItem[]) { this.workspaceState.doctorIncoming.set(value); }
   incomingToasts: ReferralItem[] = [];
   pendingIncoming = 0;
   busyIncoming: number | null = null;
@@ -1162,7 +1134,8 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   private referralTimer: any = null;
 
   // blockchain transactions
-  transactions: BlockchainEvent[] = [];
+  get transactions(): BlockchainEvent[] { return this.workspaceState.doctorTransactions.data ?? []; }
+  set transactions(value: BlockchainEvent[]) { this.workspaceState.doctorTransactions.set(value); }
   filteredTransactions: BlockchainEvent[] = [];
   txFilterEvent = '';
   txFilterHealthId = '';
@@ -1179,12 +1152,24 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     private api: ApiService,
     public auth: AuthService,
     private cdr: ChangeDetectorRef,
-    private router: Router
+    private router: Router,
+    private workspaceState: WorkspaceStateService
   ) {}
 
   /** Angular 22 is zoneless by default — re-render after async mutations. */
   private syncView() {
     this.cdr.detectChanges();
+  }
+
+  private notify(message: string, error = false) {
+    this.feedbackMessage = message;
+    this.feedbackError = error;
+    if (this.feedbackTimer) clearTimeout(this.feedbackTimer);
+    this.feedbackTimer = setTimeout(() => {
+      this.feedbackMessage = '';
+      this.syncView();
+    }, 5000);
+    this.syncView();
   }
 
   setTab(id: 'dashboard' | 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' | 'how-it-works' | 'profile') {
@@ -1202,33 +1187,39 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   }
 
   async ngOnInit() {
+    this.workspaceState.bindSession(this.auth.token);
     if (!this.auth.isDoctor) {
       // Not signed in — the route guard normally prevents this.
       return;
     }
     this.license = this.auth.licenseNo;
     this.myHospitalCode = this.auth.hospitalCode;
-    try {
-      const me = await this.api.doctorMe();
+    // Start independent dashboard requests together. Each section renders as
+    // soon as its own response arrives instead of waiting behind chain reads.
+    const profile = this.api.doctorMe().then((me) => {
       this.hospitalName = me.hospital_name || me.hospital_code;
       this.walletAddress = me.wallet_address || '';
-    } catch { /* keep code label */ }
-
-    this.hospitals = await this.api.hospitals().catch(() => [] as HospitalOption[]);
-    this.syncView();
-
-    await this.loadDashboard();
-    await this.loadPatients();
-    await this.loadReferralsSent();
-    await this.loadMyRequests();
+    }).catch(() => { /* keep the facility code label */ });
+    const hospitals = this.api.hospitals().then((items) => {
+      this.hospitals = items;
+    }).catch(() => { this.hospitals = []; });
     this.startReferralPolling();
+    void Promise.allSettled([
+      profile,
+      hospitals,
+      this.loadDashboard(false),
+      this.loadPatients(false),
+      this.loadReferralsSent(false),
+      this.loadMyRequests(false),
+      this.refreshIncoming(),
+    ]).then(() => this.syncView());
   }
 
   /** Poll patient responses so an approval unlocks records without a refresh. */
   private async pollMyRequests() {
     const before = this.pendingRequestCount;
     try {
-      this.myRequests = await this.api.doctorPendingRequests();
+      this.myRequests = await this.workspaceState.doctorRequests.load(() => this.api.doctorPendingRequests(), true);
       this.pendingRequestCount = this.myRequests.filter((r) => r.status === 'PENDING').length;
     } catch {
       return; // offline tick
@@ -1243,6 +1234,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
   ngOnDestroy() {
     if (this.referralTimer) clearInterval(this.referralTimer);
+    if (this.feedbackTimer) clearTimeout(this.feedbackTimer);
     if (this.txFilterTimer) clearTimeout(this.txFilterTimer);
     this.stopEmergencyCountdown();
   }
@@ -1293,19 +1285,19 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     }, 15000);
   }
 
-  async loadMyRequests() {
+  async loadMyRequests(refresh = true) {
     try {
-      this.myRequests = await this.api.doctorPendingRequests();
+      this.myRequests = await this.workspaceState.doctorRequests.load(() => this.api.doctorPendingRequests(), refresh);
       this.pendingRequestCount = this.myRequests.filter((r) => r.status === 'PENDING').length;
     } catch {
-      this.myRequests = [];
+      // Keep the last successful result visible while the slice records the error.
     }
     this.syncView();
   }
 
   async refreshIncoming() {
     try {
-      this.incomingAll = await this.api.incomingReferrals();
+      this.incomingAll = await this.workspaceState.doctorIncoming.load(() => this.api.incomingReferrals(), true);
       this.incomingToasts = this.incomingAll.filter((r) => !this.dismissedReferrals.has(r.id));
       this.pendingIncoming = this.incomingAll.length;
     } catch {
@@ -1325,6 +1317,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.syncView();
     try {
       await this.api.respondReferral(r.id, action);
+      this.notify(action === 'ACCEPTED' ? 'Referral accepted.' : 'Referral declined.');
       await this.refreshIncoming();
       await this.loadReferralsSent();
       if (action === 'ACCEPTED' && r.patient_health_id) {
@@ -1335,7 +1328,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
         await this.viewRecord();
       }
     } catch (e: any) {
-      alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
+      this.notify(e?.error?.error || e?.message || 'Could not update the referral.', true);
     } finally {
       this.busyIncoming = null;
       this.syncView();
@@ -1357,26 +1350,26 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.meas.unit = this.unitsFor(this.meas.kind);
   }
 
-  async loadDashboard() {
+  async loadDashboard(refresh = true) {
     this.loadingDashboard = true;
     this.syncView();
     try {
-      this.dashboard = await this.api.doctorDashboard();
+      this.dashboard = await this.workspaceState.doctorDashboard.load(() => this.api.doctorDashboard(), refresh);
     } catch {
-      this.dashboard = null; // offline or endpoint unreachable
+      // Keep the last successful result visible while offline.
     } finally {
       this.loadingDashboard = false;
       this.syncView();
     }
   }
 
-  async loadPatients() {
+  async loadPatients(refresh = true) {
     this.loadingPatients = true;
     this.syncView();
     try {
-      this.patients = await this.api.myPatients();
+      this.patients = await this.workspaceState.doctorPatients.load(() => this.api.myPatients(), refresh);
     } catch (e: any) {
-      alert('Error: ' + (e?.error?.error || e?.message || 'Failed to load patients'));
+      this.notify(e?.error?.error || e?.message || 'Could not load patients.', true);
     } finally {
       this.loadingPatients = false;
       this.syncView();
@@ -1435,7 +1428,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       if (e?.status === 403) {
         this.denied = true;
       } else {
-        alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
+        this.notify(e?.error?.error || e?.message || 'Could not load this record.', true);
       }
     } finally {
       this.loading = false;
@@ -1461,9 +1454,10 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       this.requestSent = true;
       this.denied = false;
       this.requestReason = '';
+      this.notify('Access request sent to the patient.');
       await this.loadMyRequests();
     } catch (e: any) {
-      alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
+      this.notify(e?.error?.error || e?.message || 'Could not send the access request.', true);
     }
     this.syncView();
   }
@@ -1471,11 +1465,11 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   async breakGlass() {
     const reason = this.emergencyReasonInput.trim();
     if (!this.emergencyPatientUnableToConsent) {
-      alert('Confirm that the patient cannot communicate or consent before using emergency access.');
+      this.notify('Confirm that the patient cannot communicate or consent before using emergency access.', true);
       return;
     }
     if (!reason) {
-      alert('Document why the patient cannot communicate or consent and why immediate access is necessary.');
+      this.notify('Document why the patient cannot communicate or consent and why immediate access is necessary.', true);
       return;
     }
     if (this.emergencyBusy) return;
@@ -1498,12 +1492,12 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       this.emergencyPatientUnableToConsent = false;
       // Immediately reflect the BreakGlassUsed event in the on-chain log.
       void this.loadTransactions();
-      alert(res.chain_logged
+      this.notify(res.chain_logged
         ? 'Emergency access granted for 1 hour and logged on-chain.'
         : 'Emergency access granted for 1 hour, but its blockchain audit transaction is pending. Check your transaction log.');
       await this.viewRecord();
     } catch (e: any) {
-      alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
+      this.notify(e?.error?.error || e?.message || 'Could not activate emergency access.', true);
     } finally {
       this.emergencyBusy = false;
       this.syncView();
@@ -1569,7 +1563,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       const kinds = this.trendKinds;
       if (!kinds.includes(this.trendKind)) this.trendKind = kinds[0] || '';
     } catch (e: any) {
-      alert('Error: ' + (e?.error?.error || e?.message || 'Failed to load measurements'));
+      this.notify(e?.error?.error || e?.message || 'Could not load measurements.', true);
     }
     this.syncView();
   }
@@ -1602,11 +1596,11 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     }
   }
 
-  async loadReferralsSent() {
+  async loadReferralsSent(refresh = true) {
     try {
-      this.referralsSent = await this.api.myReferralsSent();
+      this.referralsSent = await this.workspaceState.doctorReferrals.load(() => this.api.myReferralsSent(), refresh);
     } catch {
-      this.referralsSent = [];
+      // Keep the last successful result visible while the slice records the error.
     }
     this.syncView();
   }
@@ -1615,10 +1609,10 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   private async loadTransactions() {
     try {
       const healthId = this.txFilterHealthId.trim();
-      const res = await this.api.blockchainEvents(
-        healthId ? { health_id: healthId } : undefined
-      );
-      this.transactions = res.events;
+      this.transactions = await this.workspaceState.doctorTransactions.load(async () => {
+        const res = await this.api.blockchainEvents(healthId ? { health_id: healthId } : undefined);
+        return res.events;
+      }, true);
       this.filteredTransactions = this.transactions.filter(
         (tx) => !this.txFilterEvent || tx.event === this.txFilterEvent
       );
@@ -1628,7 +1622,6 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       }
     } catch (e: any) {
       console.error('Failed to load transactions:', e);
-      this.transactions = [];
       this.filteredTransactions = [];
     }
     this.syncView();
@@ -1692,11 +1685,6 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   doctorCopyWallet() {
     if (!this.walletAddress) return;
     navigator.clipboard.writeText(this.walletAddress).catch(() => {});
-  }
-
-  /** Switch to profile tab within the dashboard. */
-  viewProfile() {
-    this.setTab('profile');
   }
 
   /** Log out and take the user back to the sign-in page. */

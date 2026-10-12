@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { NgIf } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
+import { SiteFooterComponent } from '../../components/shared/site-footer/site-footer.component';
 
 /**
  * Public landing page — role aware.
@@ -10,7 +11,7 @@ import { AuthService } from '../../services/auth.service';
  */
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, NgIf],
+  imports: [RouterLink, NgIf, SiteFooterComponent],
   template: `
     <!-- ================= NAVBAR ================= -->
     <nav aria-label="Main navigation" class="relative z-50 border-b border-slate-200 bg-white">
@@ -401,15 +402,7 @@ import { AuthService } from '../../services/auth.service';
       </div>
     </section>
 
-    <!-- ================= FOOTER ================= -->
-    <footer class="border-t border-gray-200">
-      <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
-        <p class="m-0 text-center">UDOM · Built by Atanasi Patrick Kafuka</p>
-        <div class="flex gap-5">
-          <a *ngIf="!auth.isAuthenticated()" routerLink="/login" class="text-accent-700 no-underline hover:underline">Sign in</a>
-        </div>
-      </div>
-    </footer>
+    <app-site-footer />
   `,
 })
 export class HomeComponent {

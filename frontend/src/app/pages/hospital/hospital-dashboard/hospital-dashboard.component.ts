@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { NgIf, NgFor, DatePipe, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -7,6 +7,8 @@ import {
 } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
 import { RecordChartComponent, RecordChartPoint } from '../../../components/shared/record-chart/record-chart.component';
+import { DashboardGaugeComponent } from '../../../components/shared/dashboard-gauge/dashboard-gauge.component';
+import { WorkspaceStateService } from '../../../services/workspace-state.service';
 
 /**
  * Hospital workspace: referral desk + staff record entry.
@@ -18,18 +20,25 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
  */
 @Component({
   selector: 'app-hospital-dashboard',
-  imports: [NgIf, NgFor, DatePipe, SlicePipe, FormsModule, RecordChartComponent],
+  imports: [NgIf, NgFor, DatePipe, SlicePipe, FormsModule, RecordChartComponent, DashboardGaugeComponent],
+  styles: [`:host { display: block; width: 100%; }`],
   template: `
     <div class="min-h-screen bg-slate-50">
       <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        <div *ngIf="feedbackMessage" role="status" aria-live="polite"
+             class="fixed right-4 top-4 z-[100] flex max-w-[calc(100vw-2rem)] items-start gap-3 border px-4 py-3 shadow-lg sm:right-6 sm:top-6 sm:max-w-md"
+             [class]="feedbackError ? 'border-red-200 bg-red-50 text-red-800' : 'border-primary-200 bg-primary-50 text-primary-900'">
+          <p class="m-0 flex-1 text-sm font-medium">{{ feedbackMessage }}</p>
+          <button type="button" (click)="feedbackMessage = ''" aria-label="Dismiss message" class="min-h-6 border-0 bg-transparent px-1 text-lg leading-none">×</button>
+        </div>
         <!-- Hero header -->
         <div class="card">
-          <div class="flex flex-wrap items-center justify-between gap-4 bg-slate-900 px-6 py-4">
+            <div class="flex flex-wrap items-center justify-between gap-4 bg-primary-800 px-6 py-4">
             <div>
               <h1 class="text-2xl font-bold text-white sm:text-3xl">Hospital Dashboard</h1>
               <p class="mt-1 text-slate-300">{{ hospitalName || 'Hospital' }} • {{ auth.fullName }}</p>
             </div>
-            <button (click)="logoutAndRedirect()" class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm font-semibold rounded-xl transition-colors">
+            <button (click)="logoutAndRedirect()" class="btn-logout px-4 py-2 text-sm font-semibold rounded-xl transition-colors">
               Sign Out
             </button>
           </div>
@@ -45,59 +54,89 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           </div>
         </div>
 
-        <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div *ngIf="tab === 'dashboard'" class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div class="dashboard-metric"><span class="dashboard-metric-icon" aria-hidden="true">IN</span><div><p class="text-xs font-semibold uppercase tracking-wide text-muted">Incoming queue</p><p class="m-0 text-3xl font-bold text-ink">{{ loading ? '…' : incomingReferrals.length }}</p><p class="m-0 text-xs text-muted">{{ pendingIncomingCount }} awaiting response</p></div></div>
+          <div class="dashboard-metric"><span class="dashboard-metric-icon" aria-hidden="true">OUT</span><div><p class="text-xs font-semibold uppercase tracking-wide text-muted">Outgoing referrals</p><p class="m-0 text-3xl font-bold text-ink">{{ outgoingReferrals.length }}</p><p class="m-0 text-xs text-muted">Sent by this facility</p></div></div>
+          <div class="dashboard-metric"><span class="dashboard-metric-icon" aria-hidden="true">REC</span><div><p class="text-xs font-semibold uppercase tracking-wide text-muted">Facility records</p><p class="m-0 text-3xl font-bold text-ink">{{ loadingRecords ? '…' : facilityRecords.length }}</p><p class="m-0 text-xs text-muted">Clinical entries on file</p></div></div>
+          <div class="dashboard-metric"><span class="dashboard-metric-icon" aria-hidden="true">⛓</span><div><p class="text-xs font-semibold uppercase tracking-wide text-muted">Chain transactions</p><p class="m-0 text-3xl font-bold text-ink">{{ loadingChain ? '…' : chainSummary.total_transactions }}</p><p class="m-0 text-xs text-muted">Activity indexed for this facility</p></div></div>
+        </div>
+
+        <div *ngIf="tab === 'dashboard'" class="mb-6 grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-3">
+          <div class="xl:col-span-2">
           <app-record-chart
             title="Clinical records by type"
             description="Records created by this hospital."
             [data]="facilityRecordChartData"
             emptyMessage="No facility records have been loaded yet." />
+          </div>
           <app-record-chart
             title="Blockchain activity"
             description="On-chain events recorded for this hospital."
             [data]="blockchainActivityChartData"
             emptyMessage="No blockchain event summary is available yet." />
+          <app-dashboard-gauge
+            title="Referral responses"
+            description="Incoming referrals that have received a response."
+            [numerator]="incomingReferrals.length - pendingIncomingCount"
+            [denominator]="incomingReferrals.length"
+            [loading]="loading"
+            centerLabel="answered"
+            footer="Accepted and declined referrals count as answered." />
         </div>
 
       <!-- Tabs -->
-      <div class="mb-6 flex flex-wrap gap-1 bg-white rounded-2xl p-1.5 shadow-sm border border-slate-100">
-        <button (click)="setTab('incoming')"
-                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
-                [class]="tab === 'incoming' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
+      <nav class="mb-6 flex flex-nowrap gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm sm:flex-wrap sm:overflow-visible" aria-label="Hospital dashboard sections">
+        <button type="button" (click)="setTab('dashboard')"
+                class="min-h-11 shrink-0 whitespace-nowrap cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
+                [class]="tab === 'dashboard' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'"
+                [attr.aria-current]="tab === 'dashboard' ? 'page' : null">
+          Dashboard
+        </button>
+        <button type="button" (click)="setTab('incoming')"
+                class="min-h-11 shrink-0 whitespace-nowrap cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-sm transition-all duration-200"
+                [class]="tab === 'incoming' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'"
+                [attr.aria-current]="tab === 'incoming' ? 'page' : null">
           Incoming Referrals
           <span *ngIf="pendingIncomingCount > 0"
                 class="ml-1.5 rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingIncomingCount }}</span>
         </button>
-        <button (click)="setTab('outgoing'); loadOutgoing()"
-                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
-                [class]="tab === 'outgoing' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
+        <button type="button" (click)="setTab('outgoing'); loadOutgoing()"
+                class="min-h-11 shrink-0 whitespace-nowrap cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-sm transition-all duration-200"
+                [class]="tab === 'outgoing' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'"
+                [attr.aria-current]="tab === 'outgoing' ? 'page' : null">
           Outgoing Referrals
         </button>
-        <button (click)="setTab('exchange'); loadExchangeRecords()"
-                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
-                [class]="tab === 'exchange' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
+        <button type="button" (click)="setTab('exchange'); loadExchangeRecords()"
+                class="min-h-11 shrink-0 whitespace-nowrap cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-sm transition-all duration-200"
+                [class]="tab === 'exchange' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'"
+                [attr.aria-current]="tab === 'exchange' ? 'page' : null">
           Data Exchange
         </button>
-        <button (click)="setTab('history'); loadFacilityRecords()"
-                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
-                [class]="tab === 'history' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
+        <button type="button" (click)="setTab('history'); loadFacilityRecords()"
+                class="min-h-11 shrink-0 whitespace-nowrap cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-sm transition-all duration-200"
+                [class]="tab === 'history' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'"
+                [attr.aria-current]="tab === 'history' ? 'page' : null">
           History
         </button>
-        <button (click)="setTab('records'); loadFacilityRecords()"
-                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
-                [class]="tab === 'records' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
+        <button type="button" (click)="setTab('records'); loadFacilityRecords()"
+                class="min-h-11 shrink-0 whitespace-nowrap cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-sm transition-all duration-200"
+                [class]="tab === 'records' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'"
+                [attr.aria-current]="tab === 'records' ? 'page' : null">
           Add Record
         </button>
-        <button (click)="setTab('blockchain'); loadBlockchainLogs()"
-                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
-                [class]="tab === 'blockchain' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
+        <button type="button" (click)="setTab('blockchain'); loadBlockchainLogs()"
+                class="min-h-11 shrink-0 whitespace-nowrap cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-sm transition-all duration-200"
+                [class]="tab === 'blockchain' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'"
+                [attr.aria-current]="tab === 'blockchain' ? 'page' : null">
           Blockchain Logs
         </button>
-        <button (click)="setTab('how-it-works')"
-                class="cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200"
-                [class]="tab === 'how-it-works' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'">
+        <button type="button" (click)="setTab('how-it-works')"
+                class="min-h-11 shrink-0 whitespace-nowrap cursor-pointer border-none bg-transparent px-4 py-2.5 text-sm font-medium rounded-sm transition-all duration-200"
+                [class]="tab === 'how-it-works' ? 'bg-primary-500 text-white font-semibold rounded-xl shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'"
+                [attr.aria-current]="tab === 'how-it-works' ? 'page' : null">
           How it works
         </button>
-      </div>
+      </nav>
 
       <!-- LAST ON-CHAIN ACTION — Etherscan-verifiable -->
       <div *ngIf="lastTx" class="mb-6 rounded-2xl border-l-4 p-5 bg-white shadow-sm border border-slate-100"
@@ -144,6 +183,8 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           </button>
         </div>
 
+        <p *ngIf="loading" role="status" class="mb-4 text-sm text-muted">Loading referrals…</p>
+
         <!-- Referral list -->
         <div *ngFor="let r of incomingReferrals" class="card mb-4 p-6">
           <div class="flex flex-wrap items-start justify-between gap-3">
@@ -169,11 +210,11 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <div *ngIf="r.status === 'PENDING'" class="flex gap-2">
                 <button (click)="respond(r, 'ACCEPTED')" [disabled]="busyId === r.id"
                         class="btn-primary">
-                  Accept
+                  {{ busyId === r.id ? 'Saving…' : 'Accept' }}
                 </button>
                 <button (click)="respond(r, 'DECLINED')" [disabled]="busyId === r.id"
                         class="cursor-pointer rounded-lg border-2 border-red-500 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-500 hover:text-white disabled:opacity-50">
-                  Decline
+                  {{ busyId === r.id ? 'Saving…' : 'Decline' }}
                 </button>
               </div>
               <button *ngIf="r.status === 'ACCEPTED'"
@@ -439,7 +480,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
 
           <button (click)="submitRecord()" [disabled]="busy || !form.health_id"
                   class="btn-primary">
-            {{ busy ? 'Writing to Sepolia — this can take about 30 seconds…' : 'Add record to blockchain' }}
+            {{ busy ? 'Saving record and anchoring hash…' : 'Add record and verify' }}
           </button>
           <p *ngIf="formMsg" class="mb-0 mt-2 text-sm" [class]="formOk ? 'text-accent-700' : 'text-red-600'">{{ formMsg }}</p>
         </div>
@@ -648,18 +689,10 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
     </div>
 
     <!-- FOOTER -->
-    <footer class="border-t border-gray-200 mt-12 bg-white">
-      <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:px-6">
-        <p class="m-0 text-center">UDOM · PoC by Atanasi Patrick Kafuka · Sepolia testnet</p>
-        <div class="flex gap-5">
-          <span class="text-muted">&copy; 2024</span>
-        </div>
-      </div>
-    </footer>
   `,
 })
-export class HospitalDashboardComponent implements OnInit {
-  tab: 'incoming' | 'outgoing' | 'exchange' | 'history' | 'records' | 'blockchain' | 'how-it-works' = 'incoming';
+export class HospitalDashboardComponent implements OnInit, OnDestroy {
+  tab: 'dashboard' | 'incoming' | 'outgoing' | 'exchange' | 'history' | 'records' | 'blockchain' | 'how-it-works' = 'dashboard';
 
   // --- incoming / outgoing referral filters ---
   filter = 'PENDING';
@@ -671,16 +704,22 @@ export class HospitalDashboardComponent implements OnInit {
   ] as const;
 
   // --- incoming referrals (referrals TO this hospital) ---
-  incomingReferrals: ReferralItem[] = [];
+  get incomingReferrals(): ReferralItem[] { return this.workspaceState.hospitalIncoming.data ?? []; }
+  set incomingReferrals(value: ReferralItem[]) { this.workspaceState.hospitalIncoming.set(value); }
   // --- outgoing referrals (referrals FROM this hospital to another) ---
-  outgoingReferrals: ReferralItem[] = [];
+  get outgoingReferrals(): ReferralItem[] { return this.workspaceState.hospitalOutgoing.data ?? []; }
+  set outgoingReferrals(value: ReferralItem[]) { this.workspaceState.hospitalOutgoing.set(value); }
   integrityReports: Record<number, ReferralIntegrityReport> = {};
   verifyingReferralId: number | null = null;
   // --- records this hospital has anchored on-chain (exchange pointers) ---
-  exchangeRecords: any[] = [];
+  get exchangeRecords(): any[] { return this.workspaceState.hospitalExchange.data ?? []; }
+  set exchangeRecords(value: any[]) { this.workspaceState.hospitalExchange.set(value); }
 
   loading = false;
   busyId: number | null = null;
+  feedbackMessage = '';
+  feedbackError = false;
+  private feedbackTimer: any = null;
 
   // --- Add record form ---
   recordTypes = ['DIAGNOSIS', 'LAB', 'PRESCRIPTION', 'MEDICATION', 'SURGERY', 'IMMUNIZATION', 'GENERAL'];
@@ -692,14 +731,21 @@ export class HospitalDashboardComponent implements OnInit {
   formOk = false;
   lastResult: { hash: string; tx_hash: string } | null = null;
 
-  facilityRecords: FacilityRecord[] = [];
+  get facilityRecords(): FacilityRecord[] { return this.workspaceState.hospitalRecords.data ?? []; }
+  set facilityRecords(value: FacilityRecord[]) { this.workspaceState.hospitalRecords.set(value); }
   loadingRecords = false;
 
   // --- Blockchain logs (Etherscan-verified) ---
-  chainEvents: BlockchainEvent[] = [];
+  get chainEvents(): BlockchainEvent[] { return this.workspaceState.hospitalEvents.data ?? []; }
+  set chainEvents(value: BlockchainEvent[]) { this.workspaceState.hospitalEvents.set(value); }
   filteredChainEvents: BlockchainEvent[] = [];
   loadingChain = false;
-  chainSummary: { summary: Record<string, number>; total_transactions: number } = { summary: {}, total_transactions: 0 };
+  get chainSummary(): { summary: Record<string, number>; total_transactions: number } {
+    return this.workspaceState.hospitalSummary.data ?? { summary: {}, total_transactions: 0 };
+  }
+  set chainSummary(value: { summary: Record<string, number>; total_transactions: number }) {
+    this.workspaceState.hospitalSummary.set(value);
+  }
   txFilterEvent = '';
   txFilterHealthId = '';
 
@@ -724,7 +770,8 @@ export class HospitalDashboardComponent implements OnInit {
     private api: ApiService,
     public auth: AuthService,
     private router: Router,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private workspaceState: WorkspaceStateService
   ) {}
 
   /** Angular 22 is zoneless by default — re-render after async mutations. */
@@ -732,7 +779,22 @@ export class HospitalDashboardComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
-  setTab(t: 'incoming' | 'outgoing' | 'exchange' | 'history' | 'records' | 'blockchain' | 'how-it-works') {
+  private notify(message: string, error = false) {
+    this.feedbackMessage = message;
+    this.feedbackError = error;
+    if (this.feedbackTimer) clearTimeout(this.feedbackTimer);
+    this.feedbackTimer = setTimeout(() => {
+      this.feedbackMessage = '';
+      this.syncView();
+    }, 5000);
+    this.syncView();
+  }
+
+  ngOnDestroy() {
+    if (this.feedbackTimer) clearTimeout(this.feedbackTimer);
+  }
+
+  setTab(t: 'dashboard' | 'incoming' | 'outgoing' | 'exchange' | 'history' | 'records' | 'blockchain' | 'how-it-works') {
     this.tab = t;
     this.syncView();
   }
@@ -754,15 +816,20 @@ export class HospitalDashboardComponent implements OnInit {
   outgoingFilter = 'PENDING';
 
   async ngOnInit() {
+    this.workspaceState.bindSession(this.auth.token);
     if (!this.auth.isStaff) {
       this.router.navigate(['/login']);
       return;
     }
-    await this.reload();
-    void this.loadOutgoing();
-    void this.loadExchangeRecords();
-    void this.loadFacilityRecords();
-    void this.loadBlockchainLogs();
+    // Keep each dashboard panel independent so a slow chain query cannot hold
+    // up the referral queue or facility records.
+    void Promise.allSettled([
+      this.reload(false),
+      this.loadOutgoing(false),
+      this.loadExchangeRecords(false),
+      this.loadFacilityRecords(false),
+      this.loadBlockchainLogs(false),
+    ]);
   }
 
   setFilter(value: string) {
@@ -776,13 +843,15 @@ export class HospitalDashboardComponent implements OnInit {
   }
 
   /** Incoming referrals (to this hospital). */
-  async reload() {
+  async reload(refresh = true) {
     this.loading = true;
     this.syncView();
     try {
-      this.incomingReferrals = await this.api.hospitalReferrals(this.filter || undefined);
+      this.incomingReferrals = await this.workspaceState.hospitalIncoming.load(
+        () => this.api.hospitalReferrals(this.filter || undefined), refresh,
+      );
     } catch (e: any) {
-      alert('Error: ' + (e?.error?.error || e?.message || 'Failed to load referrals'));
+      this.notify(e?.error?.error || e?.message || 'Could not load referrals.', true);
     } finally {
       this.loading = false;
       this.syncView();
@@ -790,21 +859,23 @@ export class HospitalDashboardComponent implements OnInit {
   }
 
   /** Outgoing referrals (from this hospital to another). */
-  async loadOutgoing() {
+  async loadOutgoing(refresh = true) {
     try {
-      this.outgoingReferrals = await this.api.hospitalOutgoingReferrals(this.outgoingFilter || undefined);
-    } catch {
-      this.outgoingReferrals = [];
+      this.outgoingReferrals = await this.workspaceState.hospitalOutgoing.load(
+        () => this.api.hospitalOutgoingReferrals(this.outgoingFilter || undefined), refresh,
+      );
+    } catch (e: any) {
+      this.notify(e?.error?.error || e?.message || 'Could not load outgoing referrals.', true);
     }
     this.syncView();
   }
 
   /** Records this hospital has anchored on-chain (exchange pointers). */
-  async loadExchangeRecords() {
+  async loadExchangeRecords(refresh = true) {
     try {
-      this.exchangeRecords = await this.api.hospitalRecordsExchange();
-    } catch {
-      this.exchangeRecords = [];
+      this.exchangeRecords = await this.workspaceState.hospitalExchange.load(() => this.api.hospitalRecordsExchange(), refresh);
+    } catch (e: any) {
+      this.notify(e?.error?.error || e?.message || 'Could not load exchange records.', true);
     }
     this.syncView();
   }
@@ -814,11 +885,12 @@ export class HospitalDashboardComponent implements OnInit {
     this.syncView();
     try {
       await this.api.respondReferral(r.id, action);
+      this.notify(action === 'ACCEPTED' ? 'Referral accepted.' : 'Referral declined.');
       if (action === 'ACCEPTED') this.filter = 'ACCEPTED';
       await this.reload();
       void this.loadOutgoing();
     } catch (e: any) {
-      alert('Error: ' + (e?.error?.error || e?.message || 'Failed'));
+      this.notify(e?.error?.error || e?.message || 'Could not update referral.', true);
     } finally {
       this.busyId = null;
       this.syncView();
@@ -831,8 +903,10 @@ export class HospitalDashboardComponent implements OnInit {
     try {
       this.integrityReports[referral.id] =
         await this.api.verifyReferralRecords(referral.id);
+      const report = this.integrityReports[referral.id];
+      this.notify(`${report.verified_count} record(s) verified; ${report.mismatch_count} integrity issue(s).`, report.mismatch_count > 0);
     } catch (e: any) {
-      alert(e?.error?.error || e?.message || 'Could not verify referral records');
+      this.notify(e?.error?.error || e?.message || 'Could not verify referral records.', true);
     } finally {
       this.verifyingReferralId = null;
       this.syncView();
@@ -881,8 +955,10 @@ export class HospitalDashboardComponent implements OnInit {
         record_data: data,
       });
       this.formOk = true;
-      this.formMsg = 'Record saved and hash written to Sepolia.';
       const h: string = res.tx_hash || '';
+      this.formMsg = h.startsWith('PENDING')
+        ? 'Record saved. Blockchain anchor is pending.'
+        : 'Record saved and hash written to Sepolia.';
       this.lastTx = {
         label: `Record added for ${healthId}`,
         tx_hash: h,
@@ -894,19 +970,20 @@ export class HospitalDashboardComponent implements OnInit {
       void this.loadBlockchainLogs();
     } catch (e: any) {
       this.formMsg = e?.error?.error || e?.message || 'Failed to add record';
+      this.notify(this.formMsg, true);
     } finally {
       this.busy = false;
       this.syncView();
     }
   }
 
-  async loadFacilityRecords() {
+  async loadFacilityRecords(refresh = true) {
     this.loadingRecords = true;
     this.syncView();
     try {
-      this.facilityRecords = await this.api.facilityRecords();
+      this.facilityRecords = await this.workspaceState.hospitalRecords.load(() => this.api.facilityRecords(), refresh);
     } catch (e: any) {
-      alert('Error: ' + (e?.error?.error || e?.message || 'Failed to load records'));
+      this.notify(e?.error?.error || e?.message || 'Could not load facility records.', true);
     } finally {
       this.loadingRecords = false;
       this.syncView();
@@ -924,19 +1001,19 @@ export class HospitalDashboardComponent implements OnInit {
 
   // ---------- Blockchain logs ----------
 
-  async loadBlockchainLogs() {
+  async loadBlockchainLogs(refresh = true) {
     this.loadingChain = true;
     this.syncView();
     try {
       const healthId = this.txFilterHealthId.trim();
-      const [eventsRes, summaryRes] = await Promise.all([
-        this.api.blockchainEvents({
+      const [events, summaryRes] = await Promise.all([
+        this.workspaceState.hospitalEvents.load(async () => (await this.api.blockchainEvents({
           ...(healthId ? { health_id: healthId } : {}),
           limit: 100,
-        }),
-        this.api.hospitalBlockchainSummary(),
+        })).events, refresh),
+        this.workspaceState.hospitalSummary.load(() => this.api.hospitalBlockchainSummary(), refresh),
       ]);
-      this.chainEvents = eventsRes.events;
+      this.chainEvents = events;
       this.chainSummary = { summary: summaryRes.summary, total_transactions: summaryRes.total_transactions };
       this.applyTxFilter();
       // A pending record just mined? Flip the banner to the live link.
@@ -945,8 +1022,8 @@ export class HospitalDashboardComponent implements OnInit {
       }
     } catch (e: any) {
       console.error('Failed to load blockchain logs:', e);
-      this.chainEvents = [];
       this.filteredChainEvents = [];
+      this.notify(e?.error?.error || e?.message || 'Could not load blockchain activity.', true);
     } finally {
       this.loadingChain = false;
       this.syncView();

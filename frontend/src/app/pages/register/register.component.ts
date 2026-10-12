@@ -153,12 +153,6 @@ import { AuthService } from '../../services/auth.service';
       </div>
     </div>
 
-    <footer class="border-t border-slate-200 bg-white">
-      <div class="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-6 py-6 text-sm text-slate-500 sm:flex-row">
-        <p class="m-0 text-center">Your health, your choice.</p>
-        <a routerLink="/login" class="font-medium text-primary-700 hover:underline">Sign in</a>
-      </div>
-    </footer>
   `,
 })
 export class RegisterComponent implements OnInit {

@@ -1,11 +1,18 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 from . import blockchain
-from .models import AccessGrant, Referral
-from .views import _doctor_can_view_patient
+from .blockchain import patient_ref
+from .models import AccessGrant, Patient, Referral
+from .views import (
+    _doctor_can_view_patient,
+    blockchain_events,
+    break_glass,
+    patient_dashboard,
+)
 
 
 class DoctorPatientAccessTests(SimpleTestCase):
@@ -109,6 +116,7 @@ class ClinicianRoleTests(SimpleTestCase):
 
 
 class EmergencyAccessHelperTests(SimpleTestCase):
+    @override_settings(CHAIN_ID_SECRET="a" * 64)
     def test_remaining_is_zero_when_chain_unreachable(self):
         class BrokenContract:
             def __getattr__(self, name):
@@ -122,6 +130,7 @@ class EmergencyAccessHelperTests(SimpleTestCase):
                 0,
             )
 
+    @override_settings(CHAIN_ID_SECRET="a" * 64)
     def test_remaining_never_returns_negative(self):
         class Contract:
             class functions:
@@ -139,3 +148,89 @@ class EmergencyAccessHelperTests(SimpleTestCase):
                 ),
                 0,
             )
+
+
+class BreakGlassAttestationTests(SimpleTestCase):
+    def setUp(self):
+        self.factory = APIRequestFactory()
+        self.user = SimpleNamespace(is_authenticated=True)
+
+    def test_break_glass_requires_explicit_boolean_attestation(self):
+        for attestation in (None, False, "true"):
+            with self.subTest(attestation=attestation):
+                payload = {"health_id": "patient-123", "reason": "Urgent care"}
+                if attestation is not None:
+                    payload["patient_unable_to_consent"] = attestation
+                request = self.factory.post(
+                    "/doctor/break-glass/", payload, format="json"
+                )
+                force_authenticate(request, user=self.user, token={})
+
+                with patch(
+                    "api.views._doctor_from_request",
+                    return_value=SimpleNamespace(),
+                ):
+                    response = break_glass(request)
+
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("cannot communicate or consent", response.data["error"])
+
+    def test_patient_dashboard_rejects_roles_without_record_access(self):
+        request = self.factory.get("/patient/dashboard/patient-123/")
+        force_authenticate(
+            request,
+            user=self.user,
+            token={"role": "HOSPITAL_STAFF"},
+        )
+        with patch.object(Patient.objects, "filter") as patient_filter:
+            response = patient_dashboard(request, health_id="patient-123")
+
+        self.assertEqual(response.status_code, 403)
+        patient_filter.assert_not_called()
+
+
+class PatientReferenceTests(SimpleTestCase):
+    @override_settings(CHAIN_ID_SECRET="a" * 64)
+    def test_reference_is_stable_opaque_and_case_insensitive(self):
+        first = patient_ref("H-123")
+
+        self.assertEqual(first, patient_ref("h-123"))
+        self.assertNotIn("H-123", first)
+        self.assertTrue(first.startswith("pt_"))
+
+    @override_settings(CHAIN_ID_SECRET="a" * 64)
+    def test_reference_changes_with_the_secret(self):
+        first = patient_ref("H-123")
+        with override_settings(CHAIN_ID_SECRET="b" * 64):
+            self.assertNotEqual(first, patient_ref("H-123"))
+
+    @override_settings(CHAIN_ID_SECRET="")
+    def test_missing_reference_secret_fails_explicitly(self):
+        with self.assertRaisesRegex(RuntimeError, "CHAIN_ID_SECRET"):
+            patient_ref("H-123")
+
+
+class PatientBlockchainEventAuthorizationTests(SimpleTestCase):
+    def test_doctor_cannot_query_patient_events_without_record_access(self):
+        factory = APIRequestFactory()
+        request = factory.get("/blockchain/events/?health_id=patient-123")
+        force_authenticate(
+            request,
+            user=SimpleNamespace(is_authenticated=True),
+            token={"role": "DOCTOR", "license_no": "DOC-1"},
+        )
+        patient = SimpleNamespace(health_id="patient-123")
+        doctor = SimpleNamespace()
+
+        with (
+            patch("api.views._get_hospital_code_from_request", return_value="FAC-1"),
+            patch.object(Patient.objects, "filter") as patient_filter,
+            patch("api.views._doctor_from_request", return_value=doctor),
+            patch("api.views._doctor_can_view_patient", return_value=(False, True)),
+            patch("api.views._fetch_events") as fetch_events,
+        ):
+            patient_filter.return_value.first.return_value = patient
+            response = blockchain_events(request)
+
+        self.assertEqual(response.status_code, 403)
+        fetch_events.assert_not_called()

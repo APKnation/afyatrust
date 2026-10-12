@@ -48,7 +48,8 @@ flowchart LR
 
 One patient keeps the same Health ID when moving between facilities. Hospital A
 and Hospital B are separate facility identities in this PoC, but both use the
-same AfyaTrust API and database.
+same AfyaTrust API and database. The API derives a stable keyed pseudonym from
+the Health ID before every contract call; the Health ID remains off-chain.
 
 ```mermaid
 sequenceDiagram
@@ -103,6 +104,15 @@ verification endpoint.
   digest for clinical records and measurements and anchors it with the
   facility identifier and metadata URI in the contract. The metadata endpoint
   exposes verification metadata, not the clinical payload.
+- **Patient identity is pseudonymous on new deployments.** Every contract
+  operation uses `pt_` plus an HMAC-SHA-256 reference derived from the Health
+  ID and `CHAIN_ID_SECRET`. Patient names are not stored in the new contract.
+  Keep that secret stable across exports and redeployments; rotating it breaks
+  the mapping to existing chain state. The old public deployment already
+  contains Health IDs and names and cannot be scrubbed.
+- **Emergency reason privacy.** Detailed break-glass reasons stay in the
+  application database. The contract event stores the reason's SHA-256 digest
+  alongside the access event.
 - **Access is checked before records are returned.** A doctor request is
   authenticated and role-checked by Django. The API checks the contract's
   `hasAccess` permission, retrieves the patient's record anchors, and releases

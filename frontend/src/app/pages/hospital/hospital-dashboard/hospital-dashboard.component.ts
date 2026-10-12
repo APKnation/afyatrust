@@ -539,7 +539,7 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
               <option value="PatientRegistered">Patient Registered</option>
             </select>
             <input [(ngModel)]="txFilterHealthId" (ngModelChange)="applyTxFilter()"
-                   placeholder="Filter by Health ID (optional)"
+                   placeholder="Health ID (optional; click Refresh to search)"
                    class="min-w-50 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             <button (click)="loadBlockchainLogs()" [disabled]="loadingChain"
                     class="btn-secondary">
@@ -928,8 +928,12 @@ export class HospitalDashboardComponent implements OnInit {
     this.loadingChain = true;
     this.syncView();
     try {
+      const healthId = this.txFilterHealthId.trim();
       const [eventsRes, summaryRes] = await Promise.all([
-        this.api.blockchainEvents({ limit: 100 }),
+        this.api.blockchainEvents({
+          ...(healthId ? { health_id: healthId } : {}),
+          limit: 100,
+        }),
         this.api.hospitalBlockchainSummary(),
       ]);
       this.chainEvents = eventsRes.events;
@@ -954,7 +958,7 @@ export class HospitalDashboardComponent implements OnInit {
       const eventMatch = !this.txFilterEvent || tx.event === this.txFilterEvent;
       const args = (tx.args || {}) as Record<string, any>;
       const healthIdMatch = !this.txFilterHealthId ||
-        [args['healthID'], args['healthId'], args['patientID']]
+        [args['patientRef'], args['healthID'], args['healthId'], args['patientID']]
           .some((v: any) => typeof v === 'string' && v.toLowerCase().includes(this.txFilterHealthId.toLowerCase()));
       return eventMatch && healthIdMatch;
     });

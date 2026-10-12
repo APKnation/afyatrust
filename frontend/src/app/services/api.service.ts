@@ -568,7 +568,11 @@ export class ApiService {
     );
   }
 
-  breakGlass(payload: { health_id: string; reason: string }) {
+  breakGlass(payload: {
+    health_id: string;
+    reason: string;
+    patient_unable_to_consent: boolean;
+  }) {
     return this.request('POST', '/doctor/break-glass/', payload);
   }
 
@@ -675,4 +679,3 @@ export interface IntegrityReport {
   measurements: IntegrityCheckResult[];
   checked_at: string;
 }
-

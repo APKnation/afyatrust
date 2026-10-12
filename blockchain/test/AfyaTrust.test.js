@@ -25,8 +25,24 @@ describe("AfyaTrust", function () {
   async function registerPatient(trust, facility, healthID, wallet) {
     await trust
       .connect(facility)
-      .registerPatient(healthID, wallet, "Jane");
+      .registerPatient(healthID, wallet);
   }
+
+  it("stores no patient name and emits only the opaque patient reference", async function () {
+    const { trust, facility, patient } = await loadFixture(deployFixture);
+    const patientRef = "pt_opaque_reference";
+
+    await expect(
+      trust.connect(facility).registerPatient(patientRef, patient.address),
+    )
+      .to.emit(trust, "PatientRegistered")
+      .withArgs(patientRef, patient.address);
+
+    const registered = await trust.getPatient(patientRef);
+    expect(registered.wallet).to.equal(patient.address);
+    expect(registered.exists).to.equal(true);
+    expect(registered.fullName).to.equal(undefined);
+  });
 
   it("registers a patient and honors a normal grant", async function () {
     const { trust, facility, patient, doctor } = await loadFixture(deployFixture);

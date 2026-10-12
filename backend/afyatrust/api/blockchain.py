@@ -3,13 +3,17 @@
 The contract object is created lazily so that auth/registration endpoints
 still work before CONTRACT_ADDRESS is configured.
 """
+import hashlib
+import hmac
 import json
 import logging
 import os
+import re
 import threading
 import time
 from pathlib import Path
 
+from django.conf import settings
 from dotenv import load_dotenv
 from web3 import Web3
 
@@ -102,6 +106,25 @@ def checksum_address(wallet: str) -> str:
         return wallet
 
 
+def patient_ref(health_id: str) -> str:
+    """Return a stable, keyed pseudonym for use in public-chain calls.
+
+    The key must be stable across deployments and must never be stored on-chain.
+    """
+    canonical_id = (health_id or "").strip().casefold()
+    if not canonical_id:
+        raise ValueError("A patient Health ID is required")
+    secret = getattr(settings, "CHAIN_ID_SECRET", "").strip()
+    if not re.fullmatch(r"[a-fA-F0-9]{64}", secret):
+        raise RuntimeError("CHAIN_ID_SECRET must be a 32-byte hexadecimal key")
+    digest = hmac.new(
+        secret.encode("utf-8"),
+        canonical_id.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"pt_{digest}"
+
+
 def cached_has_access(health_id: str, wallet: str) -> tuple[bool, bool]:
     """hasAccess with a 60s cache. Returns (allowed, chain_ok).
 
@@ -115,7 +138,7 @@ def cached_has_access(health_id: str, wallet: str) -> tuple[bool, bool]:
         return allowed, True
     try:
         allowed = contract.functions.hasAccess(
-            health_id.strip(), checksum_address(wallet)
+            patient_ref(health_id), checksum_address(wallet)
         ).call()
     except Exception:
         return False, False  # chain unreachable — never cached
@@ -127,7 +150,7 @@ def check_has_access(health_id: str, wallet: str) -> tuple[bool, bool]:
     """Read hasAccess directly for authorization decisions that must be fresh."""
     try:
         allowed = contract.functions.hasAccess(
-            health_id.strip(), checksum_address(wallet)
+            patient_ref(health_id), checksum_address(wallet)
         ).call()
     except Exception:
         return False, False
@@ -141,7 +164,7 @@ def cached_patient_wallet(health_id: str) -> str:
     if cached is not None:
         return cached
     try:
-        wallet = contract.functions.getPatient(health_id).call()[0]
+        wallet = contract.functions.getPatient(patient_ref(health_id)).call()[0]
     except Exception:
         return ""
     cache_set(key, wallet)
@@ -347,7 +370,7 @@ def emergency_access_remaining(health_id: str, wallet: str) -> int:
     """Seconds left of an active emergency window; 0 when expired/unknown."""
     try:
         remaining = contract.functions.emergencyAccessRemaining(
-            health_id.strip(), checksum_address(wallet)
+            patient_ref(health_id), checksum_address(wallet)
         ).call()
         return max(int(remaining), 0)
     except Exception:
@@ -358,7 +381,7 @@ def revoke_emergency_access_on_chain(health_id: str, clinician_wallet: str) -> s
     """Operator-side revokeEmergencyAccess(...) — returns the tx hash."""
     return send_transaction(
         contract.functions.revokeEmergencyAccess(
-            health_id.strip(), checksum_address(clinician_wallet)
+            patient_ref(health_id), checksum_address(clinician_wallet)
         )
     )
 

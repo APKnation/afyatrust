@@ -10,6 +10,12 @@ const {
 
 async function main() {
   console.log("Deploying AfyaTrust to Sepolia...");
+  const backendEnv = readBackendEnv();
+  if (!/^[a-fA-F0-9]{64}$/.test((backendEnv.CHAIN_ID_SECRET || "").trim())) {
+    throw new Error(
+      "Set a stable 32-byte hexadecimal CHAIN_ID_SECRET in backend/.env before deploying."
+    );
+  }
 
   const AfyaTrust = await hre.ethers.getContractFactory("AfyaTrust");
   const afyaTrust = await AfyaTrust.deploy();
@@ -27,7 +33,6 @@ async function main() {
   console.log("\nSaved to contract-address.txt. Update backend/.env:");
   console.log(`CONTRACT_ADDRESS=${address}`);
 
-  const backendEnv = readBackendEnv();
   const facilityAddress = getFacilityAddress(hre.ethers, backendEnv);
   await ensureBackendRoles(hre, afyaTrust, facilityAddress);
 

@@ -10,6 +10,7 @@ ENV_FILE = BASE_DIR.parent / ".env"
 load_dotenv(ENV_FILE)
 
 SECRET_KEY = os.getenv('SECRET_KEY')
+CHAIN_ID_SECRET = os.getenv('CHAIN_ID_SECRET', '')
 DEBUG = os.getenv('DEBUG') == 'True'
 ALLOWED_HOSTS = ['*']
 ROOT_URLCONF = 'afyatrust.urls'

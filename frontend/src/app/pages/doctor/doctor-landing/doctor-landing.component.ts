@@ -320,17 +320,22 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
                 {{ requestStatusFor(healthId) === 'PENDING' ? 'Request awaiting patient' : 'Request access' }}
               </button>
             </div>
-            <label class="mt-4 block rounded-lg border border-red-200 bg-red-50 p-4">
+            <div class="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
               <span class="block text-sm font-semibold text-red-900">Emergency reason (required)</span>
               <span class="mt-1 block text-xs text-red-800">
-                Explain why the patient cannot communicate or give consent and why immediate access is necessary. This reason is recorded for review.
+                Explain why the patient cannot communicate or give consent and why immediate access is necessary. The detailed reason stays off-chain; its hash is recorded on-chain for audit.
               </span>
+              <label class="mt-3 flex items-start gap-2 text-sm font-medium text-red-900">
+                <input type="checkbox" [(ngModel)]="emergencyPatientUnableToConsent"
+                       class="mt-1 rounded border-red-300" />
+                <span>I confirm the patient cannot communicate or consent and immediate access is necessary.</span>
+              </div>
               <textarea [(ngModel)]="emergencyReasonInput" rows="3"
                         placeholder="Example: Patient is unconscious after a serious accident; immediate allergy and medication history is needed."
                         class="mt-2 w-full rounded-lg border border-red-300 bg-white px-3 py-2 text-sm text-slate-900"
                         [attr.aria-label]="'Emergency reason for patient ' + healthId"></textarea>
               <button type="button" (click)="breakGlass()"
-                      [disabled]="!emergencyReasonInput.trim() || emergencyBusy"
+                      [disabled]="!emergencyPatientUnableToConsent || !emergencyReasonInput.trim() || emergencyBusy"
                       class="mt-3 cursor-pointer rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
                 {{ emergencyBusy ? 'Recording emergency access…' : 'Use emergency access for 1 hour' }}
               </button>
@@ -1073,6 +1078,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   healthId = '';
   requestReason = '';
   emergencyReasonInput = '';
+  emergencyPatientUnableToConsent = false;
   emergencyBusy = false;
   viewedName = '';
   viewedHealthId = '';
@@ -1160,6 +1166,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   filteredTransactions: BlockchainEvent[] = [];
   txFilterEvent = '';
   txFilterHealthId = '';
+  private txFilterTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Most recent on-chain action by this doctor (break-glass), surfaced
    * as a banner with a direct Etherscan link. */
@@ -1236,6 +1243,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
   ngOnDestroy() {
     if (this.referralTimer) clearInterval(this.referralTimer);
+    if (this.txFilterTimer) clearTimeout(this.txFilterTimer);
     this.stopEmergencyCountdown();
   }
 
@@ -1385,6 +1393,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   async viewRecord() {
     if (!this.healthId.trim()) return;
     this.emergencyReasonInput = '';
+    this.emergencyPatientUnableToConsent = false;
     this.loading = true;
     this.denied = false;
     this.requestSent = false;
@@ -1461,18 +1470,23 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
   async breakGlass() {
     const reason = this.emergencyReasonInput.trim();
+    if (!this.emergencyPatientUnableToConsent) {
+      alert('Confirm that the patient cannot communicate or consent before using emergency access.');
+      return;
+    }
     if (!reason) {
       alert('Document why the patient cannot communicate or consent and why immediate access is necessary.');
       return;
     }
     if (this.emergencyBusy) return;
-    if (!confirm('Use emergency access for this patient for up to one hour? This is only for an immediate emergency when the patient cannot communicate or consent. Your reason will be recorded and audited.')) return;
+    if (!confirm('Use emergency access for this patient for up to one hour? This is only for an immediate emergency when the patient cannot communicate or consent. The detailed reason stays off-chain; its hash and access event are recorded on-chain.')) return;
     this.emergencyBusy = true;
     this.syncView();
     try {
       const res: any = await this.api.breakGlass({
         health_id: this.healthId.trim(),
         reason,
+        patient_unable_to_consent: this.emergencyPatientUnableToConsent,
       });
       const h: string = res?.tx_hash || '';
       if (h && !h.startsWith('PENDING')) {
@@ -1481,6 +1495,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
         this.lastTx = { label: `Break-glass submitted for ${this.healthId.trim()}`, tx_hash: h || '', pending: true };
       }
       this.emergencyReasonInput = '';
+      this.emergencyPatientUnableToConsent = false;
       // Immediately reflect the BreakGlassUsed event in the on-chain log.
       void this.loadTransactions();
       alert(res.chain_logged
@@ -1599,9 +1614,14 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   /** Load blockchain transaction history for this doctor's hospital. */
   private async loadTransactions() {
     try {
-      const res = await this.api.blockchainEvents();
+      const healthId = this.txFilterHealthId.trim();
+      const res = await this.api.blockchainEvents(
+        healthId ? { health_id: healthId } : undefined
+      );
       this.transactions = res.events;
-      this.filteredTransactions = [...this.transactions];
+      this.filteredTransactions = this.transactions.filter(
+        (tx) => !this.txFilterEvent || tx.event === this.txFilterEvent
+      );
       // A pending break-glass just mined? Flip the banner to the live link.
       if (this.lastTx?.pending && this.transactions.some((t) => t.transaction_hash === this.lastTx!.tx_hash)) {
         this.lastTx.pending = false;
@@ -1692,19 +1712,28 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
 
   // ---------- Transaction filter helpers ----------
   applyTxFilter() {
+    const healthId = this.txFilterHealthId.trim();
+    if (healthId) {
+      if (this.txFilterTimer) clearTimeout(this.txFilterTimer);
+      this.filteredTransactions = [];
+      this.txFilterTimer = setTimeout(() => {
+        this.txFilterTimer = null;
+        void this.loadTransactions();
+      }, 350);
+      return;
+    }
     this.filteredTransactions = this.transactions.filter((tx) => {
       const eventMatch = !this.txFilterEvent || tx.event === this.txFilterEvent;
-      const healthIdMatch = !this.txFilterHealthId ||
-        (tx.args?.['healthID']?.toLowerCase().includes(this.txFilterHealthId.toLowerCase()) ||
-         tx.args?.['healthId']?.toLowerCase().includes(this.txFilterHealthId.toLowerCase()));
-      return eventMatch && healthIdMatch;
+      return eventMatch;
     });
   }
 
   clearTxFilter() {
     this.txFilterEvent = '';
     this.txFilterHealthId = '';
-    this.filteredTransactions = [...this.transactions];
+    if (this.txFilterTimer) clearTimeout(this.txFilterTimer);
+    this.txFilterTimer = null;
+    void this.loadTransactions();
   }
 
   eventBadge(event?: string): string {

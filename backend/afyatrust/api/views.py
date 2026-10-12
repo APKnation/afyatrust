@@ -33,6 +33,7 @@ from .blockchain import (
     emergency_access_remaining,
     ensure_clinician_role,
     facility_address,
+    patient_ref,
     revoke_emergency_access_on_chain,
     send_transaction,
     send_transaction_async,
@@ -107,7 +108,7 @@ def _on_chain_permission_active(health_id: str, doctor_wallet: str) -> bool:
             str(permission[0]).lower() == wallet
             and permission[4]
             and int(permission[3]) > now_ts
-            for permission in contract.functions.getPermissions(health_id).call()
+            for permission in contract.functions.getPermissions(patient_ref(health_id)).call()
         )
     except Exception:
         return True  # chain unreadable — assume it stands and report failure
@@ -118,7 +119,7 @@ def _read_audit_trail(health_id: str):
     intermittently and a single failure used to blank a patient's whole trail."""
     for attempt in (1, 2):
         try:
-            return contract.functions.getAuditTrail(health_id).call()
+            return contract.functions.getAuditTrail(patient_ref(health_id)).call()
         except Exception:
             logger.warning(
                 "Audit trail read failed for %s (attempt %d)",
@@ -161,16 +162,16 @@ def _audit(patient, events):
             try:
                 c = _get_contract()
                 event = getattr(c.events, event_name)
-                # No server-side healthID filter: web3 mis-encodes string
+                # No server-side patientRef filter: web3 mis-encodes string
                 # topics. Fetch this event's logs and match the patient's
                 # topic client-side (see _topic_matches).
-                topic = _health_id_topic(patient.health_id)
+                topic = _health_id_topic(patient_ref(patient.health_id))
                 topic_bytes = bytes.fromhex(topic[2:]) if topic else b""
                 logs = event.get_logs(from_block=_deploy_block())
                 for log in logs:
                     args = dict(log.args)
                     if topic_bytes and not _topic_matches(
-                        args.get("healthID"), topic_bytes
+                        args.get("patientRef"), topic_bytes
                     ):
                         continue
                     # Match by timestamp (within 2 minutes) and accessor
@@ -218,7 +219,7 @@ def register_patient(request):
     tx_hash = ""
     try:
         tx = contract.functions.registerPatient(
-            data["health_id"], wallet["address"], data["full_name"]
+            patient_ref(data["health_id"]), wallet["address"]
         )
         tx_hash = send_transaction(tx)
     except Exception as e:
@@ -700,7 +701,7 @@ def grant_access(request):
     tx_hash = ""
     try:
         tx = contract.functions.patientGrantAccess(
-            patient.health_id, checksum_address(patient.wallet_address),
+            patient_ref(patient.health_id), checksum_address(patient.wallet_address),
             checksum_address(doctor_wallet), days
         )
         tx_hash = send_transaction(tx)
@@ -770,7 +771,7 @@ def revoke_access(request):
     tx_hash = ""
     try:
         tx = contract.functions.patientRevokeAccess(
-            patient.health_id, checksum_address(patient.wallet_address),
+            patient_ref(patient.health_id), checksum_address(patient.wallet_address),
             checksum_address(doctor_wallet)
         )
         tx_hash = send_transaction(tx)
@@ -929,7 +930,9 @@ def doctor_view_record(request, health_id):
     # Fire-and-forget: waiting ~12s for the recordView receipt would defeat
     # the cached hasAccess read; the audit tx is best-effort anyway.
     try:
-        tx = contract.functions.recordView(health_id, checksum_address(wallet), facility_id)
+        tx = contract.functions.recordView(
+            patient_ref(health_id), checksum_address(wallet), facility_id
+        )
         send_transaction_async(tx)
     except Exception:
         logger.exception("Could not submit record-view audit for %s", health_id)
@@ -970,7 +973,7 @@ def doctor_view_record(request, health_id):
     chain_records = []
     chain_verification_unavailable = False
     try:
-        chain_records = contract.functions.getRecords(health_id).call()
+        chain_records = contract.functions.getRecords(patient_ref(health_id)).call()
     except Exception:
         logger.exception("Could not load on-chain records for patient %s", health_id)
         if not has_emergency:
@@ -1293,7 +1296,7 @@ def approve_request(request, request_id):
     tx_hash = ""
     try:
         tx = contract.functions.patientGrantAccess(
-            patient.health_id, checksum_address(patient.wallet_address),
+            patient_ref(patient.health_id), checksum_address(patient.wallet_address),
             checksum_address(req.doctor_wallet), 7
         )
         tx_hash = send_transaction(tx)
@@ -1567,7 +1570,7 @@ def add_measurement(request):
             f"/exchange/{m.record_hash}/"
         )
         tx = contract.functions.addRecord(
-            patient.health_id, m.record_hash, m.facility_id, metadata_uri
+            patient_ref(patient.health_id), m.record_hash, m.facility_id, metadata_uri
         )
         tx_hash = send_transaction(tx)
     except Exception as exc:
@@ -1622,7 +1625,7 @@ def patient_measurements(request, health_id):
     ).exists()
     blockchain_unavailable = False
     try:
-        chain_records = contract.functions.getRecords(patient.health_id).call()
+        chain_records = contract.functions.getRecords(patient_ref(patient.health_id)).call()
     except Exception as exc:
         logger.error(
             "Could not verify measurements for patient %s (%s)",
@@ -2095,7 +2098,7 @@ def respond_referral(request, referral_id):
         )
         try:
             tx = contract.functions.logReferralAccepted(
-                ref.patient.health_id,
+                patient_ref(ref.patient.health_id),
                 checksum_address(clinician_wallet),
                 ref.from_hospital.code if ref.from_hospital else "UNKNOWN",
                 ref.to_hospital.code if ref.to_hospital else "UNKNOWN",
@@ -2137,7 +2140,7 @@ def verify_referral_records(request, referral_id):
 
     try:
         chain_records = contract.functions.getRecords(
-            referral.patient.health_id
+            patient_ref(referral.patient.health_id)
         ).call()
     except Exception:
         logger.exception(
@@ -2247,7 +2250,9 @@ def patient_referral_timeline(request):
         from_records = []
         if ref.from_hospital_id:
             try:
-                chain_records = contract.functions.getRecords(patient.health_id).call()
+                chain_records = contract.functions.getRecords(
+                    patient_ref(patient.health_id)
+                ).call()
             except Exception:
                 logger.exception(
                     "Blockchain record lookup failed for referral %s", ref.id
@@ -2294,7 +2299,9 @@ def patient_referral_timeline(request):
         # On-chain view events from the receiving hospital (immutable audit)
         view_events = []
         try:
-            trail = contract.functions.getAuditTrail(patient.health_id).call()
+            trail = contract.functions.getAuditTrail(
+                patient_ref(patient.health_id)
+            ).call()
             for e in trail:
                 accessor, role, facility_id, action, ts = e[0], e[1], e[2], e[3], e[4]
                 if (action == "VIEW" and facility_id and
@@ -2338,11 +2345,19 @@ def break_glass(request):
     The contract grants and audits emergency access on-chain. The database
     mirrors a one-hour grant so the authenticated doctor can proceed if that
     transaction is pending, while the response makes the missing chain audit
-    explicit.
+    explicit. The doctor must explicitly attest that the patient cannot
+    communicate or consent.
     """
     doctor = _doctor_from_request(request)
     if not doctor:
         return Response({"error": "Approved doctor account required"}, status=403)
+    if request.data.get("patient_unable_to_consent") is not True:
+        return Response({
+            "error": (
+                "Explicitly confirm that the patient cannot communicate or "
+                "consent before using emergency access."
+            )
+        }, status=status.HTTP_400_BAD_REQUEST)
     health_id = str(request.data.get("health_id", "")).strip()
     reason = str(request.data.get("reason", "")).strip()
     if not health_id or not reason:
@@ -2393,7 +2408,13 @@ def break_glass(request):
         logger.warning("Could not auto-ensure clinician role for %s", wallet)
 
     try:
-        tx = contract.functions.breakGlass(health_id, checksum_address(wallet), facility_id, reason)
+        reason_hash = "0x" + hashlib.sha256(reason.encode("utf-8")).hexdigest()
+        tx = contract.functions.breakGlass(
+            patient_ref(health_id),
+            checksum_address(wallet),
+            facility_id,
+            f"Reason SHA-256: {reason_hash}",
+        )
         tx_hash = send_transaction(tx)
     except Exception as e:
         logger.exception("Break-glass transaction failed for %s", health_id)
@@ -2543,7 +2564,7 @@ def add_record(request):
 
     try:
         tx = contract.functions.addRecord(
-            patient.health_id, record_hash,
+            patient_ref(patient.health_id), record_hash,
             facility_id, metadata_uri
         )
         record.tx_hash = send_transaction(tx)
@@ -2582,7 +2603,9 @@ def exchange_record(request, record_hash):
     # has not been tampered with since it was anchored on-chain.
     recomputed = _record_payload_hash(record.record_data)
     try:
-        chain_records = contract.functions.getRecords(record.patient.health_id).call()
+        chain_records = contract.functions.getRecords(
+            patient_ref(record.patient.health_id)
+        ).call()
     except Exception:
         logger.exception("Blockchain record lookup failed for exchange hash %s", h)
         return Response(
@@ -2722,8 +2745,8 @@ def _fetch_events(event_name, from_block=0, to_block="latest", argument_filters=
 
     - Handles the RPC 10,000-block range cap by walking the chain in
       _LOG_BLOCK_CHUNK windows from the deploy block.
-    - argument_filters accepts plaintext values for indexed string params
-      (e.g. healthID) and converts them to the on-chain hash topic.
+    - argument_filters accepts application values for indexed string params
+      (e.g. a Health ID) and converts them to the keyed on-chain pseudonym/topic.
     - Returns [] on unrecoverable RPC errors instead of raising, so callers
       never break — but chunked fetches mean real events now come through.
     """
@@ -2746,7 +2769,8 @@ def _fetch_events(event_name, from_block=0, to_block="latest", argument_filters=
         for k, v in (argument_filters or {}).items():
             inp = next((i for i in indexed_inputs if i["name"] == k), None)
             if inp and inp.get("type") == "string":
-                h = _health_id_topic(v)
+                chain_value = patient_ref(v) if k == "patientRef" else v
+                h = _health_id_topic(chain_value)
                 if h:
                     # web3 mis-encodes `string indexed` topics for eth_getLogs
                     # (the node answers "data type size mismatch, expected 32")
@@ -2849,6 +2873,26 @@ def blockchain_events(request):
     to_block = request.query_params.get("to_block", "latest")
     limit = int(request.query_params.get("limit", 100))
 
+    if health_id:
+        role = request.auth.get("role", "") if request.auth else ""
+        patient = Patient.objects.filter(health_id__iexact=health_id).first()
+        if not patient:
+            return Response({"error": "Patient not found"}, status=404)
+        if role == "PATIENT":
+            if request.auth.get("health_id", "").casefold() != patient.health_id.casefold():
+                return Response({"error": "Not authorized"}, status=403)
+        elif role == "DOCTOR":
+            doctor = _doctor_from_request(request)
+            if not doctor or not _doctor_can_view_patient(doctor, patient)[0]:
+                return Response({"error": "No access permission for this patient"}, status=403)
+        elif role == "STAFF":
+            staff = _staff_from_request(request)
+            if not staff or patient.hospital_id != staff.hospital_id:
+                return Response({"error": "Patient not in your hospital"}, status=403)
+        else:
+            return Response({"error": "Not authorized"}, status=403)
+        health_id = patient.health_id
+
     # Map event types to contract events
     event_map = {
         "patient_registered": "PatientRegistered",
@@ -2882,7 +2926,7 @@ def blockchain_events(request):
         contract_event = canonical_event
         argument_filters = {}
         if health_id:
-            argument_filters["healthID"] = health_id
+            argument_filters["patientRef"] = health_id
         # Note: facilityID filter works for RecordAdded and BreakGlassUsed
         if contract_event in ["RecordAdded", "BreakGlassUsed"]:
             argument_filters["facilityID"] = hospital_code
@@ -2895,7 +2939,7 @@ def blockchain_events(request):
         for evt in facility_events:
             argument_filters = {"facilityID": hospital_code}
             if health_id:
-                argument_filters["healthID"] = health_id
+                argument_filters["patientRef"] = health_id
             events = _fetch_events(evt, argument_filters=argument_filters)
             all_events.extend(events)
 
@@ -2903,7 +2947,7 @@ def blockchain_events(request):
         patient_events = ["PatientRegistered", "AccessGranted", "AccessRevoked", "RecordViewed", "EmergencyAccessGranted"]
         if health_id:
             for evt in patient_events:
-                argument_filters = {"healthID": health_id}
+                argument_filters = {"patientRef": health_id}
                 events = _fetch_events(evt, argument_filters=argument_filters)
                 all_events.extend(events)
 
@@ -3124,8 +3168,8 @@ def patient_dashboard(request, health_id=""):
                 "error": "Access denied. Doctors cannot read patient data without access granted by the patient or by activating emergency break-glass.",
                 "action": "REQUEST_ACCESS"
             }, status=403)
-    elif not health_id:
-        return Response({"error": "health_id is required"}, status=400)
+    else:
+        return Response({"error": "Not authorized"}, status=403)
     
     # Get patient
     patient = Patient.objects.filter(health_id=health_id).first()
@@ -3139,7 +3183,6 @@ def patient_dashboard(request, health_id=""):
             "health_id": patient.health_id,
             "full_name": patient.full_name,
             "phone": patient.phone,
-            "pin_hash": patient.pin_hash,
             "wallet_address": patient.wallet_address,
             "hospital": patient.hospital.name if patient.hospital else "",
             "registration_date": patient.created_at.isoformat() if patient.created_at else None,
@@ -3379,7 +3422,7 @@ def patient_activity_story(request, health_id):
     chain_available = True
     trail = []
     try:
-        trail = contract.functions.getAuditTrail(health_id).call()
+        trail = contract.functions.getAuditTrail(patient_ref(health_id)).call()
     except Exception:
         logger.warning(
             "Blockchain unavailable for patient %s — falling back to DB story", health_id
@@ -3407,7 +3450,7 @@ def patient_activity_story(request, health_id):
         "AccessRevoked", "RecordViewed", "BreakGlassUsed",
         "EmergencyAccessGranted", "EmergencyAccessRevoked", "ReferralAccepted",
     ]:
-        for ev in _fetch_events(evt_name, argument_filters={"healthID": health_id}):
+        for ev in _fetch_events(evt_name, argument_filters={"patientRef": health_id}):
             a = ev["args"]
             actor = (
                 a.get("grantedTo") or a.get("revokedFrom") or a.get("viewer")
@@ -3543,7 +3586,7 @@ def patient_blockchain_history(request, health_id):
 
     all_events = []
     for evt_name in event_types:
-        argument_filters = {"healthID": health_id}
+        argument_filters = {"patientRef": health_id}
         events = _fetch_events(evt_name, argument_filters=argument_filters)
         all_events.extend(events)
 
@@ -3633,7 +3676,9 @@ def patient_verify_integrity(request):
     chain_available = True
     chain_records_raw = []   # list of (record_hash_bytes, facility_id_str, …)
     try:
-        chain_records_raw = contract.functions.getRecords(patient.health_id).call()
+        chain_records_raw = contract.functions.getRecords(
+            patient_ref(patient.health_id)
+        ).call()
     except Exception:
         logger.warning("Blockchain unavailable for integrity check — %s", patient.health_id)
         chain_available = False

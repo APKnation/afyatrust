@@ -45,9 +45,9 @@ contract AfyaTrust {
     // PATIENT
     // ============================================================
 
+    // Keys are backend-derived patient references, never raw Health IDs.
     struct Patient {
         address wallet;
-        string fullName;
         bool exists;
     }
 
@@ -90,7 +90,7 @@ contract AfyaTrust {
     }
 
     /**
-     * healthID => clinician => emergency access
+     * patientRef => clinician => emergency access
      */
     mapping(string => mapping(address => EmergencyAccess))
         private emergencyAccess;
@@ -114,54 +114,53 @@ contract AfyaTrust {
     // ============================================================
 
     event PatientRegistered(
-        string indexed healthID,
-        address indexed wallet,
-        string fullName
+        string indexed patientRef,
+        address indexed wallet
     );
 
     event RecordAdded(
-        string indexed healthID,
+        string indexed patientRef,
         string facilityID,
         string recordHash
     );
 
     event AccessGranted(
-        string indexed healthID,
+        string indexed patientRef,
         address indexed grantedTo,
         uint256 expiry
     );
 
     event AccessRevoked(
-        string indexed healthID,
+        string indexed patientRef,
         address indexed revokedFrom
     );
 
     event RecordViewed(
-        string indexed healthID,
+        string indexed patientRef,
         address indexed viewer,
         string facilityID
     );
 
     event BreakGlassUsed(
-        string indexed healthID,
+        string indexed patientRef,
         address indexed clinician,
         string facilityID,
-        string reason
+        string reasonHash
     );
 
     event EmergencyAccessGranted(
-        string indexed healthID,
+        string indexed patientRef,
         address indexed clinician,
         uint256 expiry
     );
 
     event EmergencyAccessRevoked(
-        string indexed healthID,
+        string indexed patientRef,
         address indexed clinician
     );
 
     event ReferralAccepted(
-        string indexed healthID,
+        string indexed patientRef,
         address indexed clinician,
         string fromFacilityID,
         string toFacilityID
@@ -274,8 +273,7 @@ contract AfyaTrust {
      */
     function registerPatient(
         string memory _healthID,
-        address _wallet,
-        string memory _fullName
+        address _wallet
     ) external onlyFacility {
 
         require(
@@ -290,14 +288,12 @@ contract AfyaTrust {
 
         patients[_healthID] = Patient({
             wallet: _wallet,
-            fullName: _fullName,
             exists: true
         });
 
         emit PatientRegistered(
             _healthID,
-            _wallet,
-            _fullName
+            _wallet
         );
 
         _logAudit(
@@ -675,7 +671,7 @@ contract AfyaTrust {
     /**
      * When Hospital B accepts a referral from Hospital A, this function
      * immutably records the transfer of care on-chain:
-     *   - which patient (healthID)
+     *   - which patient reference
      *   - which clinician at the receiving hospital accepted
      *   - which facility the patient came from
      *   - which facility the patient is going to
@@ -841,7 +837,6 @@ contract AfyaTrust {
         view
         returns (
             address wallet,
-            string memory fullName,
             bool exists
         )
     {
@@ -850,7 +845,6 @@ contract AfyaTrust {
 
         return (
             patient.wallet,
-            patient.fullName,
             patient.exists
         );
     }

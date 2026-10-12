@@ -497,8 +497,13 @@ def patient_grant_access_status(request):
             last_grant_doctor = last_grant.hospital.name
         else:
             last_grant_doctor = "Unknown"
-        # Append (Expired) if the grant is no longer active
-        if last_grant.expires_at and last_grant.expires_at < now:
+        # Check active status and expiration
+        if not last_grant.active:
+            if last_grant.expires_at and last_grant.expires_at < now:
+                last_grant_label = last_grant_doctor + " (Expired)"
+            else:
+                last_grant_label = last_grant_doctor + " (Revoked)"
+        elif last_grant.expires_at and last_grant.expires_at < now:
             last_grant_label = last_grant_doctor + " (Expired)"
         else:
             last_grant_label = last_grant_doctor
@@ -583,6 +588,11 @@ def patient_wallet_activity(request):
     for r in patient.records.order_by("-created_at"):
         tx = r.tx_hash if r.tx_hash and not r.tx_hash.startswith("PENDING") else None
         events.append({"timestamp": int(r.created_at.timestamp()) if r.created_at else 0, "transaction_hash": tx})
+
+    # Measurements
+    for m in patient.measurements.order_by("-created_at"):
+        tx = m.tx_hash if m.tx_hash and not m.tx_hash.startswith("PENDING") else None
+        events.append({"timestamp": int(m.created_at.timestamp()) if m.created_at else 0, "transaction_hash": tx})
 
     # Access grants
     for g in patient.grants.order_by("-created_at"):

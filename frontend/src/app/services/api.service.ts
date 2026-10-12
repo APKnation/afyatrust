@@ -357,6 +357,7 @@ export class ApiService {
     emergencyCount?: number;
     emergency?: EmergencyAccessItem[];
     active_grants?: ActiveGrantItem[];
+    totalGrantsEver?: number;
   }> {
     return this.request('GET', '/patient/grant-access/status/');
   }

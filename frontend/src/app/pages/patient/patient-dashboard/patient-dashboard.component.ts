@@ -574,115 +574,291 @@ import { RecordChartComponent, RecordChartPoint } from '../../../components/shar
           </div>
           <!-- WALLET -->
           <div *ngIf="tab === 'wallet' && walletActivity" class="space-y-6 animate-fade-in">
-            <div>
-              <h1 class="text-2xl font-bold text-slate-900 mb-2">Wallet</h1>
-              <p class="text-slate-600">
-                Your custodial wallet is your on-chain identity on the Sepolia network.
-                Every grant, record hash, and access log is attributed to this address — no MetaMask required.
-              </p>
+            <!-- Header with Network Badge -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2.5">
+                  <span>Custodial Blockchain Wallet</span>
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Sepolia Live
+                  </span>
+                </h1>
+                <p class="text-sm text-slate-500 mt-1 max-w-2xl">
+                  Your self-sovereign on-chain identity on Ethereum Sepolia. All clinical hashes, access grants, and audit events are cryptographically bound to this address without requiring MetaMask.
+                </p>
+              </div>
+              <div class="flex items-center gap-2 self-start sm:self-auto">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                  <svg class="w-3.5 h-3.5 text-indigo-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd"/></svg>
+                  Gasless (Sponsored)
+                </span>
+              </div>
             </div>
 
-            <!-- Wallet address card -->
-            <div class="card">
-              <h2 class="text-lg font-bold text-slate-900 mb-4">Custodial Wallet Address</h2>
-              <div class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-gradient-to-r from-slate-50 to-blue-50 rounded-xl border border-slate-200">
-                <div class="flex items-center gap-2">
-                  <div class="w-9 h-9 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <!-- Hero Web3 Custodial Card -->
+            <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white p-6 sm:p-8 shadow-2xl border border-indigo-900/40">
+              <!-- Decorative background glows -->
+              <div class="absolute -right-16 -top-16 w-64 h-64 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none"></div>
+              <div class="absolute -left-16 -bottom-16 w-64 h-64 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+              <div class="relative z-10 flex flex-col justify-between min-h-[190px]">
+                <!-- Card Header -->
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-cyan-400 p-0.5 shadow-lg shadow-indigo-500/20">
+                      <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
+                        <svg class="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                      </div>
+                    </div>
+                    <div>
+                      <p class="text-xs font-semibold uppercase tracking-wider text-indigo-300/80">AfyaTrust Sovereign Identity</p>
+                      <p class="text-xs text-slate-400">Sepolia Network (Chain ID 11155111)</p>
+                    </div>
+                  </div>
+                  <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/30">
+                    <svg class="w-3 h-3 text-indigo-400" fill="currentColor" viewBox="0 0 320 512"><path d="M311.9 260.8L160 353.6 8 260.8 160 0l151.9 260.8zM160 383.4L8 290.6 160 512l152-221.4-152 92.8z"/></svg>
+                    Ethereum Custodial
+                  </span>
+                </div>
+
+                <!-- Card Body: Wallet Address Display -->
+                <div class="my-6">
+                  <p class="text-xs text-slate-400 uppercase tracking-widest mb-1.5 font-medium">Custodial Wallet Address</p>
+                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900/80 backdrop-blur-md rounded-2xl p-4 border border-indigo-500/20">
+                    <div class="min-w-0 flex-1">
+                      <p *ngIf="walletVisible" class="font-mono text-sm sm:text-base text-emerald-400 tracking-wider break-all font-medium select-all">
+                        {{ walletActivity.wallet_address }}
+                      </p>
+                      <p *ngIf="!walletVisible" class="font-mono text-sm sm:text-base text-slate-400 tracking-widest">
+                        {{ walletActivity.wallet_address | slice:0:6 }}••••••••••••••••••••••••••••••••{{ walletActivity.wallet_address | slice:-4 }}
+                      </p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                      <button type="button" (click)="walletVisible = !walletVisible"
+                              class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path *ngIf="!walletVisible" stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                          <path *ngIf="walletVisible" stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18"/>
+                        </svg>
+                        {{ walletVisible ? 'Hide' : 'Reveal' }}
+                      </button>
+                      <button type="button" (click)="copyWalletAddress()"
+                              class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-colors shadow-sm flex items-center gap-1.5 cursor-pointer">
+                        <svg *ngIf="!copiedWallet" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                        <svg *ngIf="copiedWallet" class="w-3.5 h-3.5 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        {{ copiedWallet ? 'Copied!' : 'Copy' }}
+                      </button>
+                      <a [href]="'https://sepolia.etherscan.io/address/' + walletActivity.wallet_address"
+                         target="_blank" rel="noopener"
+                         class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-indigo-300 border border-slate-700 transition-colors flex items-center gap-1">
+                        <span>Explorer</span>
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Card Footer -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-800/80 text-xs">
+                  <div>
+                    <span class="text-slate-500 uppercase tracking-wider block text-[10px]">Account Holder</span>
+                    <span class="font-semibold text-slate-200 capitalize text-sm">{{ walletActivity.full_name }}</span>
                   </div>
                   <div>
-                    <p class="text-xs text-slate-500">Wallet address (checksummed)</p>
-                    <p *ngIf="walletVisible" class="text-sm font-mono font-semibold text-slate-900 break-all">{{ walletActivity.wallet_address }}</p>
-                    <p *ngIf="!walletVisible" class="text-sm text-slate-500">Hidden</p>
+                    <span class="text-slate-500 uppercase tracking-wider block text-[10px]">Health ID</span>
+                    <span class="font-mono font-semibold text-indigo-300 text-sm">#{{ walletActivity.health_id }}</span>
+                  </div>
+                  <div class="col-span-2 sm:col-span-1">
+                    <span class="text-slate-500 uppercase tracking-wider block text-[10px]">Key Encryption</span>
+                    <span class="font-semibold text-emerald-400 text-sm flex items-center gap-1">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                      AES-256-GCM Vault
+                    </span>
                   </div>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                  <button type="button" (click)="walletVisible = !walletVisible"
-                          class="flex-shrink-0 px-4 py-2 border border-slate-300 text-slate-700 text-sm font-semibold rounded-xl hover:bg-white transition-colors"
-                          [attr.aria-expanded]="walletVisible">
-                    {{ walletVisible ? 'Hide wallet' : 'View wallet' }}
-                  </button>
-                  <button *ngIf="walletVisible" type="button" (click)="copyWalletAddress()"
-                        class="flex-shrink-0 self-start px-4 py-2 bg-primary-500 text-white text-sm font-semibold rounded-xl hover:bg-primary-600 transition-colors shadow-sm">
-                    Copy address
-                  </button>
-                </div>
-              </div>
-
-              <div class="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <p class="text-xs text-slate-500 mb-1">Health ID (this wallet is bound to)</p>
-                <p class="text-sm font-mono font-semibold text-slate-900">{{ walletActivity.health_id }}</p>
-              </div>
-              <div class="mt-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <p class="text-xs text-slate-500 mb-1">Account holder</p>
-                <p class="text-sm font-semibold text-slate-900">{{ walletActivity.full_name }}</p>
-              </div>
-
-              <div class="p-4 bg-amber-50 rounded-xl border border-amber-200 mt-4">
-                <p class="text-sm text-amber-800">
-                  <span class="font-semibold">Note:</span> This is a custodial wallet managed by the platform. The private key is encrypted and held by the backend so you can sign in with just your Health ID and PIN. You do not need MetaMask for any platform action.
-                </p>
               </div>
             </div>
 
-            <!-- Wallet activity summary -->
-            <div class="card">
-              <h2 class="text-lg font-bold text-slate-900 mb-4">Wallet activity summary</h2>
-              <dl class="grid grid-cols-2 gap-4">
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">On-chain events</p>
-                  <p class="text-2xl font-bold text-slate-900">{{ walletActivity.activityCount }}</p>
-                  <p class="text-xs text-muted">actions logged on Sepolia for this wallet</p>
+            <!-- 4 Stat Metric Cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <!-- Stat 1: On-Chain & Ledger Events -->
+              <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Events Logged</span>
+                  <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                  </div>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Pending operations</p>
-                  <p class="text-2xl font-bold" [class.text-red-600]="walletActivity.pendingOperations > 0">{{ walletActivity.pendingOperations }}</p>
-                  <p class="text-xs text-muted">access requests waiting for your answer</p>
-                </div>
-              </dl>
-
-              <div class="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <p class="text-xs text-slate-500 mb-1">Last on-chain activity</p>
-                <p class="text-sm text-slate-900">
-                  {{ walletActivity.lastActivityAt ? (walletActivity.lastActivityAt * 1000 | date:'medium') : 'No on-chain activity yet' }}
-                </p>
+                <p class="text-3xl font-extrabold text-slate-900">{{ walletActivity.activityCount }}</p>
+                <p class="text-xs text-slate-500 mt-1">Actions on Sepolia & ledger</p>
               </div>
 
-              <div *ngIf="walletActivity.lastTxHash" class="mt-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <p class="text-xs text-slate-500 mb-1">Last transaction hash</p>
-                <div class="flex flex-wrap items-center gap-2">
-                  <code class="text-xs font-mono text-slate-900">{{ walletActivity.lastTxHash | slice:0:32 }}…</code>
-                  <a *ngIf="!walletActivity.lastTxHash.toLowerCase().startsWith('pending')"
-                     [href]="'https://sepolia.etherscan.io/tx/' + walletActivity.lastTxHash"
-                     target="_blank" rel="noopener"
-                     class="text-xs font-semibold text-accent-700 hover:underline">
-                    View on Etherscan
-                  </a>
+              <!-- Stat 2: Active Access Grants -->
+              <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Grants</span>
+                  <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                  </div>
                 </div>
+                <p class="text-3xl font-extrabold text-emerald-600">{{ walletGrants?.activeCount || 0 }}</p>
+                <p class="text-xs text-slate-500 mt-1">Doctors with active access</p>
+              </div>
+
+              <!-- Stat 3: Total Grants Ever -->
+              <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">All-Time Grants</span>
+                  <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                    </svg>
+                  </div>
+                </div>
+                <p class="text-3xl font-extrabold text-blue-600">{{ walletGrants?.totalGrantsEver || 0 }}</p>
+                <p class="text-xs text-slate-500 mt-1">Authorizations issued</p>
+              </div>
+
+              <!-- Stat 4: Pending Operations -->
+              <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+                   [class.ring-2]="walletActivity.pendingOperations > 0"
+                   [class.ring-amber-400]="walletActivity.pendingOperations > 0">
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Pending Requests</span>
+                  <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                  </div>
+                </div>
+                <p class="text-3xl font-extrabold" [class.text-amber-600]="walletActivity.pendingOperations > 0" [class.text-slate-900]="walletActivity.pendingOperations === 0">
+                  {{ walletActivity.pendingOperations }}
+                </p>
+                <p class="text-xs text-slate-500 mt-1">Requests waiting for response</p>
               </div>
             </div>
 
-            <!-- Active grants summary -->
-            <div *ngIf="walletGrants" class="card">
-              <h2 class="text-lg font-bold text-slate-900 mb-4">Active permissions (grants)</h2>
-              <dl class="grid grid-cols-3 gap-4">
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Active</p>
-                  <p class="text-2xl font-bold text-accent-700">{{ walletGrants.activeCount }}</p>
-                  <p class="text-xs text-muted">doctors with access now</p>
+            <!-- Two-Column Information Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <!-- Left: Live Activity & On-Chain Audit Details -->
+              <div class="card space-y-4">
+                <div class="flex items-center justify-between">
+                  <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Recent On-Chain Activity
+                  </h2>
+                  <button type="button" (click)="loadWalletProfile()" class="text-xs text-primary-700 hover:underline font-semibold cursor-pointer">
+                    Refresh
+                  </button>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Expiring soon</p>
-                  <p class="text-2xl font-bold" [class.text-amber-600]="walletGrants.expiringSoon > 0">{{ walletGrants.expiringSoon }}</p>
-                  <p class="text-xs text-muted">expire within 7 days</p>
+
+                <div class="space-y-3">
+                  <!-- Last Activity Timestamp -->
+                  <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <p class="text-xs text-slate-500 mb-0.5">Last On-Chain Event</p>
+                    <p class="text-sm font-semibold text-slate-900">
+                      {{ walletActivity.lastActivityAt ? (walletActivity.lastActivityAt * 1000 | date:'medium') : 'No activity recorded yet' }}
+                    </p>
+                  </div>
+
+                  <!-- Last Tx Hash -->
+                  <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <div class="flex items-center justify-between mb-1">
+                      <p class="text-xs text-slate-500">Latest Transaction Hash</p>
+                      <a *ngIf="walletActivity.lastTxHash && !walletActivity.lastTxHash.toLowerCase().startsWith('pending')"
+                         [href]="'https://sepolia.etherscan.io/tx/' + walletActivity.lastTxHash"
+                         target="_blank" rel="noopener"
+                         class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                        <span>Sepolia Etherscan</span>
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                      </a>
+                    </div>
+                    <code *ngIf="walletActivity.lastTxHash" class="text-xs font-mono text-slate-800 break-all select-all block bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">
+                      {{ walletActivity.lastTxHash }}
+                    </code>
+                    <p *ngIf="!walletActivity.lastTxHash" class="text-xs text-slate-500 italic">
+                      None recorded yet
+                    </p>
+                  </div>
+
+                  <!-- Most Recent Access Grant -->
+                  <div *ngIf="walletGrants" class="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <div class="flex items-center justify-between mb-1">
+                      <p class="text-xs text-slate-500">Most Recent Grant</p>
+                      <span *ngIf="walletGrants.expiringSoon > 0" class="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                        {{ walletGrants.expiringSoon }} expiring soon
+                      </span>
+                    </div>
+                    <p class="text-sm font-semibold text-slate-900">
+                      {{ walletGrants.lastGrantDoctor || 'No grants issued yet' }}
+                    </p>
+                    <p *ngIf="walletGrants.lastGrantAt" class="text-xs text-slate-500 mt-0.5">
+                      Issued on {{ walletGrants.lastGrantAt | date:'medium' }}
+                    </p>
+                  </div>
                 </div>
-                <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-xs text-slate-500 uppercase tracking-wide mb-1">Last grant</p>
-                  <p class="text-sm font-semibold text-slate-900 truncate">{{ walletGrants.lastGrantDoctor || '—' }}</p>
-                  <p class="text-xs text-muted">
-                    {{ walletGrants.lastGrantAt ? (walletGrants.lastGrantAt | date:'short') : 'none yet' }}
-                  </p>
+              </div>
+
+              <!-- Right: Custodial Security & Architecture -->
+              <div class="card space-y-4">
+                <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                  </svg>
+                  Custodial Security Architecture
+                </h2>
+
+                <div class="space-y-3 text-sm">
+                  <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    </div>
+                    <div>
+                      <p class="font-semibold text-slate-900 text-xs">Zero MetaMask Requirement</p>
+                      <p class="text-xs text-slate-600 mt-0.5">
+                        Your private key is protected by encrypted hardware-grade vaulting. You sign in with your Health ID and 4-digit PIN while retaining full blockchain guarantees.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    </div>
+                    <div>
+                      <p class="font-semibold text-slate-900 text-xs">Gasless Relayed Execution</p>
+                      <p class="text-xs text-slate-600 mt-0.5">
+                        All on-chain gas costs on Ethereum Sepolia are sponsored by the hospital network relayer. You never have to purchase or hold ETH.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </div>
+                    <div>
+                      <p class="font-semibold text-slate-900 text-xs">Immediate Access Revocation</p>
+                      <p class="text-xs text-slate-600 mt-0.5">
+                        You maintain full custody over who views your medical data. You can grant or revoke doctor permissions instantly from the Permissions tab.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </dl>
+              </div>
             </div>
           </div>
 
@@ -1701,6 +1877,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     emergencyCount?: number;
     emergency?: EmergencyAccessItem[];
     active_grants?: ActiveGrantItem[];
+    totalGrantsEver?: number;
   } | null = null;
 
   /** Seconds until the next emergency window ends (ticked once a second). */
@@ -1724,7 +1901,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   editMsg = '';
   editOk = false;
 
-  private async loadWalletProfile() {
+  async loadWalletProfile() {
     if (!this.data) {
       this.walletActivity = null;
       return;
@@ -1954,11 +2131,20 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     }[];
   } | null = null;
 
+  copiedWallet = false;
+
   copyWalletAddress() {
     const addr = this.walletActivity?.wallet_address
       ?? this.profileInfo?.wallet_address;
     if (!addr) return;
-    navigator.clipboard.writeText(addr).catch(() => {});
+    navigator.clipboard.writeText(addr).then(() => {
+      this.copiedWallet = true;
+      this.syncView();
+      setTimeout(() => {
+        this.copiedWallet = false;
+        this.syncView();
+      }, 2000);
+    }).catch(() => {});
   }
 
   // --- Health summary (computed from records + measurements + referrals) ---

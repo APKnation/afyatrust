@@ -17,34 +17,9 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
   selector: 'app-login',
   imports: [NgIf, FormsModule, RouterLink],
   template: `
-    <nav class="absolute top-0 left-0 right-0 z-50 px-6 py-5 lg:px-12">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <a routerLink="/" class="brand-wordmark text-2xl text-slate-900 no-underline">Afya<span class="text-primary-700">Trust</span></a>
-        </div>
-        <div class="hidden md:flex items-center gap-4">
-          <a routerLink="/" class="text-slate-500 hover:text-slate-900 font-medium transition-colors">Back to Home</a>
-          <a routerLink="/register" class="px-5 py-2.5 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition-colors shadow-sm">Get Started</a>
-        </div>
-        <button (click)="menuOpen = !menuOpen"
-                class="md:hidden flex flex-col items-center justify-center gap-1.5 p-2"
-                aria-label="Toggle menu">
-          <span class="h-0.5 w-6 bg-ink transition-transform" [class.rotate-45]="menuOpen" [class.translate-y-1.5]="menuOpen"></span>
-          <span class="h-0.5 w-6 bg-ink transition-opacity" [class.opacity-0]="menuOpen"></span>
-          <span class="h-0.5 w-6 bg-ink transition-transform" [class.-rotate-45]="menuOpen" [class.-translate-y-1.5]="menuOpen"></span>
-        </button>
-      </div>
-      <div *ngIf="menuOpen" class="md:hidden mt-4 bg-white border border-gray-200 rounded-xl shadow">
-        <div class="flex flex-col p-4 gap-3">
-          <a routerLink="/" (click)="menuOpen = false">Back to Home</a>
-          <a routerLink="/register" (click)="menuOpen = false" class="px-4 py-2 bg-slate-900 text-white rounded-lg text-center">Get Started</a>
-        </div>
-      </div>
-    </nav>
-
     <div class="flex min-h-screen bg-white">
       <!-- RIGHT: Form Side on desktop -->
-      <div class="w-full lg:order-2 lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 pt-24 pb-12 overflow-y-auto">
+      <div class="w-full lg:order-2 lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 py-12 overflow-y-auto">
         <div class="max-w-[420px] w-full mx-auto">
           <div class="mb-10">
             <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Sign in</h1>
@@ -84,23 +59,14 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
       </div>
 
       <!-- LEFT: Hero Side on desktop -->
-      <div class="hidden lg:order-1 lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden items-center justify-center p-12">
+      <div class="hidden lg:order-1 lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center bg-cover bg-center p-12" style="background-image: url('/hospital.jpg')">
+        <div class="absolute inset-0 bg-slate-950/75"></div>
         <!-- Abstract glowing orbs background -->
         <div class="absolute inset-0 opacity-40">
            <div class="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-primary-600 mix-blend-screen filter blur-[120px] animate-pulse" style="animation-duration: 8s"></div>
            <div class="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] rounded-full bg-accent-500 mix-blend-screen filter blur-[140px] animate-pulse" style="animation-delay: 2s; animation-duration: 10s"></div>
         </div>
         
-        <article class="relative z-10 max-w-xl w-full">
-          <h2 class="max-w-lg text-5xl font-bold leading-[1.05] tracking-tight text-white">Care that keeps you in control.</h2>
-          <p class="mt-6 max-w-md text-lg leading-8 text-slate-300">Sign in to see your health record, make access decisions, and review activity in one clear place.</p>
-
-          <ol class="mt-12 border-l border-white/20 pl-7">
-            <li class="relative pb-8"><span class="absolute -left-[2.2rem] top-0 flex h-7 w-7 items-center justify-center rounded-full bg-primary-500 text-xs font-bold text-slate-950">1</span><p class="m-0 text-base font-semibold text-white">Review a request</p><p class="mt-1 text-sm leading-6 text-slate-400">See who needs access and why before making a decision.</p></li>
-            <li class="relative pb-8"><span class="absolute -left-[2.2rem] top-0 flex h-7 w-7 items-center justify-center rounded-full border border-white/30 bg-slate-900 text-xs font-bold text-white">2</span><p class="m-0 text-base font-semibold text-white">Choose with confidence</p><p class="mt-1 text-sm leading-6 text-slate-400">Approve, decline, or end access whenever you need to.</p></li>
-            <li class="relative"><span class="absolute -left-[2.2rem] top-0 flex h-7 w-7 items-center justify-center rounded-full border border-white/30 bg-slate-900 text-xs font-bold text-white">3</span><p class="m-0 text-base font-semibold text-white">Keep a clear record</p><p class="mt-1 text-sm leading-6 text-slate-400">Review access and care activity whenever you return.</p></li>
-          </ol>
-        </article>
       </div>
     </div>
   `,

@@ -29,6 +29,8 @@ import { SiteFooterComponent } from '../../components/shared/site-footer/site-fo
           <ng-container *ngIf="auth.isAuthenticated()">
             <a *ngIf="auth.isPatient" routerLink="/patient" class="min-h-11 inline-flex items-center text-sm font-semibold text-slate-900 no-underline transition-colors hover:text-primary-700">My dashboard</a>
             <a *ngIf="auth.isDoctor" routerLink="/doctor" class="min-h-11 inline-flex items-center text-sm font-semibold text-slate-900 no-underline transition-colors hover:text-primary-700">My dashboard</a>
+             <a routerLink="/etherscan" class="inline-flex min-h-11 items-center px-1 text-center text-sm font-semibold text-white underline decoration-white/60 underline-offset-4 transition-colors hover:text-[#8dc63f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">View Contract on Etherscan<br/>0x142F4871c1D1c1999A8D1d9fbAD6Bbff4bDc92ED</a>
+             <button routerLink="/etherscan" class="inline-flex min-h-11 items-center px-1 text-center text-sm font-semibold text-white underline decoration-white/60 underline-offset-4 transition-colors hover:text-[#8dc63f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">Open Contract on Etherscan</button>
             <a *ngIf="auth.isStaff" routerLink="/hospital" class="min-h-11 inline-flex items-center text-sm font-semibold text-slate-900 no-underline transition-colors hover:text-primary-700">Referral desk</a>
           </ng-container>
         </div>

@@ -15,37 +15,11 @@ import { AuthService } from '../../services/auth.service';
   selector: 'app-register',
   imports: [NgFor, NgIf, FormsModule, RouterLink],
   template: `
-    <!-- ================= NAVBAR ================= -->
-    <nav class="absolute top-0 left-0 right-0 z-50 px-6 py-5 lg:px-12">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <a routerLink="/" class="brand-wordmark text-2xl text-slate-900 no-underline">Afya<span class="text-primary-700">Trust</span></a>
-        </div>
-        <div class="hidden md:flex items-center gap-4">
-          <a routerLink="/" class="text-slate-500 hover:text-slate-900 font-medium transition-colors">Back to Home</a>
-          <a routerLink="/login" class="px-5 py-2.5 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition-colors shadow-sm">Log in</a>
-        </div>
-        <button (click)="menuOpen = !menuOpen"
-                class="md:hidden flex flex-col items-center justify-center gap-1.5 p-2"
-                aria-label="Toggle menu">
-          <span class="h-0.5 w-6 bg-ink transition-transform" [class.rotate-45]="menuOpen" [class.translate-y-1.5]="menuOpen"></span>
-          <span class="h-0.5 w-6 bg-ink transition-opacity" [class.opacity-0]="menuOpen"></span>
-          <span class="h-0.5 w-6 bg-ink transition-transform" [class.-rotate-45]="menuOpen" [class.-translate-y-1.5]="menuOpen"></span>
-        </button>
-      </div>
-      <div *ngIf="menuOpen" class="md:hidden mt-4 bg-white border border-gray-200 rounded-xl shadow">
-        <div class="flex flex-col p-4 gap-3">
-          <a routerLink="/" (click)="menuOpen = false">Back to Home</a>
-          <a routerLink="/login" (click)="menuOpen = false" class="px-4 py-2 bg-slate-900 text-white rounded-lg text-center">Log in</a>
-        </div>
-      </div>
-    </nav>
-
     <!-- ================= SPLIT LAYOUT ================= -->
     <div class="flex min-h-screen bg-white">
 
       <!-- RIGHT: Form Side on desktop -->
-      <div class="w-full lg:order-2 lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 pt-28 pb-12 overflow-y-auto">
+      <div class="w-full lg:order-2 lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 py-12 overflow-y-auto">
         <div class="max-w-[440px] w-full mx-auto">
           <div class="mb-10">
             <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Create your account</h1>
@@ -132,7 +106,8 @@ import { AuthService } from '../../services/auth.service';
       </div>
 
       <!-- LEFT: Hero Side on desktop -->
-      <div class="hidden lg:order-1 lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden items-center justify-center p-12">
+      <div class="hidden lg:order-1 lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center bg-cover bg-center p-12" style="background-image: url('/hospital.jpg')">
+        <div class="absolute inset-0 bg-slate-950/75"></div>
         <!-- Animated glowing orbs -->
         <div class="absolute inset-0 opacity-40 pointer-events-none">
           <div class="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-accent-500 mix-blend-screen filter blur-[120px] animate-pulse" style="animation-duration: 9s;"></div>
@@ -140,16 +115,6 @@ import { AuthService } from '../../services/auth.service';
           <div class="absolute top-[40%] left-[30%] w-[40%] h-[40%] rounded-full bg-accent-600 mix-blend-screen filter blur-[100px] animate-pulse" style="animation-delay: 1s; animation-duration: 13s;"></div>
         </div>
 
-        <article class="relative z-10 max-w-xl w-full">
-          <h2 class="max-w-lg text-5xl font-bold leading-[1.05] tracking-tight text-white">Set up your private health account.</h2>
-          <p class="mt-6 max-w-md text-lg leading-8 text-slate-300">Your Health ID and PIN give you one place to follow your care and decide who can access it.</p>
-
-          <div class="mt-12 grid grid-cols-3 gap-4 border-t border-white/20 pt-6">
-            <div><p class="m-0 text-2xl font-bold text-white">01</p><p class="mt-3 text-sm font-semibold text-slate-200">Create</p><p class="mt-1 text-sm leading-6 text-slate-400">Set your secure PIN.</p></div>
-            <div><p class="m-0 text-2xl font-bold text-white">02</p><p class="mt-3 text-sm font-semibold text-slate-200">Connect</p><p class="mt-1 text-sm leading-6 text-slate-400">Choose your hospital.</p></div>
-            <div><p class="m-0 text-2xl font-bold text-white">03</p><p class="mt-3 text-sm font-semibold text-slate-200">Control</p><p class="mt-1 text-sm leading-6 text-slate-400">Manage record access.</p></div>
-          </div>
-        </article>
       </div>
     </div>
 

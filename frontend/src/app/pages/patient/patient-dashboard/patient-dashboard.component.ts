@@ -1673,6 +1673,12 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   set data(value: PatientData | null) { value ? this.workspaceState.patientRecords.set(value) : this.workspaceState.patientRecords.clear(); }
   get requests(): AccessRequest[] { return this.workspaceState.patientRequests.data ?? []; }
   set requests(value: AccessRequest[]) { this.workspaceState.patientRequests.set(value); }
+  get pendingRequests(): AccessRequest[] {
+    return this.requests.filter((r) => (!r.status || r.status === 'PENDING'));
+  }
+  get requestHistory(): AccessRequest[] {
+    return this.requests.filter((r) => r.status && r.status !== 'PENDING');
+  }
   get story(): ActivityStoryItem[] { return this.workspaceState.patientActivity.data ?? []; }
   set story(value: ActivityStoryItem[]) { this.workspaceState.patientActivity.set(value); }
   storyLoading = false;
@@ -2751,7 +2757,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   }
 
   private syncNotifications() {
-    this.notifications = this.requests.filter((r) => !this.dismissedIds.has(r.id));
+    this.notifications = this.pendingRequests.filter((r) => !this.dismissedIds.has(r.id));
     this.syncView();
   }
 

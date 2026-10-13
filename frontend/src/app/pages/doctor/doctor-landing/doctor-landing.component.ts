@@ -58,15 +58,16 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
             <span *ngIf="t.id === 'requests' && pendingRequestCount > 0"
                   class="rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">{{ pendingRequestCount }}</span>
           </button>
-        </nav>
-
-        <div class="mt-4 hidden border-t border-gray-100 pt-3 text-xs text-muted lg:block">
+        </nav>        <div class="mt-4 hidden border-t border-gray-100 pt-3 text-xs text-muted lg:block">
           <span *ngIf="hospitalName">{{ hospitalName }}</span>
           <span *ngIf="!hospitalName">Clinical workspace</span>
         </div>
 
         <!-- BOTTOM ACTIONS -->
         <div class="mt-6 pt-4 border-t border-slate-200 space-y-2">
+          <a class="inline-flex w-full min-h-11 items-center justify-center rounded-lg border border-primary-600 bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600" target="_blank" rel="noopener" href="https://sepolia.etherscan.io/address/0x142F4871c1D1c1999A8D1d9fbAD6Bbff4bDc92ED">
+            View on Etherscan
+          </a>
           <button (click)="logoutAndRedirect()"
                   class="btn-logout w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 group">
             <span class="font-medium">Sign Out</span>
@@ -74,6 +75,7 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
           </button>
         </div>
       </aside>
+
 
         <div class="mx-auto w-full min-w-0 max-w-[1480px] flex-1 px-4 py-4 sm:px-6 lg:px-8 lg:py-5">
           <div *ngIf="feedbackMessage" role="status" aria-live="polite"
@@ -1736,9 +1738,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
           : 'Measurement saved locally but is not blockchain-verified.'
       );
       this.meas = { health_id: this.meas.health_id, kind: this.measurementKinds[0], value: null, unit: '', notes: '' };
-      if (this.historyHealthId.trim().toLowerCase() === this.meas.health_id.trim().toLowerCase()) {
-        await this.loadMeasurements();
-      }
+      void this.scheduleHistoryReload();
     } catch (e: any) {
       this.measPending = false;
       this.measMsg = e?.error?.error || e?.message || 'Failed to record measurement';
@@ -1746,6 +1746,22 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       this.busyMeas = false;
       this.syncView();
     }
+  }
+
+  /** Reload the measurement history only when the save does not block the user,
+   * and only if the history section is already open for this patient. */
+  private pendingHistoryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private async scheduleHistoryReload() {
+    if (!this.historyHealthId.trim()) return;
+    if (this.pendingHistoryTimer) {
+      clearTimeout(this.pendingHistoryTimer);
+      this.pendingHistoryTimer = null;
+    }
+    this.pendingHistoryTimer = setTimeout(async () => {
+      this.pendingHistoryTimer = null;
+      await this.loadMeasurements();
+    }, 60);
   }
 
   async loadMeasurements() {

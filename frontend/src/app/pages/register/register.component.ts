@@ -21,6 +21,16 @@ import { AuthService } from '../../services/auth.service';
       <!-- RIGHT: Form Side on desktop -->
       <div class="w-full lg:order-2 lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 py-12 overflow-y-auto">
         <div class="max-w-[440px] w-full mx-auto">
+          <div class="mb-6">
+            <button type="button" routerLink="/" class="inline-flex items-center text-sm font-medium text-slate-500 hover:text-primary-600 transition-colors gap-1.5 rounded-lg px-3 py-1.5 -ml-2 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m12 19-7-7 7-7" />
+                <path d="M19 12H5" />
+              </svg>
+              Back to home
+            </button>
+          </div>
+
           <div class="mb-10">
             <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Create your account</h1>
           </div>
@@ -96,9 +106,7 @@ import { AuthService } from '../../services/auth.service';
                     class="btn-primary w-full py-4 mt-4 text-base rounded-xl shadow-lg shadow-primary-500/25">
               {{ loading ? 'Creating your account…' : 'Create account' }}
             </button>
-          </form>
-
-          <p class="mt-8 text-center text-slate-500 font-medium">
+          </form>            <p class="mt-8 text-center text-slate-500 font-medium">
             Already have an account?
             <a routerLink="/login" class="font-bold text-primary-600 hover:text-primary-700 transition-colors ml-1">Sign in</a>
           </p>

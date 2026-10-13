@@ -81,6 +81,9 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
 
             <!-- BOTTOM ACTIONS -->
             <div class="mt-3 flex gap-2 border-t border-slate-200 pt-3 lg:mt-6 lg:flex-col lg:pt-4">
+              <a class="inline-flex min-h-11 items-center rounded-md border border-primary-600 bg-primary-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600" target="_blank" rel="noopener" href="https://sepolia.etherscan.io/address/0x142F4871c1D1c1999A8D1d9fbAD6Bbff4bDc92ED">
+                View on Etherscan
+              </a>
               <button (click)="logoutAndRedirect()"
                       class="btn-logout flex min-h-11 items-center gap-3 rounded-md px-4 py-2.5 transition-all duration-200 group lg:w-full">
                 <span class="font-medium">Sign Out</span>

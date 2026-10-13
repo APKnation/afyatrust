@@ -109,7 +109,7 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
             <h2 class="m-0 text-sm font-bold text-ink">{{ lastTx.label }}</h2>
             <p class="m-0 text-xs text-muted">
               {{ lastTx.pending
-                ? 'Transaction submitted — the BreakGlassUsed event will appear in your Blockchain Transactions tab shortly.'
+                ? 'Transaction submitted — we will show it in the latest activity banner once confirmed.'
                 : 'Permanently logged on-chain — verify it on Etherscan.' }}
             </p>
           </div>
@@ -943,77 +943,6 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
         </div>
       </div>
 
-      <!-- ================= BLOCKCHAIN TRANSACTIONS ================= -->
-      <div *ngIf="tab === 'transactions'" class="animate-fade-in">
-        <h2 class="text-xl font-bold text-slate-900 mb-1">Blockchain Transaction History</h2>
-        <p class="mb-4 text-sm text-muted">
-          All on-chain transactions for {{ hospitalName || 'your hospital' }}. Filter by event type or patient Health ID.
-          Every transaction is verifiable on Etherscan.
-        </p>
-
-        <!-- Filters -->
-        <div class="card mb-4 p-6">
-          <div class="flex flex-wrap gap-3">
-            <select [(ngModel)]="txFilterEvent" (ngModelChange)="applyTxFilter()"
-                    class="px-3 py-2.5 text-sm">
-              <option value="">All Event Types</option>
-              <option value="RecordAdded">Record Added</option>
-              <option value="AccessGranted">Access Granted</option>
-              <option value="AccessRevoked">Access Revoked</option>
-              <option value="RecordViewed">Record Viewed</option>
-              <option value="BreakGlassUsed">Break-Glass Used</option>
-              <option value="EmergencyAccessGranted">Emergency Access</option>
-            </select>
-            <input [(ngModel)]="txFilterHealthId" (ngModelChange)="applyTxFilter()"
-                   placeholder="Filter by Health ID (optional)"
-                   class="min-w-50 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-            <button (click)="clearTxFilter()"
-                    class="btn-secondary">
-              Clear Filters
-            </button>
-          </div>
-        </div>
-
-        <div *ngIf="filteredTransactions.length" class="space-y-3">
-          <div *ngFor="let tx of filteredTransactions" class="card">
-            <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
-              <div class="flex flex-wrap items-center gap-3">
-                <span class="rounded-full px-3 py-1 text-xs font-bold" [class]="eventBadge(tx.event)">{{ formatEventName(tx.event) }}</span>
-                <span class="text-sm text-slate-500">{{ tx.timestamp ? (tx.timestamp * 1000 | date:'medium') : '—' }}</span>
-              </div>
-              <a [href]="tx.etherscan_url" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 text-slate-700 text-xs font-medium rounded-lg hover:bg-slate-100 transition-colors">
-                View on Etherscan
-              </a>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <p class="text-xs text-slate-500 mb-1">Transaction Hash</p>
-                <code class="text-xs font-mono text-slate-700 break-all">{{ tx.transaction_hash }}</code>
-              </div>
-              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <p class="text-xs text-slate-500 mb-1">Block Number</p>
-                <span class="text-sm font-mono text-slate-700">{{ tx.block_number }}</span>
-              </div>
-            </div>
-            <div *ngIf="eventArgs(tx.args).length > 0" class="p-4 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200">
-              <p class="text-xs font-semibold text-slate-600 mb-2">Event Details</p>
-              <div *ngFor="let arg of eventArgs(tx.args)" class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 py-2 border-b border-slate-200 last:border-b-0">
-                <span class="text-xs font-medium text-slate-600 capitalize">{{ arg.key }}</span>
-                <span class="text-sm text-slate-900 break-all">{{ arg.value }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div *ngIf="filteredTransactions.length === 0 && transactions.length > 0" class="card">
-          <h3 class="mb-2 text-lg font-bold text-slate-900">No transactions match your filters</h3>
-          <p class="text-slate-600">Try adjusting your filters or clearing them.</p>
-        </div>
-        <div *ngIf="transactions.length === 0" class="card">
-          <h3 class="mb-2 text-lg font-bold text-slate-900">No blockchain transactions yet</h3>
-          <p class="text-slate-600">Transactions appear here when records are added, access is granted, or data is viewed.</p>
-        </div>
-      </div>
-
       <!-- ================= HOW IT WORKS ================= -->
       <div *ngIf="tab === 'how-it-works'" class="animate-fade-in">
         <div class="card p-6">
@@ -1107,7 +1036,7 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
   `,
 })
 export class DoctorLandingComponent implements OnDestroy, OnInit {
-  tab: 'dashboard' | 'patients' | 'hospital-patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' | 'how-it-works' | 'profile' = 'dashboard';
+  tab: 'dashboard' | 'patients' | 'hospital-patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'how-it-works' | 'profile' = 'dashboard';
   tabs = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'patients', label: 'My Patients' },
@@ -1116,7 +1045,6 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     { id: 'measurements', label: 'Measurements' },
     { id: 'referrals', label: 'Referrals' },
     { id: 'requests', label: 'My Requests' },
-    { id: 'transactions', label: 'Blockchain Transactions' },
     { id: 'how-it-works', label: 'How it works' },
     { id: 'profile', label: 'Profile' },
   ] as const;
@@ -1284,10 +1212,6 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   // blockchain transactions
   get transactions(): BlockchainEvent[] { return this.workspaceState.doctorTransactions.data ?? []; }
   set transactions(value: BlockchainEvent[]) { this.workspaceState.doctorTransactions.set(value); }
-  filteredTransactions: BlockchainEvent[] = [];
-  txFilterEvent = '';
-  txFilterHealthId = '';
-  private txFilterTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Most recent on-chain action by this doctor (break-glass), surfaced
    * as a banner with a direct Etherscan link. */
@@ -1320,12 +1244,11 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.syncView();
   }
 
-  setTab(id: 'dashboard' | 'patients' | 'hospital-patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' | 'how-it-works' | 'profile') {
+  setTab(id: 'dashboard' | 'patients' | 'hospital-patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'how-it-works' | 'profile') {
     this.tab = id;
     this.sidebarOpen = false; // close the mobile drawer after navigating
     if (id === 'dashboard') void this.loadDashboard();
     if (id === 'requests') void this.loadMyRequests();
-    if (id === 'transactions') void this.loadTransactions();
     if (id === 'hospital-patients') void this.loadHospitalPatients();
     this.syncView();
   }
@@ -1384,7 +1307,6 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   ngOnDestroy() {
     if (this.referralTimer) clearInterval(this.referralTimer);
     if (this.feedbackTimer) clearTimeout(this.feedbackTimer);
-    if (this.txFilterTimer) clearTimeout(this.txFilterTimer);
     this.stopEmergencyCountdown();
   }
 
@@ -1428,9 +1350,6 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.referralTimer = setInterval(() => {
       void this.refreshIncoming();
       void this.pollMyRequests();
-      // Keep the Etherscan log live while the doctor watches it, and resolve
-      // a pending break-glass tx once it is mined.
-      if (this.tab === 'transactions') void this.loadTransactions();
     }, 15000);
   }
 
@@ -1688,8 +1607,6 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
       }
       this.emergencyReasonInput = '';
       this.emergencyPatientUnableToConsent = false;
-      // Immediately reflect the BreakGlassUsed event in the on-chain log.
-      void this.loadTransactions();
       this.notify(res.chain_logged
         ? 'Emergency access granted for 1 hour and logged on-chain.'
         : 'Emergency access granted for 1 hour, but its blockchain audit transaction is pending. Check your transaction log.');
@@ -1817,28 +1734,6 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.syncView();
   }
 
-  /** Load blockchain transaction history for this doctor's hospital. */
-  private async loadTransactions() {
-    try {
-      const healthId = this.txFilterHealthId.trim();
-      this.transactions = await this.workspaceState.doctorTransactions.load(async () => {
-        const res = await this.api.blockchainEvents(healthId ? { health_id: healthId } : undefined);
-        return res.events;
-      }, true);
-      this.filteredTransactions = this.transactions.filter(
-        (tx) => !this.txFilterEvent || tx.event === this.txFilterEvent
-      );
-      // A pending break-glass just mined? Flip the banner to the live link.
-      if (this.lastTx?.pending && this.transactions.some((t) => t.transaction_hash === this.lastTx!.tx_hash)) {
-        this.lastTx.pending = false;
-      }
-    } catch (e: any) {
-      console.error('Failed to load transactions:', e);
-      this.filteredTransactions = [];
-    }
-    this.syncView();
-  }
-
   // ---------- Measurement trend chart ----------
 
   get trendKinds(): string[] {
@@ -1908,32 +1803,6 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   entries(data: any): { key: string; value: any }[] {
     if (!data) return [];
     return Object.entries(data).map(([key, value]) => ({ key, value }));
-  }
-
-  // ---------- Transaction filter helpers ----------
-  applyTxFilter() {
-    const healthId = this.txFilterHealthId.trim();
-    if (healthId) {
-      if (this.txFilterTimer) clearTimeout(this.txFilterTimer);
-      this.filteredTransactions = [];
-      this.txFilterTimer = setTimeout(() => {
-        this.txFilterTimer = null;
-        void this.loadTransactions();
-      }, 350);
-      return;
-    }
-    this.filteredTransactions = this.transactions.filter((tx) => {
-      const eventMatch = !this.txFilterEvent || tx.event === this.txFilterEvent;
-      return eventMatch;
-    });
-  }
-
-  clearTxFilter() {
-    this.txFilterEvent = '';
-    this.txFilterHealthId = '';
-    if (this.txFilterTimer) clearTimeout(this.txFilterTimer);
-    this.txFilterTimer = null;
-    void this.loadTransactions();
   }
 
   eventBadge(event?: string): string {

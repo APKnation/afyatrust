@@ -36,9 +36,27 @@ ng build
 
 This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
 
+## Known issues
+
+### API responses happen without clicking a button or making a request
+
+In some parts of the app, workspaces load data automatically when the page opens or when related state changes, even if the user did not click a button. This is intentional for dashboards and live sections, but it can look like the API is responding on its own.
+
+Common causes:
+- Dashboards and patient lists fetch data in `ngOnInit` and poll in the background.
+- Some actions refresh related data after a save, so a new API call may appear right after a mutation.
+- Backend-linked blockchain sections may trigger extra checks or refreshes on load.
+
+If you are debugging unexpected requests:
+1. Open browser DevTools and check the **Network** tab.
+2. Look for repeated requests after page load or after another action completes.
+3. Check whether the request is from an initial load, a poll interval, or a post-save refresh.
+
+If an endpoint is being called when it should not be, the likely fix is in the component's load/poll logic, not in the backend alone.
+
 ## Running unit tests
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+To execute unit tests, use the following command:
 
 ```bash
 ng test

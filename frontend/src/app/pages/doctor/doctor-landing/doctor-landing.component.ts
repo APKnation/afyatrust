@@ -893,10 +893,12 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
                         class="px-3 py-2.5 text-sm"></textarea>
             </label>
           </div>
-          <button (click)="sendReferral()" [disabled]="busyRef || !referral.to_hospital"
-                  class="btn-primary">
-            {{ busyRef ? 'Sending…' : 'Send referral' }}
-          </button>
+          <div class="mt-5 flex justify-end">
+            <button (click)="sendReferral()" [disabled]="busyRef || !referral.to_hospital"
+                    class="btn-primary w-full sm:w-auto">
+              {{ busyRef ? 'Sending…' : 'Send referral' }}
+            </button>
+          </div>
           <p *ngIf="refMsg" class="mb-0 mt-2 text-sm" [class]="refOk ? 'text-accent-700' : 'text-red-600'">{{ refMsg }}</p>
         </div>
 

@@ -742,7 +742,16 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
                     <div class="flex flex-wrap gap-2">
                       <button type="button" (click)="walletVisible = !walletVisible" class="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700">{{ walletVisible ? 'Hide reference' : 'Show reference' }}</button>
                       <button type="button" (click)="copyWalletAddress()" class="min-h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700">{{ copiedWallet ? 'Copied' : 'Copy reference' }}</button>
-                      <a [href]="'https://sepolia.etherscan.io/address/' + walletActivity.wallet_address" target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700">Open account activity details</a>
+                      <a *ngIf="walletActivity.lastTxHash && !isPendingTx(walletActivity.lastTxHash)"
+                         [href]="etherscanUrl(walletActivity.lastTxHash)" target="_blank" rel="noopener noreferrer"
+                         class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700">
+                        Open latest blockchain activity
+                      </a>
+                      <button *ngIf="!walletActivity.lastTxHash || isPendingTx(walletActivity.lastTxHash)"
+                              type="button" (click)="setTab('activity')"
+                              class="inline-flex min-h-11 items-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-medium text-slate-700">
+                        View account activity
+                      </button>
                     </div>
                   </div>
                 </details>

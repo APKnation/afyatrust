@@ -270,7 +270,9 @@ export interface FacilityRecord {
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
-  private api = environment.apiUrl;
+  /** In development, use the same host the browser used for the Angular app.
+   * `localhost` would incorrectly point to each remote user's own computer. */
+  private api = environment.apiUrl || `${globalThis.location.protocol}//${globalThis.location.hostname}:8000/api`;
 
   constructor(private auth: AuthService) {}
 

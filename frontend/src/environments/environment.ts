@@ -1,6 +1,9 @@
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:8000/api',
+  // Empty in development: ApiService derives the server address from the
+  // browser URL (for example http://172.17.16.25:4200 → :8000/api), so the
+  // dashboard works from other devices on the same network too.
+  apiUrl: '',
   // Sepolia testnet (free PoC chain)
   chainId: 11155111,
   chainName: 'Sepolia',

@@ -68,8 +68,9 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
         <!-- BOTTOM ACTIONS -->
         <div class="mt-6 pt-4 border-t border-slate-200 space-y-2">
           <button (click)="logoutAndRedirect()"
-                  class="btn-logout w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group">
+                  class="btn-logout w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 group">
             <span class="font-medium">Sign Out</span>
+            <span aria-hidden="true" class="text-lg leading-none transition-transform group-hover:translate-x-0.5">→</span>
           </button>
         </div>
       </aside>

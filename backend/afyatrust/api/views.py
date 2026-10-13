@@ -880,23 +880,54 @@ def request_access(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def doctor_pending_requests(request):
-    """Doctor's own access requests with their status (PENDING / APPROVED /
-    REJECTED), newest first — so the doctor can see whether the patient
-    accepted or rejected each request."""
+    """Doctor's access requests with their status (PENDING / APPROVED /
+    REJECTED), plus active/historical patient grants, newest first."""
     doctor = _doctor_from_request(request)
     if not doctor:
         return Response([], status=403)
-    reqs = AccessRequest.objects.filter(doctor=doctor)[:50]
-    return Response([{
-        "id": r.id,
-        "patient_health_id": r.patient.health_id,
-        "patient_name": r.patient.full_name,
-        "facility_id": r.facility_id,
-        "reason": r.reason,
-        "status": r.status,
-        "responded_at": r.responded_at,
-        "created_at": r.created_at,
-    } for r in reqs])
+
+    reqs = AccessRequest.objects.filter(
+        Q(doctor=doctor) | Q(doctor_wallet__iexact=doctor.wallet_address)
+    ).select_related("patient").order_by("-created_at")[:100]
+
+    seen_patients = set()
+    items = []
+    for r in reqs:
+        seen_patients.add(r.patient_id)
+        items.append({
+            "id": r.id,
+            "patient_health_id": r.patient.health_id,
+            "patient_name": r.patient.full_name,
+            "facility_id": r.facility_id or doctor.facility_id,
+            "reason": r.reason,
+            "status": r.status,
+            "responded_at": r.responded_at,
+            "created_at": r.created_at,
+        })
+
+    # Include patients who directly granted access to this doctor
+    now = timezone.now()
+    grants = AccessGrant.objects.filter(
+        Q(doctor=doctor) | Q(doctor__wallet_address__iexact=doctor.wallet_address)
+    ).select_related("patient").order_by("-created_at")[:50]
+    for g in grants:
+        if g.patient_id in seen_patients:
+            continue
+        seen_patients.add(g.patient_id)
+        is_active = g.active and g.expires_at > now
+        items.append({
+            "id": f"grant-{g.id}",
+            "patient_health_id": g.patient.health_id,
+            "patient_name": g.patient.full_name,
+            "facility_id": doctor.facility_id,
+            "reason": g.reason or ("Direct access grant from patient" if g.source != "BREAK_GLASS" else "Emergency access used"),
+            "status": "APPROVED" if is_active else ("BREAK_GLASS" if g.source == "BREAK_GLASS" else "EXPIRED"),
+            "responded_at": g.created_at,
+            "created_at": g.created_at,
+        })
+
+    items.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+    return Response(items)
 
 
 @api_view(["GET"])
@@ -1186,21 +1217,55 @@ def doctor_view_record(request, health_id):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def my_requests(request):
-    """Patient's pending access requests."""
-    patient = Patient.objects.filter(
-        health_id=request.auth.get("health_id", "")
-    ).first()
+    """Patient's access requests (both pending and history), plus active/past grants."""
+    patient = _patient_from_request(request)
     if not patient:
         return Response({"error": "Patient not found"}, status=404)
 
-    return Response([{
-        "id": r.id,
-        "doctor_name": r.doctor_name,
-        "doctor_wallet": r.doctor_wallet,
-        "facility_id": r.facility_id,
-        "reason": r.reason,
-        "created_at": r.created_at,
-    } for r in patient.access_requests.filter(status="PENDING")])
+    items = []
+    seen_grant_doctors = set()
+
+    for r in patient.access_requests.all().order_by("-created_at"):
+        items.append({
+            "id": r.id,
+            "doctor_name": r.doctor_name,
+            "doctor_wallet": r.doctor_wallet,
+            "facility_id": r.facility_id,
+            "reason": r.reason,
+            "status": r.status or "PENDING",
+            "created_at": r.created_at,
+            "responded_at": r.responded_at,
+        })
+        if r.doctor_id:
+            seen_grant_doctors.add(r.doctor_id)
+        if r.doctor_wallet:
+            seen_grant_doctors.add(r.doctor_wallet.lower())
+
+    # Include direct access grants in history
+    now = timezone.now()
+    for g in patient.grants.select_related("doctor", "hospital").all().order_by("-created_at"):
+        wallet_key = g.doctor.wallet_address.lower() if (g.doctor and g.doctor.wallet_address) else ""
+        if (g.doctor_id and g.doctor_id in seen_grant_doctors) or (wallet_key and wallet_key in seen_grant_doctors):
+            continue
+        if g.doctor_id:
+            seen_grant_doctors.add(g.doctor_id)
+        if wallet_key:
+            seen_grant_doctors.add(wallet_key)
+
+        is_active = g.active and g.expires_at > now
+        items.append({
+            "id": f"grant-{g.id}",
+            "doctor_name": g.doctor.full_name if g.doctor else (g.hospital.name if g.hospital else "Clinician"),
+            "doctor_wallet": g.doctor.wallet_address if g.doctor else "",
+            "facility_id": g.doctor.facility_id if g.doctor else (g.hospital.code if g.hospital else ""),
+            "reason": g.reason or ("Direct access grant" if g.source != "BREAK_GLASS" else "Emergency access"),
+            "status": "APPROVED" if is_active else ("BREAK_GLASS" if g.source == "BREAK_GLASS" else "EXPIRED"),
+            "created_at": g.created_at,
+            "responded_at": g.created_at,
+        })
+
+    items.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+    return Response(items)
 
 
 # ============ PATIENT: MEASUREMENTS + REFERRALS (own view) ============

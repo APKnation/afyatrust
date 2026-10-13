@@ -469,6 +469,11 @@
           "type": "address"
         },
         {
+          "internalType": "string",
+          "name": "fullName",
+          "type": "string"
+        },
+        {
           "internalType": "bool",
           "name": "exists",
           "type": "bool"

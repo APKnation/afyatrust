@@ -7,10 +7,10 @@ from dotenv import load_dotenv
 # next to venv/. Loading by path makes it CWD-independent.
 BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_FILE = BASE_DIR.parent / ".env"
-load_dotenv(ENV_FILE)
+load_dotenv(ENV_FILE, override=True)
 
 SECRET_KEY = os.getenv('SECRET_KEY')
-CHAIN_ID_SECRET = os.getenv('CHAIN_ID_SECRET', '')
+CHAIN_ID_SECRET = os.getenv('CHAIN_ID_SECRET', '').strip()
 DEBUG = os.getenv('DEBUG') == 'True'
 ALLOWED_HOSTS = ['*']
 ROOT_URLCONF = 'afyatrust.urls'

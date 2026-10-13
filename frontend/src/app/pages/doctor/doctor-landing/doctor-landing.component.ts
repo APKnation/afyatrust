@@ -3,7 +3,7 @@ import { NgIf, NgFor, DatePipe, SlicePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
-  AccessRequest, ApiService, AssignedPatient, DoctorDashboard, HospitalOption, MeasurementItem, PatientRecord, ReferralItem,
+  AccessRequest, ApiService, AssignedPatient, DoctorDashboard, HospitalOption, HospitalPatientItem, MeasurementItem, PatientRecord, ReferralItem,
   BlockchainEvent,
 } from '../../../services/api.service';
 import { AuthService } from '../../../services/auth.service';
@@ -260,6 +260,123 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
         <div *ngIf="patients.length === 0 && !loadingPatients" class="card p-10 text-center">
           <h3 class="mb-1 text-lg font-bold">No patients yet</h3>
           <p class="m-0 text-muted">Use Find Patient to request access to a record.</p>
+        </div>
+      </div>
+
+      <!-- ================= HOSPITAL PATIENTS ================= -->
+      <div *ngIf="tab === 'hospital-patients'" class="animate-fade-in">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 mb-1">Hospital Patients</h2>
+            <p class="m-0 text-sm text-muted">
+              All patients that received medical care from you at this hospital — based on recorded
+              measurements and clinical records. Click a row to open their full history.
+            </p>
+          </div>
+          <button (click)="loadHospitalPatients()" [disabled]="loadingHospitalPatients"
+                  class="btn-secondary">
+            {{ loadingHospitalPatients ? 'Loading…' : 'Refresh' }}
+          </button>
+        </div>
+
+        <!-- Search -->
+        <div class="mb-4">
+          <input [(ngModel)]="hospitalPatientsSearch"
+                 placeholder="Search by name, Health ID or hospital…"
+                 class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm shadow-sm focus:border-primary-400 focus:outline-none focus:ring-2 focus:ring-primary-200" />
+        </div>
+
+        <!-- Stats bar -->
+        <div *ngIf="hospitalPatients.length" class="mb-4 flex flex-wrap gap-3">
+          <span class="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm">
+            {{ hospitalPatients.length }} patient{{ hospitalPatients.length === 1 ? '' : 's' }} total
+          </span>
+          <span class="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 shadow-sm">
+            {{ hospitalPatients.filter(hp => hp.has_active_access).length }} with active access
+          </span>
+        </div>
+
+        <!-- Patient table -->
+        <div class="card overflow-hidden p-0">
+          <div *ngIf="loadingHospitalPatients" class="p-10 text-center">
+            <p class="text-sm text-muted">Loading patients…</p>
+          </div>
+
+          <div *ngIf="!loadingHospitalPatients && filteredHospitalPatients.length === 0 && hospitalPatients.length === 0"
+               class="p-10 text-center">
+            <h3 class="mb-2 text-lg font-bold text-slate-800">No care records yet</h3>
+            <p class="text-sm text-muted">
+              Patients will appear here once you record measurements or
+              your hospital anchors clinical records for them.
+            </p>
+          </div>
+
+          <div *ngIf="!loadingHospitalPatients && hospitalPatients.length > 0 && filteredHospitalPatients.length === 0"
+               class="p-8 text-center">
+            <p class="text-sm text-muted italic">No patients match your search.</p>
+          </div>
+
+          <div class="overflow-x-auto" *ngIf="!loadingHospitalPatients && filteredHospitalPatients.length > 0">
+            <table class="w-full">
+              <thead>
+                <tr class="border-b border-slate-200 bg-slate-50">
+                  <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Patient</th>
+                  <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Health ID</th>
+                  <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Hospital</th>
+                  <th class="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-500">Measurements</th>
+                  <th class="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-500">Records</th>
+                  <th class="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Last Care</th>
+                  <th class="px-4 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-500">Access</th>
+                  <th class="px-4 py-3 text-right text-xs font-bold uppercase tracking-wider text-slate-500"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr *ngFor="let p of filteredHospitalPatients"
+                    class="group transition-colors hover:bg-primary-50/60">
+                  <td class="px-4 py-3">
+                    <p class="font-semibold text-slate-900">{{ p.full_name }}</p>
+                  </td>
+                  <td class="px-4 py-3">
+                    <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-700">{{ p.health_id }}</code>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-slate-600">{{ p.hospital || '—' }}</td>
+                  <td class="px-4 py-3 text-center">
+                    <span class="inline-flex items-center justify-center rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-bold text-primary-800">
+                      {{ p.measurements_count }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-center">
+                    <span class="inline-flex items-center justify-center rounded-full bg-accent-100 px-2.5 py-0.5 text-xs font-bold text-accent-800">
+                      {{ p.records_count }}
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-slate-600">
+                    {{ p.last_care_date ? (p.last_care_date | date:'mediumDate') : '—' }}
+                  </td>
+                  <td class="px-4 py-3 text-center">
+                    <span *ngIf="p.has_active_access"
+                          class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+                      Active
+                    </span>
+                    <span *ngIf="!p.has_active_access"
+                          class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-500">
+                      None
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <button type="button" (click)="openPatientFromHospitalList(p)"
+                            class="btn-secondary text-xs">
+                      View history
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <!-- Totals footer -->
+            <div class="border-t border-slate-200 bg-slate-50 px-4 py-3 text-right text-xs text-slate-500">
+              Showing {{ filteredHospitalPatients.length }} of {{ hospitalPatients.length }} patient{{ hospitalPatients.length === 1 ? '' : 's' }}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -977,10 +1094,11 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
   `,
 })
 export class DoctorLandingComponent implements OnDestroy, OnInit {
-  tab: 'dashboard' | 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' | 'how-it-works' | 'profile' = 'dashboard';
+  tab: 'dashboard' | 'patients' | 'hospital-patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' | 'how-it-works' | 'profile' = 'dashboard';
   tabs = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'patients', label: 'My Patients' },
+    { id: 'hospital-patients', label: 'Hospital Patients' },
     { id: 'find', label: 'Patient History' },
     { id: 'measurements', label: 'Measurements' },
     { id: 'referrals', label: 'Referrals' },
@@ -1003,6 +1121,21 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   get patients(): AssignedPatient[] { return this.workspaceState.doctorPatients.data ?? []; }
   set patients(value: AssignedPatient[]) { this.workspaceState.doctorPatients.set(value); }
   loadingPatients = false;
+
+  // hospital patients (all patients cared for by this doctor)
+  hospitalPatients: HospitalPatientItem[] = [];
+  loadingHospitalPatients = false;
+  hospitalPatientsSearch = '';
+  get filteredHospitalPatients(): HospitalPatientItem[] {
+    const q = this.hospitalPatientsSearch.trim().toLowerCase();
+    if (!q) return this.hospitalPatients;
+    return this.hospitalPatients.filter(
+      (p) =>
+        p.full_name.toLowerCase().includes(q) ||
+        p.health_id.toLowerCase().includes(q) ||
+        (p.hospital || '').toLowerCase().includes(q)
+    );
+  }
 
   // dashboard overview
   get dashboard(): DoctorDashboard | null { return this.workspaceState.doctorDashboard.data; }
@@ -1172,12 +1305,13 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.syncView();
   }
 
-  setTab(id: 'dashboard' | 'patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' | 'how-it-works' | 'profile') {
+  setTab(id: 'dashboard' | 'patients' | 'hospital-patients' | 'find' | 'measurements' | 'referrals' | 'requests' | 'transactions' | 'how-it-works' | 'profile') {
     this.tab = id;
     this.sidebarOpen = false; // close the mobile drawer after navigating
     if (id === 'dashboard') void this.loadDashboard();
     if (id === 'requests') void this.loadMyRequests();
     if (id === 'transactions') void this.loadTransactions();
+    if (id === 'hospital-patients') void this.loadHospitalPatients();
     this.syncView();
   }
 
@@ -1381,6 +1515,27 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     this.tab = 'find';
     this.syncView();
     void this.viewRecord();
+  }
+
+  /** Navigate to Patient History pre-loaded with this patient's health ID. */
+  openPatientFromHospitalList(p: HospitalPatientItem) {
+    this.healthId = p.health_id;
+    this.tab = 'find';
+    this.syncView();
+    void this.viewRecord();
+  }
+
+  async loadHospitalPatients() {
+    this.loadingHospitalPatients = true;
+    this.syncView();
+    try {
+      this.hospitalPatients = await this.api.doctorHospitalPatients();
+    } catch (e: any) {
+      this.notify(e?.error?.error || e?.message || 'Could not load hospital patients.', true);
+    } finally {
+      this.loadingHospitalPatients = false;
+      this.syncView();
+    }
   }
 
   async viewRecord() {

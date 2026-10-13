@@ -46,6 +46,7 @@ urlpatterns = [
     path("doctor/request-access/", views.request_access),
     path("doctor/pending-requests/", views.doctor_pending_requests),
     path("doctor/patients/", views.doctor_patients),
+    path("doctor/hospital-patients/", views.doctor_hospital_patients),
     path("doctor/dashboard/", views.doctor_dashboard),
     path("doctor/measurements/<str:health_id>/", views.patient_measurements),
     path("doctor/measurements/", views.add_measurement),

@@ -1404,6 +1404,115 @@ def doctor_patients(request):
     return Response(items)
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def doctor_hospital_patients(request):
+    """All patients that have received medical care performed by this doctor.
+
+    A patient appears here if:
+    - The doctor recorded at least one Measurement for them, OR
+    - A MedicalRecord was anchored under the doctor's hospital for them
+      (facility_id matches the doctor's facility/hospital code).
+
+    Each row includes a care summary: total records, total measurements,
+    last care date, and whether there is still an active access grant.
+    Results are ordered by most-recent care activity first.
+    """
+    from django.db.models import Count, Max
+
+    doctor = _doctor_from_request(request)
+    if not doctor:
+        return Response({"error": "Doctor not found"}, status=403)
+
+    # ── Patients with at least one measurement by this doctor ──────────────
+    meas_qs = (
+        Measurement.objects.filter(doctor=doctor)
+        .values("patient_id")
+        .annotate(
+            meas_count=Count("id"),
+            last_meas=Max("created_at"),
+        )
+    )
+    meas_map: dict[int, dict] = {
+        row["patient_id"]: {
+            "meas_count": row["meas_count"],
+            "last_meas": row["last_meas"],
+        }
+        for row in meas_qs
+    }
+
+    # ── Patients with records anchored by the doctor's hospital ────────────
+    facility_codes = set()
+    if doctor.hospital:
+        facility_codes.add(doctor.hospital.code.upper())
+    if doctor.facility_id:
+        facility_codes.add(doctor.facility_id.upper())
+
+    rec_map: dict[int, dict] = {}
+    if facility_codes:
+        rec_qs = (
+            MedicalRecord.objects.filter(
+                facility_id__in=facility_codes
+            )
+            .values("patient_id")
+            .annotate(
+                rec_count=Count("id"),
+                last_rec=Max("created_at"),
+            )
+        )
+        rec_map = {
+            row["patient_id"]: {
+                "rec_count": row["rec_count"],
+                "last_rec": row["last_rec"],
+            }
+            for row in rec_qs
+        }
+
+    # ── Merge patient IDs ──────────────────────────────────────────────────
+    all_patient_ids = set(meas_map) | set(rec_map)
+    if not all_patient_ids:
+        return Response([])
+
+    patients_qs = Patient.objects.filter(id__in=all_patient_ids)
+
+    # Active access grants for quick lookup
+    active_grant_patient_ids = set(
+        AccessGrant.objects.filter(
+            doctor=doctor, active=True, expires_at__gt=timezone.now()
+        ).values_list("patient_id", flat=True)
+    )
+
+    items = []
+    for patient in patients_qs:
+        meas_info = meas_map.get(patient.id, {})
+        rec_info = rec_map.get(patient.id, {})
+
+        meas_count = meas_info.get("meas_count", 0)
+        rec_count = rec_info.get("rec_count", 0)
+
+        last_meas = meas_info.get("last_meas")
+        last_rec = rec_info.get("last_rec")
+
+        # Pick the most recent care date
+        candidates = [d for d in [last_meas, last_rec] if d is not None]
+        last_care = max(candidates) if candidates else None
+
+        items.append({
+            "health_id": patient.health_id,
+            "full_name": patient.full_name,
+            "hospital": patient.hospital.name if patient.hospital else (patient.registered_by_facility or ""),
+            "measurements_count": meas_count,
+            "records_count": rec_count,
+            "total_care_actions": meas_count + rec_count,
+            "last_care_date": last_care,
+            "has_active_access": patient.id in active_grant_patient_ids,
+        })
+
+    # Sort: patients with most-recent care first
+    items.sort(key=lambda x: x["last_care_date"] or "", reverse=True)
+    return Response(items)
+
+
 def _flatten_values(value):
     if value is None or value == "":
         return []

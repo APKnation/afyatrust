@@ -199,6 +199,18 @@ export interface AssignedPatient {
   source: string;
 }
 
+/** A patient entry returned by the doctor's hospital-patients (care history) list. */
+export interface HospitalPatientItem {
+  health_id: string;
+  full_name: string;
+  hospital: string;
+  measurements_count: number;
+  records_count: number;
+  total_care_actions: number;
+  last_care_date: string | null;
+  has_active_access: boolean;
+}
+
 export interface HospitalOption {
   code: string;
   name: string;
@@ -486,6 +498,12 @@ export class ApiService {
   /** Doctor's own assigned patients (granted access, fresh from chain). */
   myPatients(): Promise<AssignedPatient[]> {
     return this.request<AssignedPatient[]>('GET', '/doctor/patients/');
+  }
+
+  /** All patients that received medical care by this doctor (measurements
+   *  or facility records). No active access grant required to appear here. */
+  doctorHospitalPatients(): Promise<HospitalPatientItem[]> {
+    return this.request<HospitalPatientItem[]>('GET', '/doctor/hospital-patients/');
   }
 
   /** This doctor's access requests with patient responses (approve/reject). */

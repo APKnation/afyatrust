@@ -17,10 +17,8 @@ from django.conf import settings
 from dotenv import load_dotenv
 from web3 import Web3
 
-# backend/.env is two levels up from this file (api/ -> afyatrust/ -> backend/).
-# Loading by explicit path makes this module CWD-independent.
 _ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
-load_dotenv(_ENV_FILE)
+load_dotenv(_ENV_FILE, override=True)
 
 logger = logging.getLogger(__name__)
 
@@ -106,15 +104,38 @@ def checksum_address(wallet: str) -> str:
         return wallet
 
 
-def patient_ref(health_id: str) -> str:
-    """Return a stable, keyed pseudonym for use in public-chain calls.
+_PATIENT_REF_RESOLVED: dict[str, str] = {}
 
-    The key must be stable across deployments and must never be stored on-chain.
+
+def patient_ref(health_id: str) -> str:
+    """Return a stable pseudonym or registered on-chain identifier for a patient.
+
+    If the patient is already registered on-chain under their raw health_id
+    (as in existing deployed state for early patients), uses the raw health_id.
+    Otherwise, uses the keyed pseudonym pt_<digest>.
     """
-    canonical_id = (health_id or "").strip().casefold()
-    if not canonical_id:
+    raw_id = (health_id or "").strip()
+    if not raw_id:
         raise ValueError("A patient Health ID is required")
-    secret = getattr(settings, "CHAIN_ID_SECRET", "").strip()
+    canonical_id = raw_id.casefold()
+
+    if canonical_id in _PATIENT_REF_RESOLVED:
+        return _PATIENT_REF_RESOLVED[canonical_id]
+
+    # Check if patient was already registered on-chain with raw health_id
+    try:
+        c = get_contract()
+        p = c.functions.getPatient(raw_id).call()
+        if p and len(p) >= 3 and p[2]:  # exists is True
+            _PATIENT_REF_RESOLVED[canonical_id] = raw_id
+            return raw_id
+    except Exception:
+        pass
+
+    secret = (getattr(settings, "CHAIN_ID_SECRET", "") or os.getenv("CHAIN_ID_SECRET", "")).strip()
+    if not re.fullmatch(r"[a-fA-F0-9]{64}", secret):
+        load_dotenv(_ENV_FILE, override=True)
+        secret = os.getenv("CHAIN_ID_SECRET", "").strip()
     if not re.fullmatch(r"[a-fA-F0-9]{64}", secret):
         raise RuntimeError("CHAIN_ID_SECRET must be a 32-byte hexadecimal key")
     digest = hmac.new(
@@ -122,7 +143,9 @@ def patient_ref(health_id: str) -> str:
         canonical_id.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
-    return f"pt_{digest}"
+    ref = f"pt_{digest}"
+    _PATIENT_REF_RESOLVED[canonical_id] = ref
+    return ref
 
 
 def cached_has_access(health_id: str, wallet: str) -> tuple[bool, bool]:

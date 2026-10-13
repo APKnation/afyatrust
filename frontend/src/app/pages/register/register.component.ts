@@ -44,8 +44,8 @@ import { AuthService } from '../../services/auth.service';
     <!-- ================= SPLIT LAYOUT ================= -->
     <div class="flex min-h-screen bg-white">
 
-      <!-- LEFT: Form Side -->
-      <div class="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 pt-28 pb-12 overflow-y-auto">
+      <!-- RIGHT: Form Side on desktop -->
+      <div class="w-full lg:order-2 lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 pt-28 pb-12 overflow-y-auto">
         <div class="max-w-[440px] w-full mx-auto">
           <div class="mb-10">
             <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Create your account</h1>
@@ -98,7 +98,7 @@ import { AuthService } from '../../services/auth.service';
                 <input id="register-pin" type="password" name="pin" [(ngModel)]="model.pin" required
                        minlength="4" maxlength="4" pattern="[0-9]*" inputmode="numeric"
                        autocomplete="new-password"
-                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-slate-900 text-center font-mono text-xl tracking-[0.5em] outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
+                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-base text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
                        placeholder="Create your PIN" />
               </div>
               <div class="space-y-1.5">
@@ -106,7 +106,7 @@ import { AuthService } from '../../services/auth.service';
                 <input id="register-pin-confirm" type="password" name="pin2" [(ngModel)]="model.pin2" required
                        minlength="4" maxlength="4" pattern="[0-9]*" inputmode="numeric"
                        autocomplete="new-password" aria-describedby="pin-confirm-feedback"
-                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-slate-900 text-center font-mono text-xl tracking-[0.5em] outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
+                       class="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-4 py-2.5 text-base text-slate-900 placeholder-slate-400 outline-none focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
                        placeholder="Confirm password" />
                 <p *ngIf="model.pin2 && model.pin !== model.pin2" id="pin-confirm-feedback" class="m-0 text-sm text-red-700" role="alert">
                   The PINs do not match yet. Check both entries.
@@ -131,8 +131,8 @@ import { AuthService } from '../../services/auth.service';
         </div>
       </div>
 
-      <!-- RIGHT: Hero Side -->
-      <div class="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden items-center justify-center p-12">
+      <!-- LEFT: Hero Side on desktop -->
+      <div class="hidden lg:order-1 lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden items-center justify-center p-12">
         <!-- Animated glowing orbs -->
         <div class="absolute inset-0 opacity-40 pointer-events-none">
           <div class="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-accent-500 mix-blend-screen filter blur-[120px] animate-pulse" style="animation-duration: 9s;"></div>
@@ -140,23 +140,16 @@ import { AuthService } from '../../services/auth.service';
           <div class="absolute top-[40%] left-[30%] w-[40%] h-[40%] rounded-full bg-accent-600 mix-blend-screen filter blur-[100px] animate-pulse" style="animation-delay: 1s; animation-duration: 13s;"></div>
         </div>
 
-        <!-- Glassmorphism card -->
-        <div class="relative z-10 max-w-lg w-full text-center px-10 py-14 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl">
-          <h2 class="text-4xl font-bold text-white mb-6 leading-[1.15] tracking-tight">Your records.<br/>Your choice.</h2>
-          <p class="text-lg text-slate-300 font-light leading-relaxed mb-10">Keep your health information private and in your control.</p>
+        <article class="relative z-10 max-w-xl w-full">
+          <h2 class="max-w-lg text-5xl font-bold leading-[1.05] tracking-tight text-white">Set up your private health account.</h2>
+          <p class="mt-6 max-w-md text-lg leading-8 text-slate-300">Your Health ID and PIN give you one place to follow your care and decide who can access it.</p>
 
-          <div class="flex flex-col gap-3 text-left">
-            <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-              <span class="text-slate-300 text-sm">Approve access requests</span>
-            </div>
-            <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-              <span class="text-slate-300 text-sm">Revoke access whenever you choose</span>
-            </div>
-            <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-              <span class="text-slate-300 text-sm">Review every record view</span>
-            </div>
+          <div class="mt-12 grid grid-cols-3 gap-4 border-t border-white/20 pt-6">
+            <div><p class="m-0 text-2xl font-bold text-white">01</p><p class="mt-3 text-sm font-semibold text-slate-200">Create</p><p class="mt-1 text-sm leading-6 text-slate-400">Set your secure PIN.</p></div>
+            <div><p class="m-0 text-2xl font-bold text-white">02</p><p class="mt-3 text-sm font-semibold text-slate-200">Connect</p><p class="mt-1 text-sm leading-6 text-slate-400">Choose your hospital.</p></div>
+            <div><p class="m-0 text-2xl font-bold text-white">03</p><p class="mt-3 text-sm font-semibold text-slate-200">Control</p><p class="mt-1 text-sm leading-6 text-slate-400">Manage record access.</p></div>
           </div>
-        </div>
+        </article>
       </div>
     </div>
 

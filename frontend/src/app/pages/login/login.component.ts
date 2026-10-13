@@ -43,8 +43,8 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
     </nav>
 
     <div class="flex min-h-screen bg-white">
-      <!-- LEFT: Form Side -->
-      <div class="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 pt-24 pb-12 overflow-y-auto">
+      <!-- RIGHT: Form Side on desktop -->
+      <div class="w-full lg:order-2 lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 relative z-10 pt-24 pb-12 overflow-y-auto">
         <div class="max-w-[420px] w-full mx-auto">
           <div class="mb-10">
             <h1 class="text-3xl font-bold text-slate-900 mb-3 tracking-tight">Sign in</h1>
@@ -66,7 +66,7 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
             <div class="space-y-1.5">
               <label class="text-sm font-semibold text-slate-700">4-digit PIN</label>
               <input type="password" name="secret" [(ngModel)]="secret" required autocomplete="current-password" 
-                     class="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3.5 text-slate-900 placeholder-slate-400 focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all tracking-widest font-mono text-lg" 
+                     class="w-full rounded-xl border-slate-200 bg-slate-50/50 px-4 py-3.5 text-base text-slate-900 placeholder-slate-400 focus:bg-white focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 transition-all"
                      placeholder="Enter your PIN" />
             </div>
 
@@ -83,31 +83,24 @@ type LoginRole = 'PATIENT' | 'DOCTOR' | 'STAFF';
         </div>
       </div>
 
-      <!-- RIGHT: Hero Side -->
-      <div class="hidden lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden items-center justify-center p-12">
+      <!-- LEFT: Hero Side on desktop -->
+      <div class="hidden lg:order-1 lg:flex lg:w-1/2 relative bg-slate-900 overflow-hidden items-center justify-center p-12">
         <!-- Abstract glowing orbs background -->
         <div class="absolute inset-0 opacity-40">
            <div class="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-primary-600 mix-blend-screen filter blur-[120px] animate-pulse" style="animation-duration: 8s"></div>
            <div class="absolute bottom-[-10%] right-[-10%] w-[70%] h-[70%] rounded-full bg-accent-500 mix-blend-screen filter blur-[140px] animate-pulse" style="animation-delay: 2s; animation-duration: 10s"></div>
         </div>
         
-        <!-- Glassmorphism overlay card -->
-        <div class="relative z-10 max-w-lg w-full text-center px-10 py-16 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/10 shadow-2xl">
-          <h2 class="text-4xl font-bold text-white mb-6 leading-[1.15] tracking-tight">Your health.<br/>Your choice.</h2>
-          <p class="text-lg text-slate-300 font-light leading-relaxed mb-10">Private records. Access on your terms.</p>
+        <article class="relative z-10 max-w-xl w-full">
+          <h2 class="max-w-lg text-5xl font-bold leading-[1.05] tracking-tight text-white">Care that keeps you in control.</h2>
+          <p class="mt-6 max-w-md text-lg leading-8 text-slate-300">Sign in to see your health record, make access decisions, and review activity in one clear place.</p>
 
-          <div class="flex flex-col gap-3 text-left">
-            <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-              <span class="text-slate-300 text-sm">You approve every request</span>
-            </div>
-            <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-              <span class="text-slate-300 text-sm">See who accessed your records</span>
-            </div>
-            <div class="flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-              <span class="text-slate-300 text-sm">Revoke access at any time</span>
-            </div>
-          </div>
-        </div>
+          <ol class="mt-12 border-l border-white/20 pl-7">
+            <li class="relative pb-8"><span class="absolute -left-[2.2rem] top-0 flex h-7 w-7 items-center justify-center rounded-full bg-primary-500 text-xs font-bold text-slate-950">1</span><p class="m-0 text-base font-semibold text-white">Review a request</p><p class="mt-1 text-sm leading-6 text-slate-400">See who needs access and why before making a decision.</p></li>
+            <li class="relative pb-8"><span class="absolute -left-[2.2rem] top-0 flex h-7 w-7 items-center justify-center rounded-full border border-white/30 bg-slate-900 text-xs font-bold text-white">2</span><p class="m-0 text-base font-semibold text-white">Choose with confidence</p><p class="mt-1 text-sm leading-6 text-slate-400">Approve, decline, or end access whenever you need to.</p></li>
+            <li class="relative"><span class="absolute -left-[2.2rem] top-0 flex h-7 w-7 items-center justify-center rounded-full border border-white/30 bg-slate-900 text-xs font-bold text-white">3</span><p class="m-0 text-base font-semibold text-white">Keep a clear record</p><p class="mt-1 text-sm leading-6 text-slate-400">Review access and care activity whenever you return.</p></li>
+          </ol>
+        </article>
       </div>
     </div>
   `,

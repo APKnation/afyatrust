@@ -75,7 +75,7 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
                       [class]="tab === t.id ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md' : 'text-slate-700 hover:bg-slate-100'"
                       [attr.aria-current]="tab === t.id ? 'page' : null">
                 <span class="font-medium">{{ t.label }}</span>
-                <span *ngIf="t.id === 'requests' && requests.length > 0" class="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{{ requests.length }}</span>
+                <span *ngIf="t.id === 'requests' && pendingRequests.length > 0" class="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{{ pendingRequests.length }}</span>
               </button>
             </nav>
 
@@ -123,7 +123,7 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
       </div>
 
       <!-- PENDING REQUESTS BANNER (visible on every tab) -->
-      <div *ngIf="requests.length > 0 && tab === 'dashboard'" class="card mb-6 border-l-4 border-l-accent-500 p-5">
+      <div *ngIf="pendingRequests.length > 0 && tab === 'dashboard'" class="card mb-6 border-l-4 border-l-accent-500 p-5">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 class="m-0 text-lg font-bold">Doctor waiting for your answer</h2>
@@ -626,44 +626,97 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
           </div>          <!-- REQUESTS -->
           <div *ngIf="tab === 'requests'" class="space-y-6 animate-fade-in">
             <header class="border-b border-slate-200 pb-5">
-              <p class="m-0 text-xs font-semibold uppercase tracking-wide text-slate-500">Your choice</p>
-              <h1 class="mb-2 mt-1 text-2xl font-bold text-slate-900">Access requests</h1>
-              <p class="m-0 max-w-2xl text-sm leading-6 text-slate-600">Review each doctor's request before deciding. If you approve, they can view your records for 7 days. You can remove access sooner from Permissions.</p>
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p class="m-0 text-xs font-semibold uppercase tracking-wide text-slate-500">Your choice</p>
+                  <h1 class="mb-2 mt-1 text-2xl font-bold text-slate-900">Access requests</h1>
+                  <p class="m-0 max-w-2xl text-sm leading-6 text-slate-600">Review doctor access requests and view past request history. Approved requests grant 7 days of record access.</p>
+                </div>
+                <button type="button" (click)="loadRequests()" [disabled]="requestsLoading" class="btn-secondary min-h-11">
+                  {{ requestsLoading ? 'Refreshing…' : 'Refresh requests' }}
+                </button>
+              </div>
             </header>
 
-            <div *ngFor="let req of requests" class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div class="flex flex-col gap-4 p-5 sm:p-6">
-                <div class="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <h2 class="m-0 text-lg font-semibold text-slate-900">Dr. {{ req.doctor_name }}</h2>
-                    <p class="mb-0 mt-1 text-sm text-slate-600">{{ req.facility_id }}</p>
+            <div *ngIf="requestsLoading && requests.length === 0" class="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600" role="status">
+              Loading your pending requests and history…
+            </div>
+
+            <div *ngIf="requestsError" class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
+              {{ requestsError }}
+              <button type="button" (click)="loadRequests()" class="ml-2 font-semibold underline">Try again</button>
+            </div>
+
+            <!-- PENDING REQUESTS -->
+            <div *ngIf="pendingRequests.length > 0" class="space-y-4">
+              <h2 class="text-base font-bold text-slate-900">Pending requests awaiting decision ({{ pendingRequests.length }})</h2>
+              <div *ngFor="let req of pendingRequests" class="overflow-hidden rounded-xl border border-amber-300 bg-white shadow-sm">
+                <div class="flex flex-col gap-4 p-5 sm:p-6">
+                  <div class="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <h3 class="m-0 text-lg font-semibold text-slate-900">Dr. {{ req.doctor_name }}</h3>
+                        <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800">Awaiting your response</span>
+                      </div>
+                      <p class="mb-0 mt-1 text-sm text-slate-600">{{ req.facility_id }}</p>
+                    </div>
+                    <p class="m-0 text-sm text-slate-500">Requested {{ req.created_at | date:'medium' }}</p>
                   </div>
-                  <p class="m-0 text-sm text-slate-500">Requested {{ req.created_at | date:'medium' }}</p>
-                </div>
 
-                <div>
-                  <h3 class="m-0 text-sm font-semibold text-slate-800">Reason for the request</h3>
-                  <p class="mb-0 mt-1 whitespace-pre-line text-sm leading-6 text-slate-700">{{ req.reason || 'No reason was provided.' }}</p>
-                </div>
+                  <div>
+                    <h4 class="m-0 text-sm font-semibold text-slate-800">Reason for the request</h4>
+                    <p class="mb-0 mt-1 whitespace-pre-line text-sm leading-6 text-slate-700">{{ req.reason || 'No reason was provided.' }}</p>
+                  </div>
 
-                <div class="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                  <p class="m-0 text-sm text-slate-600">Your decision controls whether this doctor can view your records.</p>
-                  <div class="flex flex-col gap-2 sm:flex-row">
-                    <button type="button" (click)="approve(req)" [disabled]="busyRequest === req.id" class="btn-primary min-h-11 w-full sm:w-auto">
-                      {{ busyRequest === req.id ? 'Processing…' : 'Approve for 7 days' }}
-                    </button>
-                    <button type="button" (click)="reject(req)" [disabled]="busyRequest === req.id" class="min-h-11 w-full rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
-                      Decline
-                    </button>
+                  <div class="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="m-0 text-sm text-slate-600">Your decision controls whether this doctor can view your records.</p>
+                    <div class="flex flex-col gap-2 sm:flex-row">
+                      <button type="button" (click)="approve(req)" [disabled]="busyRequest === req.id" class="btn-primary min-h-11 w-full sm:w-auto">
+                        {{ busyRequest === req.id ? 'Processing…' : 'Approve for 7 days' }}
+                      </button>
+                      <button type="button" (click)="reject(req)" [disabled]="busyRequest === req.id" class="min-h-11 w-full rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
+                        Decline
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <section *ngIf="requests.length === 0" class="rounded-xl border border-slate-200 bg-white p-6 sm:p-8" aria-live="polite">
+            <section *ngIf="pendingRequests.length === 0" class="rounded-xl border border-slate-200 bg-white p-6 sm:p-8" aria-live="polite">
               <h2 class="m-0 text-lg font-semibold text-slate-900">No requests need your decision</h2>
-              <p class="mb-0 mt-2 max-w-2xl text-sm leading-6 text-slate-600">When a doctor asks to view your records, the request will appear here with their facility and reason. You can review it before choosing to approve or decline.</p>
+              <p class="mb-0 mt-2 max-w-2xl text-sm leading-6 text-slate-600">When a doctor asks to view your records, the request will appear here with their facility and reason.</p>
             </section>
+
+            <!-- REQUEST & GRANT HISTORY -->
+            <div *ngIf="requestHistory.length > 0" class="space-y-4 pt-4 border-t border-slate-200">
+              <div>
+                <h2 class="text-lg font-bold text-slate-900">Request & Grant History</h2>
+                <p class="text-sm text-slate-500 m-0">Past access decisions and permissions for your records.</p>
+              </div>
+
+              <div class="space-y-3">
+                <div *ngFor="let req of requestHistory" class="overflow-hidden rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <p class="m-0 font-bold text-slate-900">Dr. {{ req.doctor_name }}</p>
+                      <span class="rounded-full px-2.5 py-0.5 text-xs font-bold"
+                            [class]="req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800'
+                              : (req.status === 'REJECTED' ? 'bg-red-100 text-red-800'
+                              : (req.status === 'BREAK_GLASS' ? 'bg-orange-100 text-orange-800'
+                              : 'bg-slate-100 text-slate-600'))">
+                        {{ req.status === 'APPROVED' ? 'Approved' : (req.status === 'REJECTED' ? 'Declined' : (req.status === 'BREAK_GLASS' ? 'Emergency access' : (req.status === 'EXPIRED' ? 'Expired' : req.status))) }}
+                      </span>
+                    </div>
+                    <p class="mb-0 mt-1 text-sm text-slate-600">{{ req.facility_id }} · {{ req.reason || 'Routine care access' }}</p>
+                    <p class="mb-0 mt-1 text-xs text-slate-400">
+                      Requested: {{ req.created_at | date:'medium' }}
+                      <span *ngIf="req.responded_at && req.responded_at !== req.created_at"> · Decided: {{ req.responded_at | date:'medium' }}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <!-- CUSTODIAL WALLET -->
           <section *ngIf="tab === 'wallet' && walletActivity" class="space-y-6 animate-fade-in" aria-labelledby="wallet-title">
@@ -958,7 +1011,7 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
               </article>
               <article class="min-w-0 rounded-2xl border border-slate-200 bg-white p-5">
                 <p class="mb-2 text-sm text-slate-500">Requests to review</p>
-                <p class="m-0 text-3xl font-semibold tracking-tight text-slate-900">{{ requests.length }}</p>
+                <p class="m-0 text-3xl font-semibold tracking-tight text-slate-900">{{ pendingRequests.length }}</p>
                 <p class="mb-0 mt-2 text-xs text-slate-500">Access requests from clinicians</p>
               </article>
             </section>
@@ -1674,11 +1727,13 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   get requests(): AccessRequest[] { return this.workspaceState.patientRequests.data ?? []; }
   set requests(value: AccessRequest[]) { this.workspaceState.patientRequests.set(value); }
   get pendingRequests(): AccessRequest[] {
-    return this.requests.filter((r) => (!r.status || r.status === 'PENDING'));
+    return this.requests.filter((r) => this.requestStatus(r) === 'PENDING');
   }
   get requestHistory(): AccessRequest[] {
-    return this.requests.filter((r) => r.status && r.status !== 'PENDING');
+    return this.requests.filter((r) => this.requestStatus(r) !== 'PENDING');
   }
+  requestsLoading = false;
+  requestsError = '';
   get story(): ActivityStoryItem[] { return this.workspaceState.patientActivity.data ?? []; }
   set story(value: ActivityStoryItem[]) { this.workspaceState.patientActivity.set(value); }
   storyLoading = false;
@@ -1731,8 +1786,8 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   // --- Access-request notifications (popup) ---
   notifications: AccessRequest[] = [];
-  busyRequest: number | null = null;
-  private dismissedIds = new Set<number>();
+  busyRequest: AccessRequest['id'] | null = null;
+  private dismissedIds = new Set<AccessRequest['id']>();
   private pollTimer: any = null;
   private pollInFlight = false;
 
@@ -1762,6 +1817,9 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
 
   setTab(id: 'dashboard' | 'records' | 'measurements' | 'referrals' | 'permissions' | 'requests' | 'activity' | 'wallet' | 'profile' | 'referral-security' | 'how-it-works') {
     this.tab = id;
+    if (id === 'requests') {
+      void this.loadRequests();
+    }
     if (id === 'activity' || id === 'dashboard') {
       void this.loadStory();
     }
@@ -2761,7 +2819,30 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     this.syncView();
   }
 
-  dismiss(id: number) {
+  /** Refresh on entering Requests so completed and pending rows never depend
+   * on a cached dashboard load. */
+  async loadRequests() {
+    this.requestsLoading = true;
+    this.requestsError = '';
+    this.syncView();
+    try {
+      this.requests = await this.workspaceState.patientRequests.load(
+        () => this.api.myRequests(), true
+      );
+      this.syncNotifications();
+    } catch (e: any) {
+      this.requestsError = e?.error?.error || e?.message || 'Could not load your access requests.';
+    } finally {
+      this.requestsLoading = false;
+      this.syncView();
+    }
+  }
+
+  requestStatus(req: AccessRequest): string {
+    return (req.status || 'PENDING').trim().toUpperCase();
+  }
+
+  dismiss(id: AccessRequest['id']) {
     this.dismissedIds.add(id);
     this.syncNotifications();
   }
@@ -2805,12 +2886,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
     }
 
     // Requests are non-blocking: the dashboard is already visible.
-    try {
-      await this.workspaceState.patientRequests.load(() => this.api.myRequests());
-      this.syncNotifications();
-    } catch {
-      // non-critical — retry happens on the next poll tick
-    }
+    void this.loadRequests();
     this.syncView();
   }
 
@@ -2848,6 +2924,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   }
 
   async approve(req: AccessRequest) {
+    if (typeof req.id !== 'number') return;
     this.busyRequest = req.id;
     this.syncView();
     try {
@@ -2864,6 +2941,7 @@ export class PatientDashboardComponent implements OnInit, OnDestroy {
   }
 
   async reject(req: AccessRequest) {
+    if (typeof req.id !== 'number') return;
     this.busyRequest = req.id;
     this.syncView();
     try {

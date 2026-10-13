@@ -835,23 +835,31 @@ import { WorkspaceStateService } from '../../../services/workspace-state.service
 
       <!-- ================= MY REQUESTS ================= -->
       <div *ngIf="tab === 'requests'" class="animate-fade-in">
-        <h2 class="text-xl font-bold text-slate-900 mb-1">My Access Requests</h2>
-        <p class="mb-4 text-sm text-muted">
-          Every request you've sent, with the patient's response. Approved requests unlock
-          the patient's records and add them to My Patients.
-        </p>
+        <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-bold text-slate-900 mb-1">My Access Request History</h2>
+            <p class="m-0 text-sm text-muted">Every request and permission outcome, including pending, approved, declined, expired, and unconfirmed actions.</p>
+          </div>
+          <button type="button" (click)="loadMyRequests()" [disabled]="requestsLoading" class="btn-secondary min-h-11">
+            {{ requestsLoading ? 'Refreshing…' : 'Refresh history' }}
+          </button>
+        </div>
+        <div *ngIf="requestsLoading && myRequests.length === 0" class="card mb-3 p-5 text-sm text-muted" role="status">Loading your request history…</div>
+        <div *ngIf="requestsError" class="mb-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
+          {{ requestsError }} <button type="button" (click)="loadMyRequests()" class="font-semibold underline">Try again</button>
+        </div>
         <div *ngFor="let r of myRequests" class="card mb-3 flex flex-wrap items-center justify-between gap-3 p-4">
           <div>
             <p class="m-0 font-bold text-ink">{{ r.patient_name }} <span class="text-sm font-normal text-muted">({{ r.patient_health_id }})</span></p>
             <p class="m-0 text-sm text-muted">{{ r.reason || 'No reason given' }} · {{ r.created_at | date:'medium' }}</p>
             <p *ngIf="r.responded_at" class="m-0 text-xs text-muted">responded {{ r.responded_at | date:'short' }}</p>
+            <p *ngIf="requestStatus(r) === 'FAILED'" class="m-0 mt-1 text-xs font-medium text-red-700">The permission could not be confirmed. It was not granted.</p>
+            <details *ngIf="r.tx_hash" class="mt-1"><summary class="cursor-pointer text-xs text-muted">Technical details</summary><code class="block break-all text-[11px] text-muted">{{ r.tx_hash }}</code></details>
           </div>
           <div class="flex items-center gap-2">
             <span class="rounded-full px-3 py-1 text-xs font-bold"
-                  [class]="r.status === 'APPROVED' ? 'bg-accent-500 text-white'
-                    : r.status === 'REJECTED' ? 'bg-red-500 text-white'
-                    : 'bg-primary-300 text-ink'">{{ r.status === 'PENDING' ? 'Awaiting patient' : r.status }}</span>
-            <button *ngIf="r.status === 'APPROVED' && r.patient_health_id" (click)="healthId = r.patient_health_id; setTab('find'); viewRecord()"
+                  [class]="requestStatusClass(r)">{{ requestStatusLabel(r) }}</span>
+            <button *ngIf="requestStatus(r) === 'APPROVED' && r.patient_health_id" (click)="healthId = r.patient_health_id; setTab('find'); viewRecord()"
                     class="cursor-pointer rounded-lg bg-primary-500 px-3.5 py-2 text-sm font-bold text-ink transition-colors hover:bg-primary-400">
               Open records
             </button>
@@ -1234,6 +1242,8 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   get myRequests(): AccessRequest[] { return this.workspaceState.doctorRequests.data ?? []; }
   set myRequests(value: AccessRequest[]) { this.workspaceState.doctorRequests.set(value); }
   pendingRequestCount = 0;
+  requestsLoading = false;
+  requestsError = '';
 
   // measurements
   measurementKinds = [
@@ -1356,7 +1366,7 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
     const before = this.pendingRequestCount;
     try {
       this.myRequests = await this.workspaceState.doctorRequests.load(() => this.api.doctorPendingRequests(), true);
-      this.pendingRequestCount = this.myRequests.filter((r) => r.status === 'PENDING').length;
+      this.pendingRequestCount = this.myRequests.filter((r) => this.requestStatus(r) === 'PENDING').length;
     } catch {
       return; // offline tick
     }
@@ -1422,13 +1432,41 @@ export class DoctorLandingComponent implements OnDestroy, OnInit {
   }
 
   async loadMyRequests(refresh = true) {
+    this.requestsLoading = true;
+    this.requestsError = '';
+    this.syncView();
     try {
       this.myRequests = await this.workspaceState.doctorRequests.load(() => this.api.doctorPendingRequests(), refresh);
-      this.pendingRequestCount = this.myRequests.filter((r) => r.status === 'PENDING').length;
-    } catch {
-      // Keep the last successful result visible while the slice records the error.
+      this.pendingRequestCount = this.myRequests.filter((r) => this.requestStatus(r) === 'PENDING').length;
+    } catch (e: any) {
+      this.requestsError = e?.error?.error || e?.message || 'Could not load your request history.';
+    } finally {
+      this.requestsLoading = false;
+      this.syncView();
     }
-    this.syncView();
+  }
+
+  requestStatus(r: AccessRequest): string {
+    return (r.status || 'PENDING').trim().toUpperCase();
+  }
+
+  requestStatusLabel(r: AccessRequest): string {
+    const labels: Record<string, string> = {
+      PENDING: 'Awaiting patient', APPROVED: 'Approved', REJECTED: 'Declined',
+      EXPIRED: 'Expired', FAILED: 'Not confirmed', BREAK_GLASS: 'Emergency access',
+    };
+    return labels[this.requestStatus(r)] || this.requestStatus(r);
+  }
+
+  requestStatusClass(r: AccessRequest): string {
+    switch (this.requestStatus(r)) {
+      case 'APPROVED': return 'bg-accent-500 text-white';
+      case 'REJECTED':
+      case 'FAILED': return 'bg-red-500 text-white';
+      case 'EXPIRED': return 'bg-slate-200 text-slate-700';
+      case 'BREAK_GLASS': return 'bg-orange-100 text-orange-800';
+      default: return 'bg-primary-300 text-ink';
+    }
   }
 
   async refreshIncoming() {

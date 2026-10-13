@@ -890,10 +890,8 @@ def doctor_pending_requests(request):
         Q(doctor=doctor) | Q(doctor_wallet__iexact=doctor.wallet_address)
     ).select_related("patient").order_by("-created_at")[:100]
 
-    seen_patients = set()
     items = []
     for r in reqs:
-        seen_patients.add(r.patient_id)
         items.append({
             "id": r.id,
             "patient_health_id": r.patient.health_id,
@@ -905,25 +903,32 @@ def doctor_pending_requests(request):
             "created_at": r.created_at,
         })
 
-    # Include patients who directly granted access to this doctor
+    # Keep grant rows alongside request rows.  They represent separate events:
+    # a patient may answer a request and a later blockchain grant may succeed,
+    # expire, or remain unconfirmed.  Collapsing them hid that outcome.
     now = timezone.now()
     grants = AccessGrant.objects.filter(
         Q(doctor=doctor) | Q(doctor__wallet_address__iexact=doctor.wallet_address)
     ).select_related("patient").order_by("-created_at")[:50]
     for g in grants:
-        if g.patient_id in seen_patients:
-            continue
-        seen_patients.add(g.patient_id)
         is_active = g.active and g.expires_at > now
+        if is_active:
+            grant_status = "APPROVED"
+        elif g.tx_hash.upper().startswith("PENDING"):
+            grant_status = "FAILED"
+        else:
+            grant_status = "EXPIRED"
         items.append({
             "id": f"grant-{g.id}",
             "patient_health_id": g.patient.health_id,
             "patient_name": g.patient.full_name,
             "facility_id": doctor.facility_id,
             "reason": g.reason or ("Direct access grant from patient" if g.source != "BREAK_GLASS" else "Emergency access used"),
-            "status": "APPROVED" if is_active else ("BREAK_GLASS" if g.source == "BREAK_GLASS" else "EXPIRED"),
+            "status": grant_status,
             "responded_at": g.created_at,
             "created_at": g.created_at,
+            "tx_hash": g.tx_hash,
+            "source": g.source,
         })
 
     items.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
@@ -1223,8 +1228,6 @@ def my_requests(request):
         return Response({"error": "Patient not found"}, status=404)
 
     items = []
-    seen_grant_doctors = set()
-
     for r in patient.access_requests.all().order_by("-created_at"):
         items.append({
             "id": r.id,
@@ -1236,22 +1239,11 @@ def my_requests(request):
             "created_at": r.created_at,
             "responded_at": r.responded_at,
         })
-        if r.doctor_id:
-            seen_grant_doctors.add(r.doctor_id)
-        if r.doctor_wallet:
-            seen_grant_doctors.add(r.doctor_wallet.lower())
-
-    # Include direct access grants in history
+    # Include every direct access grant too.  Do not collapse a grant into an
+    # access-request row for the same doctor: a patient needs to see both the
+    # request/decision and the separate permission history.
     now = timezone.now()
     for g in patient.grants.select_related("doctor", "hospital").all().order_by("-created_at"):
-        wallet_key = g.doctor.wallet_address.lower() if (g.doctor and g.doctor.wallet_address) else ""
-        if (g.doctor_id and g.doctor_id in seen_grant_doctors) or (wallet_key and wallet_key in seen_grant_doctors):
-            continue
-        if g.doctor_id:
-            seen_grant_doctors.add(g.doctor_id)
-        if wallet_key:
-            seen_grant_doctors.add(wallet_key)
-
         is_active = g.active and g.expires_at > now
         items.append({
             "id": f"grant-{g.id}",

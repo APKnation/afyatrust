@@ -239,7 +239,8 @@ export interface PatientData {
 }
 
 export interface AccessRequest {
-  id: number;
+  /** Request rows use a numeric ID; historical direct grants use `grant-<id>`. */
+  id: number | string;
   patient_health_id?: string;
   patient_name?: string;
   doctor_name?: string;
@@ -249,6 +250,8 @@ export interface AccessRequest {
   status?: string;
   responded_at?: string;
   created_at: string;
+  tx_hash?: string;
+  source?: string;
 }
 
 /** A record added by hospital staff (facility view). */
